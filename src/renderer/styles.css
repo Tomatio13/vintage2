@@ -1,0 +1,392 @@
+@import "@xterm/xterm/css/xterm.css";
+@import "tailwindcss";
+@source "./**/*.{ts,tsx}";
+
+@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant platform-mac (&:where([data-platform="darwin"], [data-platform="darwin"] *));
+
+:root {
+  --ui-font-size: 14px;
+  color-scheme: light;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+@theme {
+  --text-ui-xl: calc(var(--ui-font-size) + 4px);
+  --text-ui-lg: calc(var(--ui-font-size) + 2px);
+  --text-ui-base: var(--ui-font-size);
+  --text-ui-sm: calc(var(--ui-font-size) - 2px);
+  --text-ui-xs: calc(var(--ui-font-size) - 4px);
+
+  --color-background: #faf8f4;
+  --color-terminal: #faf8f4;
+  --color-terminal-surface: #eee8de;
+  --color-header: #eae5dc;
+  --color-panel: #f0ece5;
+  --color-sidebar: #f0ece5;
+  --color-card: #f0ece5;
+  --color-popover: #eee8de;
+  --color-input: #faf8f4;
+  --color-hover: #e6d9c2;
+  --color-selected: #e6d9c2;
+  --color-panel-divider: #d8d0c3;
+  --color-border: #d8d0c3;
+  --color-card-border: var(--color-border);
+  --color-popover-border: var(--color-border);
+  --color-pane-active-border: #a38b61;
+  --color-input-border: #a38b61;
+  --color-input-border-focused: #89682e;
+  --color-brand: #89682e;
+  --color-primary: #89682e;
+  --color-primary-foreground: #faf8f4;
+  --color-foreground: #302b23;
+  --color-foreground-subtle: #655b4d;
+  --color-foreground-subtlest: #756a5b;
+  --color-success: #55754b;
+  --color-warning: #984a27;
+  --color-destructive: #984a27;
+}
+
+.dark {
+  color-scheme: dark;
+  --color-background: #191816;
+  --color-terminal: #191816;
+  --color-terminal-surface: #151411;
+  --color-header: #24231f;
+  --color-panel: #201f1c;
+  --color-sidebar: #201f1c;
+  --color-card: #201f1c;
+  --color-popover: #2b2923;
+  --color-input: #191816;
+  --color-hover: #343027;
+  --color-selected: #343027;
+  --color-panel-divider: #302d27;
+  --color-border: #39352e;
+  --color-pane-active-border: #8c754e;
+  --color-input-border: #544936;
+  --color-input-border-focused: #c6a66b;
+  --color-brand: #c6a66b;
+  --color-primary: #c6a66b;
+  --color-primary-foreground: #191816;
+  --color-foreground: #e6e1d8;
+  --color-foreground-subtle: #bab1a1;
+  --color-foreground-subtlest: #9b958a;
+  --color-success: #8eae76;
+  --color-warning: #e8aa82;
+  --color-destructive: #e8aa82;
+}
+
+.graphite {
+  color-scheme: dark;
+  --color-background: #181818;
+  --color-terminal: #181818;
+  --color-terminal-surface: #141414;
+  --color-header: #242424;
+  --color-panel: #202020;
+  --color-sidebar: #202020;
+  --color-card: #202020;
+  --color-popover: #282828;
+  --color-input: #181818;
+  --color-hover: #303030;
+  --color-selected: #303030;
+  --color-panel-divider: #383838;
+  --color-border: #383838;
+  --color-pane-active-border: #4a4a4a;
+  --color-input-border: #4a4a4a;
+  --color-input-border-focused: #d79a54;
+  --color-brand: #d79a54;
+  --color-primary: #d79a54;
+  --color-primary-foreground: #181818;
+  --color-foreground: #e4e4e4;
+  --color-foreground-subtle: #b0b0b0;
+  --color-foreground-subtlest: #858585;
+  --color-success: #8eae76;
+  --color-warning: #e28b74;
+  --color-destructive: #e28b74;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: transparent !important;
+}
+
+body {
+  overflow: hidden;
+}
+
+.vintage-window-shell {
+  background: var(--color-sidebar);
+}
+
+.vintage-content-card {
+  margin: 4px;
+  border-radius: 12px;
+}
+
+html.platform-linux-desktop .vintage-window-shell {
+  border-radius: 16px;
+  clip-path: inset(0 round 16px);
+}
+
+html.platform-linux-desktop.window-maximized .vintage-window-shell {
+  border-radius: 0;
+  clip-path: inset(0);
+}
+
+html.platform-windows-desktop .vintage-content-card {
+  border-radius: 5px;
+}
+
+html.platform-windows-desktop
+  .vintage-window-shell[data-native-rounded="false"]
+  .vintage-content-card {
+  border-radius: 5px 0 0 5px;
+}
+
+html.platform-mac-desktop .vintage-window-shell {
+  background: color-mix(in oklab, var(--color-sidebar) 60%, transparent);
+}
+
+html.platform-mac-desktop .vintage-content-card {
+  border-radius: 6px;
+}
+
+html.platform-mac-desktop.macos-tahoe .vintage-content-card {
+  border-radius: 12px;
+}
+
+.workspace-tab-strip {
+  gap: 2px;
+}
+
+.workspace-tab {
+  position: relative;
+  z-index: 0;
+  height: 32px;
+  margin-bottom: -1px;
+  padding-bottom: 1px;
+  border-radius: 10px 10px 0 0;
+  color: var(--color-foreground-subtle);
+}
+
+.workspace-tab:hover {
+  background: color-mix(in oklab, var(--color-hover) 65%, transparent);
+  color: var(--color-foreground);
+}
+
+.workspace-tab[data-active="true"] {
+  z-index: 2;
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+.workspace-tab[data-active="true"]::before,
+.workspace-tab[data-active="true"]::after {
+  position: absolute;
+  bottom: 0;
+  width: 8px;
+  height: 8px;
+  content: "";
+  pointer-events: none;
+}
+
+.workspace-tab[data-active="true"]::before {
+  left: -8px;
+  border-bottom-right-radius: 8px;
+  box-shadow: 4px 4px 0 4px var(--color-background);
+}
+
+.workspace-tab[data-active="true"]::after {
+  right: -8px;
+  border-bottom-left-radius: 8px;
+  box-shadow: -4px 4px 0 4px var(--color-background);
+}
+
+.workspace-tab-close {
+  position: relative;
+  z-index: 1;
+}
+
+button,
+textarea,
+select,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: default;
+}
+
+.window-drag {
+  -webkit-app-region: drag;
+}
+
+.window-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.window-drag button,
+.window-drag input,
+.window-drag select,
+.window-drag textarea {
+  -webkit-app-region: no-drag;
+}
+
+.resize-handle-x,
+.resize-handle-y {
+  position: relative;
+  flex: none;
+  outline: none;
+  touch-action: none;
+  user-select: none;
+}
+
+.resize-handle-x {
+  width: 10px;
+  cursor: col-resize;
+}
+
+.resize-handle-y {
+  height: 10px;
+  cursor: row-resize;
+}
+
+.resize-handle-grip {
+  position: absolute;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-foreground-subtlest) 42%, transparent);
+  transition:
+    background-color 120ms ease,
+    transform 120ms ease;
+}
+
+.resize-handle-x .resize-handle-grip {
+  inset: 14px 4px;
+}
+
+.resize-handle-y .resize-handle-grip {
+  inset: 4px 14px;
+}
+
+.resize-handle-x:hover .resize-handle-grip,
+.resize-handle-x:focus-visible .resize-handle-grip,
+.resize-handle-y:hover .resize-handle-grip,
+.resize-handle-y:focus-visible .resize-handle-grip {
+  background: var(--color-brand);
+  transform: scale(1.08);
+}
+
+.is-resizing-x,
+.is-resizing-x * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+.is-resizing-y,
+.is-resizing-y * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
+.message {
+  max-width: 88%;
+  border: 1px solid var(--color-card-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.message-user {
+  align-self: flex-end;
+  background: var(--color-selected);
+}
+
+.message-assistant {
+  align-self: flex-start;
+  background: var(--color-card);
+}
+
+.streaming-caret {
+  display: inline-block;
+  width: 6px;
+  height: 1em;
+  margin-left: 3px;
+  vertical-align: -2px;
+  background: var(--color-brand);
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.embedded-webview {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.xterm {
+  height: 100%;
+}
+
+.xterm .xterm-viewport {
+  overflow-x: hidden;
+  scrollbar-color: var(--color-foreground-subtlest) var(--color-terminal);
+}
+
+.xterm .xterm-scrollable-element > .scrollbar.horizontal {
+  display: none !important;
+}
+
+.file-viewer-content {
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--color-foreground-subtlest) transparent;
+}
+
+.file-viewer-content {
+  scrollbar-width: auto;
+}
+
+.file-viewer-content::-webkit-scrollbar {
+  width: 12px;
+}
+
+.file-viewer-content::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+.file-viewer-content::-webkit-scrollbar-thumb {
+  min-height: 36px;
+  border: 3px solid var(--color-background);
+  border-radius: 999px;
+  background: var(--color-foreground-subtlest);
+}

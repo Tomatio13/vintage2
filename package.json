@@ -1,0 +1,86 @@
+{
+  "name": "vintage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local multi-agent terminal workspace",
+  "homepage": "https://github.com/Tomatio13/vintage",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Your Name",
+    "email": "you.com"
+  },
+  "type": "module",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "dev": "concurrently -k -n main,renderer,electron -c blue,green,magenta \"tsup --watch\" \"vite --host 127.0.0.1\" \"wait-on tcp:5173 file:dist/main/index.js file:dist/preload/index.cjs && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 node scripts/launch-electron-dev.mjs\"",
+    "build:main": "tsup",
+    "build:renderer": "vite build",
+    "build": "pnpm clean && pnpm build:main && pnpm build:renderer",
+    "start": "electron dist/main/index.js",
+    "dist": "pnpm build && electron-builder --config electron-builder.config.mjs",
+    "dist:linux": "pnpm build && electron-builder --config electron-builder.config.mjs --linux AppImage deb",
+    "dist:mac": "pnpm build && electron-builder --config electron-builder.config.mjs --mac dmg zip",
+    "dist:win": "pnpm build && electron-builder --config electron-builder.config.mjs --win nsis",
+    "package:dir": "pnpm build && electron-builder --config electron-builder.config.mjs --dir",
+    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "lint": "oxlint src tests scripts app.config.mjs electron-builder.config.mjs tsup.config.ts vite.config.ts",
+    "fmt": "oxfmt --write src tests scripts *.json *.md *.mjs *.ts",
+    "fmt:check": "oxfmt --check src tests scripts *.json *.md *.mjs *.ts",
+    "test": "vitest run",
+    "test:e2e": "pnpm build && node tests/e2e/electron-smoke.mjs",
+    "verify:boundaries": "node scripts/check-boundaries.mjs",
+    "verify": "pnpm verify:boundaries && pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.17.0",
+    "node-pty": "1.1.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwind-merge": "^3.5.0",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "41.0.3",
+    "electron-builder": "^26.8.1",
+    "happy-dom": "^20.8.3",
+    "oxfmt": "^0.27.0",
+    "oxlint": "^1.56.0",
+    "playwright-core": "1.59.1",
+    "tailwindcss": "^4.2.2",
+    "tsup": "^8.5.0",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.2",
+    "vitest": "^4.1.0",
+    "wait-on": "^9.0.4"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.33.2",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild",
+      "node-pty"
+    ]
+  },
+  "build": {
+    "appId": "dev.tiebi.vintage",
+    "productName": "VINTAGE"
+  },
+  "desktopName": "ai-workspace-starter"
+}
