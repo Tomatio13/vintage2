@@ -1,0 +1,88 @@
+name: Build installers
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }} installers
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            runner: ubuntu-latest
+            script: dist:linux
+          - platform: macos-arm64
+            runner: macos-latest
+            script: dist:mac
+          - platform: macos-x64
+            runner: macos-15-intel
+            script: dist:mac
+          - platform: windows
+            runner: windows-latest
+            script: dist:win
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.2
+          cache: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build installer packages
+        run: pnpm run ${{ matrix.script }}
+
+      - name: Upload installer packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: vintage-${{ matrix.platform }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download installer packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: vintage-*
+          path: release
+          merge-multiple: true
+
+      - name: Create release and attach installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: >-
+          gh release create "$TAG_NAME" release/*
+          --repo "$GITHUB_REPOSITORY"
+          --verify-tag
+          --title "$TAG_NAME"
+          --generate-notes

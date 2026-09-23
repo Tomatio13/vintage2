@@ -212,7 +212,8 @@ OS別のインストーラーや配布パッケージを作成する場合は、
 | **Windows** | `pnpm run dist:win`   | NSIS（インストーラー） |
 
 生成された成果物は `release/` ディレクトリに出力されます。
-※ 現在、コード署名（macOSの公証含む）やリリースの自動アップロードは未設定です。
+
+GitHub Actions では pull request、`main` への push、手動実行時に Linux・Windows 向けと、Intel（x64）・Apple Silicon（arm64）両方の macOS 向けパッケージを作成し、各 workflow run の成果物として30日間保存します。`v` で始まるタグを push すると、すべての対象パッケージを添付した GitHub Release を自動作成します。コード署名（macOSの公証を含む）は未設定です。
 
 ## アーキテクチャ
 
