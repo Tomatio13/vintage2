@@ -8,6 +8,7 @@ import {
   FolderOpen,
   Globe2,
   Plus,
+  RefreshCw,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -45,23 +46,33 @@ export function SidePane({
   const [nextBrowserTabNumber, setNextBrowserTabNumber] = useState(2);
   const browserTabElements = useRef(new Map<string, HTMLDivElement>());
   const [files, setFiles] = useState<WorkspaceFileEntry[]>([]);
+  const [filesWorkspaceId, setFilesWorkspaceId] = useState<string | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [revealHiddenFiles, setRevealHiddenFiles] = useState(false);
+  const currentFiles = filesWorkspaceId === workspaceId ? files : [];
   const showHiddenFiles = workspaceName !== "Home" || revealHiddenFiles;
   const visibleFiles = showHiddenFiles
-    ? files
-    : files.filter((entry) => !entry.name.startsWith("."));
+    ? currentFiles
+    : currentFiles.filter((entry) => !entry.name.startsWith("."));
   useEffect(() => {
-    setFiles([]);
     setError(null);
-    if (!workspaceId || !window.desktop) return;
+    if (!workspaceId || !window.desktop) {
+      setFiles([]);
+      setFilesWorkspaceId(null);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     void window.desktop
       .listWorkspaceFiles(workspaceId)
       .then((entries) => {
-        if (!cancelled) setFiles(entries);
+        if (!cancelled) {
+          setFiles(entries);
+          setFilesWorkspaceId(workspaceId);
+        }
       })
       .catch(() => {
         if (!cancelled) setError("Unable to read this location.");
@@ -72,7 +83,7 @@ export function SidePane({
     return () => {
       cancelled = true;
     };
-  }, [workspaceId]);
+  }, [workspaceId, refreshVersion]);
 
   useEffect(() => {
     if (activeTabId === "files") return;
@@ -121,6 +132,21 @@ export function SidePane({
       setActiveTabId(nextTab?.id ?? "files");
     }
   };
+
+  const refreshFilesButton = (
+    <Button
+      aria-label="Refresh"
+      className="size-7 px-0"
+      disabled={loading}
+      size="icon"
+      title="Refresh"
+      type="button"
+      variant="ghost"
+      onClick={() => setRefreshVersion((version) => version + 1)}
+    >
+      <RefreshCw aria-hidden="true" className={`size-4${loading ? " animate-spin" : ""}`} />
+    </Button>
+  );
 
   return (
     <aside className="flex h-full min-w-0 flex-col bg-panel">
@@ -220,29 +246,42 @@ export function SidePane({
         >
           <div className="h-full overflow-y-auto p-2">
             {error ? (
-              <p className="p-2 text-ui-sm text-destructive">{error}</p>
+              <div className="flex items-center justify-between gap-2 p-2">
+                <p className="text-ui-sm text-destructive">{error}</p>
+                {workspaceId && refreshFilesButton}
+              </div>
             ) : workspaceId ? (
               <>
-                {workspaceName && (
-                  <div className="px-2 pb-1 pt-1 text-ui-xs font-medium text-foreground-subtlest">
-                    {workspaceName === "Home" ? "Home directory" : workspaceName}
-                  </div>
-                )}
-                {loading ? (
-                  <p className="p-2 text-ui-sm text-foreground-subtle">Loading files…</p>
+                <div className="flex items-center justify-between gap-2 px-2 pb-1 pt-1">
+                  {workspaceName ? (
+                    <span className="min-w-0 truncate text-ui-xs font-medium text-foreground-subtlest">
+                      {workspaceName === "Home" ? "Home directory" : workspaceName}
+                    </span>
+                  ) : (
+                    <span />
+                  )}
+                  {refreshFilesButton}
+                </div>
+                {loading && visibleFiles.length === 0 ? (
+                  <p className="p-2 text-ui-sm text-foreground-subtle">
+                    {currentFiles.length > 0 ? "Refreshing files…" : "Loading files…"}
+                  </p>
                 ) : visibleFiles.length > 0 ? (
                   visibleFiles.map((entry) => (
                     <FileTree
                       key={entry.path}
                       entry={entry}
                       workspaceId={workspaceId}
+                      refreshVersion={refreshVersion}
                       showHiddenFiles={showHiddenFiles}
                       onSelect={onOpenFile}
                     />
                   ))
                 ) : (
                   <p className="p-2 text-ui-sm text-foreground-subtle">
-                    {files.length > 0 ? "Hidden files are hidden." : "No files in this location."}
+                    {currentFiles.length > 0
+                      ? "Hidden files are hidden."
+                      : "No files in this location."}
                   </p>
                 )}
               </>
@@ -275,11 +314,13 @@ export function SidePane({
 function FileTree({
   entry,
   workspaceId,
+  refreshVersion,
   showHiddenFiles,
   onSelect,
 }: {
   entry: WorkspaceFileEntry;
   workspaceId: string;
+  refreshVersion: number;
   showHiddenFiles: boolean;
   onSelect(path: string): void;
 }) {
@@ -287,23 +328,42 @@ function FileTree({
   const [children, setChildren] = useState<WorkspaceFileEntry[] | null>(entry.children ?? null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const expandedRef = useRef(expanded);
+  const refreshVersionRef = useRef(refreshVersion);
+  const requestVersionRef = useRef(0);
+  const loadChildrenRef = useRef<(force?: boolean) => void>(() => {});
+  expandedRef.current = expanded;
   const visibleChildren = children?.filter(
     (child) => showHiddenFiles || !child.name.startsWith("."),
   );
-  const loadChildren = () => {
-    if (loading || children !== null) return;
+  const loadChildren = (force = false) => {
+    if ((loading && !force) || (!force && children !== null)) return;
     const listFiles = window.desktop?.listWorkspaceFiles;
     if (!listFiles) {
       setLoadError(true);
       return;
     }
+    const requestVersion = ++requestVersionRef.current;
     setLoadError(false);
     setLoading(true);
     void listFiles(workspaceId, entry.path)
-      .then(setChildren)
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
+      .then((entries) => {
+        if (requestVersion === requestVersionRef.current) setChildren(entries);
+      })
+      .catch(() => {
+        if (requestVersion === requestVersionRef.current) setLoadError(true);
+      })
+      .finally(() => {
+        if (requestVersion === requestVersionRef.current) setLoading(false);
+      });
   };
+  loadChildrenRef.current = loadChildren;
+  useEffect(() => {
+    if (refreshVersionRef.current === refreshVersion) return;
+    refreshVersionRef.current = refreshVersion;
+    if (expandedRef.current) loadChildrenRef.current(true);
+    else setChildren(null);
+  }, [refreshVersion]);
   if (entry.kind === "file")
     return (
       <button
@@ -336,12 +396,12 @@ function FileTree({
       </button>
       {expanded && (
         <div className="ml-3 border-l border-border pl-1">
-          {loading ? (
+          {loading && !visibleChildren?.length ? (
             <p className="px-2 py-1 text-ui-xs text-foreground-subtlest">Loading…</p>
           ) : loadError ? (
             <button
               className="px-2 py-1 text-ui-xs text-destructive hover:underline"
-              onClick={loadChildren}
+              onClick={() => loadChildren(true)}
             >
               Unable to load folder · Retry
             </button>
@@ -351,6 +411,7 @@ function FileTree({
                 key={child.path}
                 entry={child}
                 workspaceId={workspaceId}
+                refreshVersion={refreshVersion}
                 showHiddenFiles={showHiddenFiles}
                 onSelect={onSelect}
               />
