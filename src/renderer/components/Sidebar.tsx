@@ -22,6 +22,7 @@ export interface SidebarWorkspace {
   id: string;
   name: string;
   kind?: "home" | "project";
+  available?: boolean;
   tabs: Array<{ id: string; title: string; panes: Array<unknown> }>;
   activeTabId: string;
 }
@@ -116,6 +117,9 @@ export function Sidebar({
   activeWorkspaceId,
   onOpenWorkspace,
   onNewSpace,
+  canCreateSpace = true,
+  onLocateWorkspace = () => {},
+  onRemoveWorkspace = () => {},
   onSelectWorkspace,
   onSelectTab,
   onSelectAttention,
@@ -128,6 +132,9 @@ export function Sidebar({
   activeWorkspaceId: string | null;
   onOpenWorkspace(): void;
   onNewSpace(): void;
+  canCreateSpace?: boolean;
+  onLocateWorkspace?(workspaceId: string): void;
+  onRemoveWorkspace?(workspaceId: string): void;
   onSelectWorkspace(workspaceId: string): void;
   onSelectTab(workspaceId: string, tabId: string): void;
   onSelectAttention(item: SidebarAttentionItem): void;
@@ -147,26 +154,53 @@ export function Sidebar({
     const attentionCount = attentionCountByWorkspace.get(workspace.id) ?? 0;
     return (
       <section className="mb-2" key={workspace.id}>
-        <button
-          aria-pressed={active}
-          className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-ui-sm ${active ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
-          onClick={() => onSelectWorkspace(workspace.id)}
-        >
-          {workspace.kind === "home" ? (
-            <Home className="size-4 shrink-0 text-foreground" />
-          ) : (
-            <FolderOpen className="size-4 shrink-0 text-foreground" />
+        <div className="flex items-center gap-1">
+          <button
+            aria-pressed={active}
+            className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-left text-ui-sm ${active ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
+            onClick={() => onSelectWorkspace(workspace.id)}
+          >
+            {workspace.kind === "home" ? (
+              <Home className="size-4 shrink-0 text-foreground" />
+            ) : (
+              <FolderOpen className="size-4 shrink-0 text-foreground" />
+            )}
+            <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
+            {workspace.available === false && (
+              <span className="shrink-0 text-ui-xs text-warning">Missing</span>
+            )}
+            {attentionCount > 0 && (
+              <span
+                aria-label={`${attentionCount} items need attention`}
+                className="rounded-full bg-destructive/15 px-1.5 font-mono text-ui-xs text-destructive"
+              >
+                {attentionCount}
+              </span>
+            )}
+          </button>
+          {workspace.kind === "project" && (
+            <div className="flex shrink-0 items-center">
+              {workspace.available === false && (
+                <button
+                  aria-label={`Locate ${workspace.name}`}
+                  className="grid size-7 place-items-center rounded-md text-foreground-subtle hover:bg-hover hover:text-foreground"
+                  title={`Locate ${workspace.name}`}
+                  onClick={() => onLocateWorkspace(workspace.id)}
+                >
+                  <FolderOpen aria-hidden="true" className="size-3.5" />
+                </button>
+              )}
+              <button
+                aria-label={`Remove ${workspace.name} from list`}
+                className="grid size-7 place-items-center rounded-md text-foreground-subtle hover:bg-hover hover:text-foreground"
+                title={`Remove ${workspace.name} from list`}
+                onClick={() => onRemoveWorkspace(workspace.id)}
+              >
+                <X aria-hidden="true" className="size-3.5" />
+              </button>
+            </div>
           )}
-          <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
-          {attentionCount > 0 && (
-            <span
-              aria-label={`${attentionCount} items need attention`}
-              className="rounded-full bg-destructive/15 px-1.5 font-mono text-ui-xs text-destructive"
-            >
-              {attentionCount}
-            </span>
-          )}
-        </button>
+        </div>
         <div className="ml-3 mt-1 border-l border-border pl-2">
           {workspace.tabs.map((tab) => {
             const selected = active && tab.id === workspace.activeTabId;
@@ -207,7 +241,12 @@ export function Sidebar({
         </Button>
       </header>
       <div className="space-y-1 px-2 py-3">
-        <Button className="w-full justify-start" variant="ghost" onClick={onNewSpace}>
+        <Button
+          className="w-full justify-start"
+          variant="ghost"
+          disabled={!canCreateSpace}
+          onClick={onNewSpace}
+        >
           <Plus aria-hidden="true" className="size-4 text-foreground" />
           New space
         </Button>

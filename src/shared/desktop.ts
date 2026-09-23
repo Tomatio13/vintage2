@@ -15,6 +15,9 @@ export const DesktopChannels = {
   attentionSettingsSet: "attention:settings-set",
   workspaceChoose: "workspace:choose",
   workspaceHome: "workspace:home",
+  workspaceStateLoad: "workspace:state-load",
+  workspaceStateSave: "workspace:state-save",
+  workspaceLocate: "workspace:locate",
   workspaceListFiles: "workspace:list-files",
   workspaceReadFile: "workspace:read-file",
   terminalCreate: "terminal:create",
@@ -35,6 +38,50 @@ export interface RegisteredWorkspace {
   name: string;
   path: string;
   kind: "home" | "project";
+}
+
+export type WorkspacePaneSnapshot =
+  | { id: string; title: string; kind: "terminal" }
+  | { id: string; title: string; kind: "file"; path: string };
+
+export type WorkspacePaneLayoutSnapshot =
+  | { type: "pane"; paneId: string }
+  | {
+      type: "split";
+      splitId: string;
+      axis: "horizontal" | "vertical";
+      ratio: number;
+      first: WorkspacePaneLayoutSnapshot;
+      second: WorkspacePaneLayoutSnapshot;
+    };
+
+export interface WorkspaceSpaceSnapshot {
+  id: string;
+  title: string;
+  panes: WorkspacePaneSnapshot[];
+  layout: WorkspacePaneLayoutSnapshot;
+  activePaneId: string;
+}
+
+export interface PersistedWorkspace extends RegisteredWorkspace {
+  tabs: WorkspaceSpaceSnapshot[];
+  activeTabId: string;
+}
+
+export interface WorkspaceStateSnapshot {
+  version: 1;
+  workspaces: PersistedWorkspace[];
+  activeWorkspaceId: string | null;
+}
+
+export interface RestoredWorkspace extends PersistedWorkspace {
+  available: boolean;
+}
+
+export interface RestoredWorkspaceState {
+  version: 1;
+  workspaces: RestoredWorkspace[];
+  activeWorkspaceId: string | null;
 }
 
 export interface WorkspaceFileEntry {
@@ -192,6 +239,9 @@ export interface DesktopBridge {
   setAttentionSettings(settings: AttentionSettings): Promise<AttentionSettings>;
   getHomeWorkspace(): Promise<RegisteredWorkspace>;
   chooseWorkspace(): Promise<RegisteredWorkspace | null>;
+  loadWorkspaceState(): Promise<RestoredWorkspaceState>;
+  saveWorkspaceState(state: WorkspaceStateSnapshot): Promise<void>;
+  locateWorkspace(workspaceId: string): Promise<RegisteredWorkspace | null>;
   listWorkspaceFiles(workspaceId: string, directoryPath?: string): Promise<WorkspaceFileEntry[]>;
   readWorkspaceFile(workspaceId: string, path: string): Promise<WorkspaceFileContent>;
   createTerminal(options: TerminalCreateOptions): Promise<TerminalSession>;

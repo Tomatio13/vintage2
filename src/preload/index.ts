@@ -41,6 +41,10 @@ const bridge: DesktopBridge = {
     ipcRenderer.invoke(DesktopChannels.attentionSettingsSet, settings),
   getHomeWorkspace: () => ipcRenderer.invoke(DesktopChannels.workspaceHome),
   chooseWorkspace: () => ipcRenderer.invoke(DesktopChannels.workspaceChoose),
+  loadWorkspaceState: () => ipcRenderer.invoke(DesktopChannels.workspaceStateLoad),
+  saveWorkspaceState: (state) => ipcRenderer.invoke(DesktopChannels.workspaceStateSave, state),
+  locateWorkspace: (workspaceId) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceLocate, workspaceId),
   listWorkspaceFiles: (workspaceId, directoryPath) =>
     ipcRenderer.invoke(DesktopChannels.workspaceListFiles, workspaceId, directoryPath),
   readWorkspaceFile: (workspaceId, path) =>

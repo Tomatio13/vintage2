@@ -9,7 +9,12 @@ import {
   defaultShortcuts,
   useUiStore,
 } from "../src/renderer/store/uiStore.js";
-import type { DesktopBridge, TerminalAttentionState } from "../src/shared/desktop.js";
+import type {
+  DesktopBridge,
+  RestoredWorkspaceState,
+  TerminalAttentionState,
+  WorkspaceStateSnapshot,
+} from "../src/shared/desktop.js";
 
 vi.mock("../src/renderer/components/TerminalPanel.js", () => ({
   TerminalPanel: ({
@@ -105,6 +110,233 @@ describe("VINTAGE workspace shell", () => {
     expect(await screen.findByText("Home directory")).toBeInTheDocument();
     expect(screen.getByTestId("emit-Terminal 1")).toBeInTheDocument();
     expect(screen.queryByText("Your workspace, ready when you are")).not.toBeInTheDocument();
+  });
+
+  it("restores saved Project Spaces, split layout, open files, and active selections", async () => {
+    const saved: RestoredWorkspaceState = {
+      version: 1,
+      activeWorkspaceId: "project-1",
+      workspaces: [
+        {
+          id: "vintage:home",
+          name: "Home",
+          path: "/home/test",
+          kind: "home",
+          available: true,
+          tabs: [
+            {
+              id: "home-space",
+              title: "Home Space",
+              panes: [{ id: "home-terminal", title: "Terminal 1", kind: "terminal" }],
+              layout: { type: "pane", paneId: "home-terminal" },
+              activePaneId: "home-terminal",
+            },
+          ],
+          activeTabId: "home-space",
+        },
+        {
+          id: "project-1",
+          name: "sample-project",
+          path: "/workspace/sample-project",
+          kind: "project",
+          available: true,
+          tabs: [
+            {
+              id: "space-1",
+              title: "Backend",
+              panes: [
+                { id: "terminal-1", title: "Terminal 1", kind: "terminal" },
+                { id: "file-1", title: "notes.md", kind: "file", path: "docs/notes.md" },
+              ],
+              layout: {
+                type: "split",
+                splitId: "split-1",
+                axis: "horizontal",
+                ratio: 0.63,
+                first: { type: "pane", paneId: "terminal-1" },
+                second: { type: "pane", paneId: "file-1" },
+              },
+              activePaneId: "file-1",
+            },
+            {
+              id: "space-2",
+              title: "Frontend",
+              panes: [{ id: "terminal-2", title: "Terminal 1", kind: "terminal" }],
+              layout: { type: "pane", paneId: "terminal-2" },
+              activePaneId: "terminal-2",
+            },
+          ],
+          activeTabId: "space-2",
+        },
+      ],
+    };
+    const saveWorkspaceState = vi.fn().mockResolvedValue(undefined);
+    const readWorkspaceFile = vi.fn().mockResolvedValue({
+      path: "docs/notes.md",
+      content: "persisted document content",
+      truncated: false,
+    });
+    window.desktop = {
+      loadWorkspaceState: vi.fn().mockResolvedValue(saved),
+      saveWorkspaceState,
+      readWorkspaceFile,
+      listWorkspaceFiles: vi.fn().mockResolvedValue([]),
+      getWindowState: vi.fn().mockResolvedValue({
+        isMaximized: false,
+        isFullScreen: false,
+        macOSMajorVersion: null,
+        supportsNativeRoundedCorners: false,
+      }),
+      onWindowStateChanged: vi.fn().mockReturnValue(() => {}),
+    } as unknown as DesktopBridge;
+
+    renderApp();
+
+    expect(await screen.findByText("persisted document content")).toBeInTheDocument();
+    expect(readWorkspaceFile).toHaveBeenCalledWith("project-1", "docs/notes.md");
+    expect(document.querySelector('[data-pane-id="terminal-1"]')).toBeInTheDocument();
+    await waitFor(() => expect(saveWorkspaceState).toHaveBeenCalled());
+    const latest = saveWorkspaceState.mock.calls.at(-1)![0] as WorkspaceStateSnapshot;
+    expect(latest.activeWorkspaceId).toBe("project-1");
+    expect(latest.workspaces.find((workspace) => workspace.id === "project-1")).toMatchObject({
+      activeTabId: "space-2",
+      tabs: [
+        {
+          id: "space-1",
+          layout: { type: "split", ratio: 0.63 },
+          activePaneId: "file-1",
+        },
+        { id: "space-2", title: "Frontend" },
+      ],
+    });
+  });
+
+  it("keeps a missing Project saved and restores its panes after locating the folder", async () => {
+    const saved: RestoredWorkspaceState = {
+      version: 1,
+      activeWorkspaceId: "missing-project",
+      workspaces: [
+        {
+          id: "vintage:home",
+          name: "Home",
+          path: "/home/test",
+          kind: "home",
+          available: true,
+          tabs: [],
+          activeTabId: "",
+        },
+        {
+          id: "missing-project",
+          name: "Lost Project",
+          path: "/old/location/lost-project",
+          kind: "project",
+          available: false,
+          tabs: [
+            {
+              id: "saved-space",
+              title: "Saved Space",
+              panes: [{ id: "saved-terminal", title: "Terminal 1", kind: "terminal" }],
+              layout: { type: "pane", paneId: "saved-terminal" },
+              activePaneId: "saved-terminal",
+            },
+          ],
+          activeTabId: "saved-space",
+        },
+      ],
+    };
+    const locateWorkspace = vi.fn().mockResolvedValue({
+      id: "missing-project",
+      name: "lost-project",
+      path: "/new/location/lost-project",
+      kind: "project",
+    });
+    const saveWorkspaceState = vi.fn().mockResolvedValue(undefined);
+    window.desktop = {
+      loadWorkspaceState: vi.fn().mockResolvedValue(saved),
+      saveWorkspaceState,
+      locateWorkspace,
+      listWorkspaceFiles: vi.fn().mockResolvedValue([]),
+      getWindowState: vi.fn().mockResolvedValue({
+        isMaximized: false,
+        isFullScreen: false,
+        macOSMajorVersion: null,
+        supportsNativeRoundedCorners: false,
+      }),
+      onWindowStateChanged: vi.fn().mockReturnValue(() => {}),
+    } as unknown as DesktopBridge;
+
+    renderApp();
+
+    expect(await screen.findByText("Project folder is unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Saved Space" })).toBeInTheDocument();
+    expect(document.querySelector('[data-pane-id="saved-terminal"]')).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Locate folder" }));
+
+    await waitFor(() => expect(locateWorkspace).toHaveBeenCalledWith("missing-project"));
+    await waitFor(() =>
+      expect(document.querySelector('[data-pane-id="saved-terminal"]')).toBeInTheDocument(),
+    );
+    await waitFor(() => expect(saveWorkspaceState).toHaveBeenCalled());
+    const latest = saveWorkspaceState.mock.calls.at(-1)![0] as WorkspaceStateSnapshot;
+    expect(latest.workspaces.find((workspace) => workspace.id === "missing-project")).toMatchObject(
+      {
+        path: "/new/location/lost-project",
+        activeTabId: "saved-space",
+      },
+    );
+  });
+
+  it("removes a Project from the saved list without touching its directory", async () => {
+    const saved: RestoredWorkspaceState = {
+      version: 1,
+      activeWorkspaceId: "project-1",
+      workspaces: [
+        {
+          id: "vintage:home",
+          name: "Home",
+          path: "/home/test",
+          kind: "home",
+          available: true,
+          tabs: [],
+          activeTabId: "",
+        },
+        {
+          id: "project-1",
+          name: "Project",
+          path: "/workspace/project",
+          kind: "project",
+          available: false,
+          tabs: [],
+          activeTabId: "",
+        },
+      ],
+    };
+    const saveWorkspaceState = vi.fn().mockResolvedValue(undefined);
+    window.desktop = {
+      loadWorkspaceState: vi.fn().mockResolvedValue(saved),
+      saveWorkspaceState,
+      listWorkspaceFiles: vi.fn().mockResolvedValue([]),
+      getWindowState: vi.fn().mockResolvedValue({
+        isMaximized: false,
+        isFullScreen: false,
+        macOSMajorVersion: null,
+        supportsNativeRoundedCorners: false,
+      }),
+      onWindowStateChanged: vi.fn().mockReturnValue(() => {}),
+    } as unknown as DesktopBridge;
+
+    renderApp();
+
+    expect(await screen.findByText("Project folder is unavailable")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove Project from list" }));
+    await waitFor(() => {
+      const latest = saveWorkspaceState.mock.calls.at(-1)?.[0] as
+        | WorkspaceStateSnapshot
+        | undefined;
+      expect(latest?.workspaces.some((workspace) => workspace.id === "project-1")).toBe(false);
+    });
+    expect(screen.queryByText("Project folder is unavailable")).not.toBeInTheDocument();
+    expect(screen.getByText("Home", { exact: true })).toBeInTheDocument();
   });
 
   it("shows the VINTAGE workspace navigator and right browser/files pane", () => {

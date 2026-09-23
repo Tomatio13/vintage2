@@ -1,7 +1,14 @@
 import { Check, CircleAlert, FolderOpen, OctagonAlert, Plus, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
-import type { RegisteredWorkspace, TerminalAttentionState } from "../shared/desktop.js";
+import type {
+  RegisteredWorkspace,
+  RestoredWorkspaceState,
+  TerminalAttentionState,
+  WorkspacePaneLayoutSnapshot,
+  WorkspacePaneSnapshot,
+  WorkspaceSpaceSnapshot,
+} from "../shared/desktop.js";
 import { Button } from "./components/Button.js";
 import { AttentionToast } from "./components/AttentionToast.js";
 import { FileViewer } from "./components/FileViewer.js";
@@ -17,27 +24,16 @@ import { TerminalPanel } from "./components/TerminalPanel.js";
 import { WindowFrame } from "./components/WindowFrame.js";
 import { type ShortcutAction, useUiStore } from "./store/uiStore.js";
 
-type TerminalPane = { id: string; title: string; kind: "terminal" };
-type FilePane = { id: string; title: string; kind: "file"; path: string };
-type Pane = TerminalPane | FilePane;
-type PaneLayout =
-  | { type: "pane"; paneId: string }
-  | {
-      type: "split";
-      splitId: string;
-      axis: "horizontal" | "vertical";
-      ratio: number;
-      first: PaneLayout;
-      second: PaneLayout;
-    };
-type Tab = {
-  id: string;
-  title: string;
-  panes: Pane[];
-  layout: PaneLayout;
-  activePaneId: string;
+type TerminalPane = Extract<WorkspacePaneSnapshot, { kind: "terminal" }>;
+type FilePane = Extract<WorkspacePaneSnapshot, { kind: "file" }>;
+type Pane = WorkspacePaneSnapshot;
+type PaneLayout = WorkspacePaneLayoutSnapshot;
+type Tab = WorkspaceSpaceSnapshot;
+type VintageWorkspace = RegisteredWorkspace & {
+  tabs: Tab[];
+  activeTabId: string;
+  available: boolean;
 };
-type VintageWorkspace = RegisteredWorkspace & { tabs: Tab[]; activeTabId: string };
 type ToastAttentionItem = { id: string; item: SidebarAttentionItem };
 
 const MAX_PANES = 64;
@@ -492,8 +488,10 @@ export function App() {
   const [workspaces, setWorkspaces] = useState<VintageWorkspace[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [homeLoadStatus, setHomeLoadStatus] = useState<"idle" | "loading" | "failed">(() =>
-    window.desktop?.getHomeWorkspace ? "loading" : "idle",
+    window.desktop?.loadWorkspaceState || window.desktop?.getHomeWorkspace ? "loading" : "idle",
   );
+  const [workspaceStateReady, setWorkspaceStateReady] = useState(false);
+  const [workspaceActionError, setWorkspaceActionError] = useState<string | null>(null);
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [tabTitleDraft, setTabTitleDraft] = useState("");
   const [attentionByPane, setAttentionByPane] = useState<Record<string, TerminalAttentionState>>(
@@ -511,24 +509,70 @@ export function App() {
   const attentionItems = collectAttentionItems(workspaces, attentionByPane);
 
   useEffect(() => {
-    const getHomeWorkspace = window.desktop?.getHomeWorkspace;
-    if (!getHomeWorkspace) return;
     let cancelled = false;
-    homeWorkspaceRequestRef.current ??= getHomeWorkspace();
-    void homeWorkspaceRequestRef.current
-      .then((home) => {
-        if (cancelled) return;
-        const firstSpace = createSpace("Space 1");
-        const workspace: VintageWorkspace = {
-          ...home,
-          tabs: [firstSpace],
-          activeTabId: firstSpace.id,
-        };
-        setWorkspaces((items) =>
-          items.some((item) => item.id === home.id) ? items : [workspace, ...items],
-        );
-        if (!userSelectedWorkspaceRef.current) setActiveId(home.id);
+
+    const useLegacyHome = () => {
+      const getHomeWorkspace = window.desktop?.getHomeWorkspace;
+      if (!getHomeWorkspace) {
         setHomeLoadStatus("idle");
+        return;
+      }
+      homeWorkspaceRequestRef.current ??= getHomeWorkspace();
+      void homeWorkspaceRequestRef.current
+        .then((home) => {
+          if (cancelled) return;
+          const firstSpace = createSpace("Space 1");
+          const workspace: VintageWorkspace = {
+            ...home,
+            tabs: [firstSpace],
+            activeTabId: firstSpace.id,
+            available: true,
+          };
+          setWorkspaces((items) =>
+            items.some((item) => item.id === home.id) ? items : [workspace, ...items],
+          );
+          setActiveId((currentId) =>
+            userSelectedWorkspaceRef.current && currentId ? currentId : home.id,
+          );
+          setHomeLoadStatus("idle");
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setHomeLoadStatus("failed");
+        });
+    };
+
+    const loadWorkspaceState = window.desktop?.loadWorkspaceState;
+    if (!loadWorkspaceState) {
+      useLegacyHome();
+      setWorkspaceStateReady(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void loadWorkspaceState()
+      .then((saved: RestoredWorkspaceState) => {
+        if (cancelled) return;
+        const restored: VintageWorkspace[] = saved.workspaces.map((workspace) => {
+          if (workspace.kind !== "home" || workspace.tabs.length > 0) return workspace;
+          const firstSpace = createSpace("Space 1");
+          return { ...workspace, tabs: [firstSpace], activeTabId: firstSpace.id };
+        });
+        const restoredIds = new Set(restored.map((workspace) => workspace.id));
+        const homeId =
+          restored.find((workspace) => workspace.kind === "home")?.id ?? "vintage:home";
+        setWorkspaces((current) => [
+          ...restored,
+          ...current.filter((workspace) => !restoredIds.has(workspace.id)),
+        ]);
+        setActiveId((currentId) =>
+          userSelectedWorkspaceRef.current && currentId
+            ? currentId
+            : (saved.activeWorkspaceId ?? homeId),
+        );
+        setHomeLoadStatus("idle");
+        setWorkspaceStateReady(true);
       })
       .catch(() => {
         if (cancelled) return;
@@ -538,6 +582,28 @@ export function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!workspaceStateReady) return;
+    const saveWorkspaceState = window.desktop?.saveWorkspaceState;
+    if (!saveWorkspaceState) return;
+    const state = {
+      version: 1 as const,
+      workspaces: workspaces.map((workspace) => ({
+        id: workspace.id,
+        name: workspace.name,
+        path: workspace.path,
+        kind: workspace.kind,
+        tabs: workspace.tabs,
+        activeTabId: workspace.activeTabId,
+      })),
+      activeWorkspaceId:
+        activeId && workspaces.some((workspace) => workspace.id === activeId) ? activeId : null,
+    };
+    void saveWorkspaceState(state).catch((error: unknown) => {
+      console.error("Unable to save workspace state.", error);
+    });
+  }, [workspaceStateReady, workspaces, activeId]);
 
   useEffect(() => {
     const dark =
@@ -550,7 +616,7 @@ export function App() {
   }, [ui.theme, ui.uiFontSize]);
 
   const update = (fn: (workspace: VintageWorkspace) => VintageWorkspace) => {
-    if (active)
+    if (active?.available)
       setWorkspaces((items) => items.map((item) => (item.id === active.id ? fn(item) : item)));
   };
   const resizeSplit = (tabId: string, splitId: string, ratio: number) =>
@@ -570,6 +636,7 @@ export function App() {
       ...chosen,
       tabs: [createSpace("Space 1")],
       activeTabId: "",
+      available: true,
     };
     workspace.activeTabId = workspace.tabs[0]!.id;
     setWorkspaces((items) => [...items, workspace]);
@@ -577,6 +644,7 @@ export function App() {
   };
   const addSpace = () =>
     update((workspace) => {
+      if (!workspace.available) return workspace;
       const title = nextNumberedTitle(
         "Space",
         workspace.tabs.map((tab) => tab.title),
@@ -584,6 +652,36 @@ export function App() {
       const next = createSpace(title);
       return { ...workspace, tabs: [...workspace.tabs, next], activeTabId: next.id };
     });
+  const removeWorkspace = (workspaceId: string) => {
+    const workspace = workspaces.find((item) => item.id === workspaceId);
+    if (!workspace || workspace.kind !== "project") return;
+    userSelectedWorkspaceRef.current = true;
+    const nextWorkspaces = workspaces.filter((item) => item.id !== workspaceId);
+    setWorkspaces(nextWorkspaces);
+    setActiveId((currentId) =>
+      currentId === workspaceId
+        ? (nextWorkspaces.find((item) => item.kind === "home")?.id ?? nextWorkspaces[0]?.id ?? null)
+        : currentId,
+    );
+  };
+  const locateWorkspace = async (workspaceId: string) => {
+    const locate = window.desktop?.locateWorkspace;
+    if (!locate) return;
+    setWorkspaceActionError(null);
+    try {
+      const located = await locate(workspaceId);
+      if (!located) return;
+      setWorkspaces((items) =>
+        items.map((workspace) =>
+          workspace.id === workspaceId ? { ...workspace, ...located, available: true } : workspace,
+        ),
+      );
+      userSelectedWorkspaceRef.current = true;
+      setActiveId(workspaceId);
+    } catch (error) {
+      setWorkspaceActionError(error instanceof Error ? error.message : "Unable to locate folder");
+    }
+  };
   const closeTab = (tabId: string) =>
     update((workspace) => {
       const tabs = workspace.tabs.filter((item) => item.id !== tabId);
@@ -1003,8 +1101,15 @@ export function App() {
       activeWorkspaceId={activeId}
       onOpenWorkspace={() => void openWorkspace()}
       onNewSpace={addSpace}
-      onSelectWorkspace={setActiveId}
+      canCreateSpace={Boolean(active?.available)}
+      onLocateWorkspace={(workspaceId) => void locateWorkspace(workspaceId)}
+      onRemoveWorkspace={removeWorkspace}
+      onSelectWorkspace={(workspaceId) => {
+        userSelectedWorkspaceRef.current = true;
+        setActiveId(workspaceId);
+      }}
       onSelectTab={(workspaceId, tabId) => {
+        userSelectedWorkspaceRef.current = true;
         setActiveId(workspaceId);
         setWorkspaces((items) =>
           items.map((workspace) =>
@@ -1023,8 +1128,8 @@ export function App() {
       <WindowFrame
         sidebar={sidebarContent}
         topContent={topContent}
-        onSplitRight={active ? () => split("right") : undefined}
-        onSplitDown={active ? () => split("down") : undefined}
+        onSplitRight={active?.available ? () => split("right") : undefined}
+        onSplitDown={active?.available ? () => split("down") : undefined}
       >
         <div className="relative flex h-full min-h-0 bg-background">
           <main className="relative min-w-0 flex-1 overflow-hidden bg-background">
@@ -1047,23 +1152,67 @@ export function App() {
                   </Button>
                 </div>
               </div>
+            ) : !active.available ? (
+              <div className="grid h-full place-items-center p-8 text-center">
+                <div className="max-w-xl">
+                  <h1 className="text-ui-xl font-semibold">Project folder is unavailable</h1>
+                  <p className="mt-2 break-all text-ui-base text-foreground-subtle">
+                    {active.path}
+                  </p>
+                  <p className="mt-2 text-ui-sm text-foreground-subtle">
+                    Its Spaces and pane layout are saved. Locate the folder to resume browsing and
+                    open fresh Terminal sessions.
+                  </p>
+                  {workspaceActionError && (
+                    <p className="mt-3 text-ui-sm text-destructive" role="alert">
+                      {workspaceActionError}
+                    </p>
+                  )}
+                  <div className="mt-5 flex justify-center gap-2">
+                    <Button variant="primary" onClick={() => void locateWorkspace(active.id)}>
+                      <FolderOpen />
+                      Locate folder
+                    </Button>
+                    <Button variant="ghost" onClick={() => removeWorkspace(active.id)}>
+                      Remove from list
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : active.tabs.length === 0 ? (
+              <div className="grid h-full place-items-center p-8 text-center">
+                <div>
+                  <h1 className="text-ui-xl font-semibold">No spaces in {active.name}</h1>
+                  <p className="mt-2 text-ui-base text-foreground-subtle">
+                    Create a Space to start a fresh Terminal session.
+                  </p>
+                  <Button className="mt-5" variant="primary" onClick={addSpace}>
+                    <Plus />
+                    New space
+                  </Button>
+                </div>
+              </div>
             ) : (
               workspaces.flatMap((workspace) =>
-                workspace.tabs.map((tab) => (
-                  <TabSurface
-                    key={`${workspace.id}:${tab.id}`}
-                    workspaceId={workspace.id}
-                    tab={tab}
-                    visible={workspace.id === activeId && tab.id === workspace.activeTabId}
-                    onClosePane={(paneId) => closePane(workspace.id, tab.id, paneId)}
-                    onActivatePane={(paneId) => activatePane(workspace.id, tab.id, paneId)}
-                    onRenamePane={(paneId, title) =>
-                      renamePane(workspace.id, tab.id, paneId, title)
-                    }
-                    onAttentionChange={updateAttention}
-                    onResizeSplit={(tabId, splitId, ratio) => resizeSplit(tabId, splitId, ratio)}
-                  />
-                )),
+                !workspace.available
+                  ? []
+                  : workspace.tabs.map((tab) => (
+                      <TabSurface
+                        key={`${workspace.id}:${tab.id}`}
+                        workspaceId={workspace.id}
+                        tab={tab}
+                        visible={workspace.id === activeId && tab.id === workspace.activeTabId}
+                        onClosePane={(paneId) => closePane(workspace.id, tab.id, paneId)}
+                        onActivatePane={(paneId) => activatePane(workspace.id, tab.id, paneId)}
+                        onRenamePane={(paneId, title) =>
+                          renamePane(workspace.id, tab.id, paneId, title)
+                        }
+                        onAttentionChange={updateAttention}
+                        onResizeSplit={(tabId, splitId, ratio) =>
+                          resizeSplit(tabId, splitId, ratio)
+                        }
+                      />
+                    )),
               )
             )}
           </main>
@@ -1089,7 +1238,7 @@ export function App() {
               style={{ width: ui.sidePaneWidth }}
             >
               <SidePane
-                workspaceId={active?.id ?? null}
+                workspaceId={active?.available ? active.id : null}
                 workspaceName={active?.name ?? null}
                 onOpenFile={openFile}
               />

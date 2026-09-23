@@ -10,13 +10,17 @@ import {
   DesktopChannels,
   type AttentionNotification,
   type DesktopWindowState,
+  type RestoredWorkspaceState,
   type RegisteredWorkspace,
   type WorkspaceFileEntry,
+  type WorkspaceStateSnapshot,
 } from "../shared/desktop.js";
 import { AttentionSettingsManager } from "./attentionSettings.js";
 import { JevCredentialStore, JevSettingsManager } from "./jevSettings.js";
 import { JevEvaluationQueue } from "./jevEvaluationQueue.js";
 import { registerTerminalIpc } from "./terminalManager.js";
+import { restoreSavedProjects } from "./workspaceRestore.js";
+import { parseWorkspaceState, WorkspaceStateManager } from "./workspaceState.js";
 import { configureBrowserSession, configureWebviewSecurity } from "./webviewSecurity.js";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -50,6 +54,29 @@ async function registerHomeWorkspace(): Promise<RegisteredWorkspace> {
   };
   workspaces.set(workspace.id, workspace);
   return workspace;
+}
+
+async function restoreWorkspaceState(
+  workspaceState: WorkspaceStateManager,
+): Promise<RestoredWorkspaceState> {
+  const saved = workspaceState.getState();
+  const home = await registerHomeWorkspace();
+  const savedHome = saved.workspaces.find((workspace) => workspace.kind === "home");
+  const restoredHome = {
+    ...home,
+    tabs: savedHome?.tabs ?? [],
+    activeTabId: savedHome?.activeTabId ?? "",
+    available: true,
+  } satisfies RestoredWorkspaceState["workspaces"][number];
+  const savedProjects = saved.workspaces.filter((workspace) => workspace.kind === "project");
+  const projects = await restoreSavedProjects(savedProjects, home.path);
+  for (const project of projects.registered) workspaces.set(project.id, project);
+  const restored = [restoredHome, ...projects.projects];
+
+  const activeWorkspaceId = restored.some((workspace) => workspace.id === saved.activeWorkspaceId)
+    ? saved.activeWorkspaceId
+    : home.id;
+  return { version: 1, workspaces: restored, activeWorkspaceId };
 }
 
 async function listWorkspaceEntries(
@@ -204,6 +231,7 @@ function reserveNotification(dedupeKey: string, now = Date.now()): boolean {
 function registerDesktopIpc(
   jevSettings: JevSettingsManager,
   attentionSettings: AttentionSettingsManager,
+  workspaceState: WorkspaceStateManager,
 ): void {
   ipcMain.handle(DesktopChannels.minimize, (event) => resolveSenderWindow(event).minimize());
   ipcMain.handle(DesktopChannels.toggleMaximize, (event) => {
@@ -278,6 +306,78 @@ function registerDesktopIpc(
     resolveSenderWindow(event);
     return registerHomeWorkspace();
   });
+  ipcMain.handle(DesktopChannels.workspaceStateLoad, async (event) => {
+    resolveSenderWindow(event);
+    return restoreWorkspaceState(workspaceState);
+  });
+  ipcMain.handle(DesktopChannels.workspaceStateSave, async (event, rawState: unknown) => {
+    resolveSenderWindow(event);
+    const snapshot: WorkspaceStateSnapshot = parseWorkspaceState(rawState);
+    const home = snapshot.workspaces.find((workspace) => workspace.kind === "home");
+    if (
+      !home ||
+      home.id !== homeWorkspaceId ||
+      home.path !== (await realpath(app.getPath("home")))
+    ) {
+      throw new Error("Workspace state must include the registered Home workspace");
+    }
+    const previous = workspaceState.getState();
+    for (const project of snapshot.workspaces.filter((workspace) => workspace.kind === "project")) {
+      const registered = workspaces.get(project.id);
+      if (registered?.kind === "project" && registered.path === project.path) continue;
+      const saved = previous.workspaces.find((workspace) => workspace.id === project.id);
+      if (registered || saved?.kind !== "project" || saved.path !== project.path) {
+        throw new Error("Workspace state contains an unregistered Project");
+      }
+    }
+    workspaceState.saveState(snapshot);
+  });
+  ipcMain.handle(
+    DesktopChannels.workspaceLocate,
+    async (event, rawWorkspaceId: unknown): Promise<RegisteredWorkspace | null> => {
+      const window = resolveSenderWindow(event);
+      if (typeof rawWorkspaceId !== "string") throw new TypeError("Workspace id must be a string");
+      const saved = workspaceState
+        .getState()
+        .workspaces.find(
+          (workspace) => workspace.id === rawWorkspaceId && workspace.kind === "project",
+        );
+      if (!saved) throw new Error("Saved Project was not found");
+      const result = await dialog.showOpenDialog(window, {
+        title: `Locate ${saved.name}`,
+        properties: ["openDirectory", "createDirectory"],
+      });
+      if (result.canceled || !result.filePaths[0]) return null;
+      const path = await realpath(result.filePaths[0]);
+      if (!(await lstat(path)).isDirectory())
+        throw new Error("Selected Project path is not a directory");
+      if (path === (await realpath(app.getPath("home")))) {
+        throw new Error("Home cannot be used as a Project folder");
+      }
+      const alreadyRegistered = [...workspaces.values()].some(
+        (workspace) => workspace.id !== rawWorkspaceId && workspace.path === path,
+      );
+      const alreadySaved = workspaceState
+        .getState()
+        .workspaces.some(
+          (workspace) =>
+            workspace.id !== rawWorkspaceId &&
+            workspace.kind === "project" &&
+            workspace.path === path,
+        );
+      if (alreadyRegistered || alreadySaved)
+        throw new Error("That folder is already in the Project list");
+      const workspace: RegisteredWorkspace = {
+        id: saved.id,
+        name: basename(path) || path,
+        path,
+        kind: "project",
+      };
+      workspaces.set(workspace.id, workspace);
+      workspaceState.relocateProject(workspace.id, workspace.path, workspace.name);
+      return workspace;
+    },
+  );
   ipcMain.handle(
     DesktopChannels.workspaceChoose,
     async (event): Promise<RegisteredWorkspace | null> => {
@@ -381,11 +481,15 @@ app.setName(appConfig.productName);
 app.whenReady().then(async () => {
   const jevSettings = new JevSettingsManager(new JevCredentialStore(app.getPath("userData")));
   const attentionSettings = new AttentionSettingsManager(app.getPath("userData"));
+  const workspaceState = new WorkspaceStateManager(app.getPath("userData"));
   const evaluationQueue = new JevEvaluationQueue(jevSettings.evaluator);
   jevSettings.initialize();
   attentionSettings.initialize();
-  registerDesktopIpc(jevSettings, attentionSettings);
+  workspaceState.initialize();
+  await restoreWorkspaceState(workspaceState);
+  registerDesktopIpc(jevSettings, attentionSettings, workspaceState);
   registerTerminalIpc((id) => registeredWorkspace(id).path, evaluationQueue, attentionSettings);
+  app.on("before-quit", () => workspaceState.flush());
   configureBrowserSession();
   _mainWindow = await createMainWindow();
   app.on("activate", async () => {
