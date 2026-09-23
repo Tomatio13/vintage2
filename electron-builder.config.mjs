@@ -27,7 +27,7 @@ export default {
   linux: {
     target: ["AppImage", "deb"],
     category: "Development",
-    icon: "build/icon.png",
+    icon: "build/linux-icons",
     maintainer: "Your Name <you.com>",
     syncDesktopName: true,
     artifactName: "${productName}-${version}-${arch}.${ext}",

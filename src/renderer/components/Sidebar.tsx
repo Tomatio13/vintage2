@@ -61,6 +61,8 @@ function attentionLabel(item: SidebarAttentionItem): string {
     return "Warning detected";
   }
   if (item.status === "completed") return "Completed";
+  if (item.status === "thinking") return "Thinking";
+  if (item.status === "waiting") return "Waiting";
   if (item.status === "waiting_input") return "Input needed";
   if (item.status === "warning") return "Warning";
   return "Failed";

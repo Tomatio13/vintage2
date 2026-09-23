@@ -720,6 +720,31 @@ export function SettingsDialog() {
               </Field>
               <div className="border-t border-border pt-5">
                 <Field
+                  label="Agent Monitor interval"
+                  description="Ask Jev for an active agent's state at this interval."
+                >
+                  <label className="flex items-center gap-2 text-ui-sm">
+                    <input
+                      aria-label="Agent Monitor interval"
+                      className="h-9 w-24 rounded-md border border-input-border bg-background px-2 text-right outline-none focus:border-brand"
+                      max={300}
+                      min={5}
+                      step={1}
+                      type="number"
+                      value={attentionDraft.agentMonitorIntervalSeconds}
+                      onChange={(event) =>
+                        setAttentionDraft((current) => ({
+                          ...current,
+                          agentMonitorIntervalSeconds: Number(event.target.value),
+                        }))
+                      }
+                    />
+                    seconds
+                  </label>
+                </Field>
+              </div>
+              <div className="border-t border-border pt-5">
+                <Field
                   label="Attention threshold"
                   description="Hide lower-priority attention from badges and the Attention list."
                 >

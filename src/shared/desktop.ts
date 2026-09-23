@@ -72,6 +72,7 @@ export type AttentionLevel = 1 | 2 | 3 | 4;
 
 export type TerminalMonitorMode =
   | "monitor"
+  | "agent_monitor"
   | "ignore"
   | "mute"
   | "always_notify"
@@ -81,12 +82,14 @@ export const DEFAULT_TERMINAL_MONITOR_MODE: TerminalMonitorMode = "ignore_until_
 
 export const DEFAULT_ATTENTION_SETTINGS = {
   debounceMs: 800,
+  agentMonitorIntervalSeconds: 10,
   attentionThreshold: 1,
   notificationThreshold: 3,
 } as const satisfies AttentionSettings;
 
 export interface AttentionSettings {
   debounceMs: number;
+  agentMonitorIntervalSeconds: number;
   attentionThreshold: AttentionLevel;
   notificationThreshold: AttentionLevel;
 }
@@ -120,6 +123,8 @@ export type TerminalAttentionStatus =
   | "idle"
   | "running"
   | "completed"
+  | "thinking"
+  | "waiting"
   | "failed"
   | "waiting_input"
   | "warning"
@@ -130,6 +135,7 @@ export type TerminalAttentionReason =
   | "command_failed"
   | "long_running_completed"
   | "input_request"
+  | "agent_activity"
   | "error_output"
   | "warning_output"
   | "session_ended"

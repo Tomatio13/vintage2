@@ -134,7 +134,7 @@ describe("TerminalPanel", () => {
     const expectedLeft = Math.min(maxLeft, Math.max(8, triggerRect.right - menuRect.width));
     expect(menu).toHaveStyle({ left: `${expectedLeft}px` });
 
-    expect(screen.getAllByRole("menuitemradio")).toHaveLength(5);
+    expect(screen.getAllByRole("menuitemradio")).toHaveLength(6);
     expect(screen.getByRole("menuitemradio", { name: "Errors Only" })).toHaveAttribute(
       "aria-checked",
       "true",
@@ -144,6 +144,37 @@ describe("TerminalPanel", () => {
       "false",
     );
 
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Agent Monitor" }));
+    expect(bridge.setTerminalMonitorMode).toHaveBeenCalledWith("session-1", "agent_monitor");
+    expect(trigger).toHaveTextContent("Agent Monitor");
+    act(() =>
+      attentionListener?.({
+        sessionId: "session-1",
+        status: "thinking",
+        attentionLevel: 0,
+        userActionRequired: false,
+        source: "jev",
+        reason: "semantic_judgment",
+        monitorMode: "agent_monitor",
+        lastActivityAt: 1_700_000_000_001,
+      }),
+    );
+    expect(screen.getByRole("status", { name: "◌ Thinking" })).toHaveTextContent("Thinking");
+    act(() =>
+      attentionListener?.({
+        sessionId: "session-1",
+        status: "waiting",
+        attentionLevel: 0,
+        userActionRequired: false,
+        source: "jev",
+        reason: "semantic_judgment",
+        monitorMode: "agent_monitor",
+        lastActivityAt: 1_700_000_000_002,
+      }),
+    );
+    expect(screen.getByRole("status", { name: "◷ Waiting" })).toHaveTextContent("Waiting");
+
+    fireEvent.click(trigger);
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Monitor" }));
     expect(bridge.setTerminalMonitorMode).toHaveBeenCalledWith("session-1", "monitor");
     expect(trigger).toHaveTextContent("Monitor");

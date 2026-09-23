@@ -440,11 +440,13 @@ describe("VINTAGE workspace shell", () => {
   it("loads and saves app-wide attention preferences", async () => {
     const attentionSettings = {
       debounceMs: 800,
+      agentMonitorIntervalSeconds: 10,
       attentionThreshold: 1 as const,
       notificationThreshold: 3 as const,
     };
     const setAttentionSettings = vi.fn().mockResolvedValue({
       debounceMs: 1500,
+      agentMonitorIntervalSeconds: 10,
       attentionThreshold: 2,
       notificationThreshold: 3,
     });
@@ -473,11 +475,17 @@ describe("VINTAGE workspace shell", () => {
     const debounce = await screen.findByRole("spinbutton", { name: "Attention debounce" });
     expect(debounce).toHaveValue(800);
     fireEvent.change(debounce, { target: { value: "1500" } });
+    const agentMonitorInterval = screen.getByRole("spinbutton", {
+      name: "Agent Monitor interval",
+    });
+    expect(agentMonitorInterval).toHaveValue(10);
+    fireEvent.change(agentMonitorInterval, { target: { value: "25" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
       expect(setAttentionSettings).toHaveBeenCalledWith({
         debounceMs: 1500,
+        agentMonitorIntervalSeconds: 25,
         attentionThreshold: 1,
         notificationThreshold: 3,
       }),

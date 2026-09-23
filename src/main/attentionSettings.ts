@@ -14,6 +14,7 @@ const SETTINGS_VERSION = 1;
 const MAX_TERMINAL_PROFILES = 2_000;
 const MONITOR_MODES = new Set<TerminalMonitorMode>([
   "monitor",
+  "agent_monitor",
   "ignore",
   "mute",
   "always_notify",
@@ -40,6 +41,17 @@ export function parseAttentionSettings(value: unknown): AttentionSettings {
   ) {
     throw new RangeError("Attention debounce must be between 100 and 5000 milliseconds");
   }
+  const agentMonitorIntervalSeconds =
+    candidate.agentMonitorIntervalSeconds === undefined
+      ? DEFAULT_ATTENTION_SETTINGS.agentMonitorIntervalSeconds
+      : candidate.agentMonitorIntervalSeconds;
+  if (
+    !Number.isInteger(agentMonitorIntervalSeconds) ||
+    agentMonitorIntervalSeconds < 5 ||
+    agentMonitorIntervalSeconds > 300
+  ) {
+    throw new RangeError("Agent Monitor interval must be between 5 and 300 seconds");
+  }
   if (!isAttentionLevel(candidate.attentionThreshold)) {
     throw new RangeError("Attention threshold must be between 1 and 4");
   }
@@ -48,6 +60,7 @@ export function parseAttentionSettings(value: unknown): AttentionSettings {
   }
   return {
     debounceMs: candidate.debounceMs!,
+    agentMonitorIntervalSeconds,
     attentionThreshold: candidate.attentionThreshold,
     notificationThreshold: candidate.notificationThreshold,
   };

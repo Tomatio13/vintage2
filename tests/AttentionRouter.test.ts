@@ -46,7 +46,12 @@ describe("AttentionRouter", () => {
 
   it("applies the app attention threshold without changing terminal state detection", () => {
     const { router, states } = recorder(undefined, {
-      attentionSettings: { debounceMs: 800, attentionThreshold: 2, notificationThreshold: 4 },
+      attentionSettings: {
+        debounceMs: 800,
+        agentMonitorIntervalSeconds: 10,
+        attentionThreshold: 2,
+        notificationThreshold: 4,
+      },
     });
 
     router.observeOutput(`${OSC}C\u0007`);
@@ -93,7 +98,12 @@ describe("AttentionRouter", () => {
   it("always notify bypasses both attention and notification thresholds", () => {
     const { router } = recorder(undefined, {
       monitorMode: "always_notify",
-      attentionSettings: { debounceMs: 800, attentionThreshold: 4, notificationThreshold: 4 },
+      attentionSettings: {
+        debounceMs: 800,
+        agentMonitorIntervalSeconds: 10,
+        attentionThreshold: 4,
+        notificationThreshold: 4,
+      },
     });
 
     router.observeOutput(`${OSC}C\u0007`);
@@ -141,10 +151,59 @@ describe("AttentionRouter", () => {
     });
   });
 
+  it("stops Agent Monitor Jev checks after switching to Errors Only", async () => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue(null);
+    const { router } = recorder({ evaluate }, { monitorMode: "agent_monitor" });
+
+    router.observeOutput(`${OSC}C\u0007`);
+    router.observeOutput("agent work is running\n");
+    await vi.advanceTimersByTimeAsync(800);
+    router.setMonitorMode("ignore_until_error");
+    router.observeOutput("ordinary output after the mode change\n");
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(evaluate).not.toHaveBeenCalled();
+    expect(router.snapshot()).toMatchObject({ monitorMode: "ignore_until_error" });
+
+    router.observeOutput("fatal: simulated issue\n");
+    await vi.advanceTimersByTimeAsync(800);
+    expect(router.snapshot()).toMatchObject({
+      status: "warning",
+      reason: "error_output",
+      monitorMode: "ignore_until_error",
+    });
+    expect(evaluate).not.toHaveBeenCalled();
+    router.dispose();
+  });
+
+  it("does not send successful command completion to Jev in Errors Only", async () => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue(null);
+    const { router } = recorder({ evaluate }, { monitorMode: "ignore_until_error" });
+
+    router.observeOutput(`${OSC}C\u0007`);
+    router.observeOutput("routine command output\n");
+    router.observeOutput(`${OSC}D;0\u0007`);
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(evaluate).not.toHaveBeenCalled();
+    expect(router.snapshot()).toMatchObject({
+      status: "idle",
+      monitorMode: "ignore_until_error",
+    });
+    router.dispose();
+  });
+
   it("immediately reapplies a changed debounce to the running output", () => {
     vi.useFakeTimers();
     const { router } = recorder(undefined, {
-      attentionSettings: { debounceMs: 2_000, attentionThreshold: 1, notificationThreshold: 3 },
+      attentionSettings: {
+        debounceMs: 2_000,
+        agentMonitorIntervalSeconds: 10,
+        attentionThreshold: 1,
+        notificationThreshold: 3,
+      },
     });
 
     router.observeOutput(`${OSC}C\u0007`);
@@ -152,6 +211,7 @@ describe("AttentionRouter", () => {
     vi.advanceTimersByTime(1_000);
     router.updateAttentionSettings({
       debounceMs: 300,
+      agentMonitorIntervalSeconds: 10,
       attentionThreshold: 1,
       notificationThreshold: 3,
     });
@@ -510,6 +570,188 @@ describe("AttentionRouter", () => {
     expect(evaluate).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(4_200);
     expect(evaluate).toHaveBeenCalledTimes(2);
+  });
+
+  it("periodically classifies quiet agent work and keeps thinking informational", async () => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue({
+      status: "thinking",
+      attentionLevel: 0,
+      userActionRequired: false,
+      keepMonitoring: false,
+      confidence: 0.92,
+      semanticHash: "quiet-agent-state",
+      model: "jev-test",
+    });
+    const { router } = recorder(
+      { evaluate },
+      {
+        monitorMode: "agent_monitor",
+        attentionSettings: {
+          debounceMs: 800,
+          agentMonitorIntervalSeconds: 10,
+          attentionThreshold: 1,
+          notificationThreshold: 3,
+        },
+      },
+    );
+
+    router.observeProcess("claude", ["zsh", "claude"]);
+    router.observeOutput(`${OSC}C\u0007`);
+    await vi.advanceTimersByTimeAsync(800);
+    expect(evaluate).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(9_200);
+    expect(evaluate).toHaveBeenCalledTimes(1);
+    expect(evaluate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        foregroundProcess: "claude",
+        processTree: ["zsh", "claude"],
+        output: "",
+        statusHints: expect.arrayContaining(["agent_monitor", "no_new_output"]),
+      }),
+    );
+    expect(router.snapshot()).toMatchObject({
+      status: "thinking",
+      attentionLevel: 0,
+      userActionRequired: false,
+      source: "jev",
+      monitorMode: "agent_monitor",
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(evaluate).toHaveBeenCalledTimes(2);
+    router.dispose();
+  });
+
+  it("shows Thinking as soon as Agent Monitor output starts flowing", async () => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue(null);
+    const { router } = recorder({ evaluate }, { monitorMode: "agent_monitor" });
+
+    router.observeOutput(`${OSC}C\u0007`);
+    router.observeOutput("working on another step\n");
+
+    expect(router.snapshot()).toMatchObject({
+      status: "thinking",
+      attentionLevel: 0,
+      userActionRequired: false,
+      source: "pty",
+      reason: "agent_activity",
+      monitorMode: "agent_monitor",
+    });
+    await vi.advanceTimersByTimeAsync(800);
+    expect(evaluate).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(9_200);
+    expect(evaluate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusHints: expect.arrayContaining(["agent_monitor", "output_changed"]),
+      }),
+    );
+    router.dispose();
+  });
+
+  it.each([
+    { status: "waiting_input" as const, attentionLevel: 3 as const },
+    { status: "failed" as const, attentionLevel: 3 as const },
+  ])("routes periodic $status decisions into Attention", async ({ status, attentionLevel }) => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue({
+      status,
+      attentionLevel,
+      userActionRequired: true,
+      keepMonitoring: false,
+      confidence: 0.91,
+      semanticHash: `agent-${status}`,
+      model: "jev-test",
+    });
+    const { router } = recorder({ evaluate }, { monitorMode: "agent_monitor" });
+
+    router.observeOutput(`${OSC}C\u0007`);
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(router.snapshot()).toMatchObject({
+      status,
+      attentionLevel,
+      userActionRequired: true,
+      source: "jev",
+      reason: "semantic_judgment",
+    });
+    router.dispose();
+  });
+
+  it("starts periodic evaluation when Agent Monitor is enabled on a running command", async () => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue(null);
+    const { router } = recorder({ evaluate }, { monitorMode: "monitor" });
+
+    router.observeOutput(`${OSC}C\u0007`);
+    router.setMonitorMode("agent_monitor");
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(evaluate).toHaveBeenCalledTimes(1);
+    router.dispose();
+  });
+
+  it("does not let a routine Jev state clear an active local error", async () => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue({
+      status: "thinking",
+      attentionLevel: 0,
+      userActionRequired: false,
+      keepMonitoring: false,
+      confidence: 0.91,
+      semanticHash: "routine-after-error",
+      model: "jev-test",
+    });
+    const { router } = recorder({ evaluate }, { monitorMode: "agent_monitor" });
+
+    router.observeOutput(`${OSC}C\u0007fatal: simulated issue\n`);
+    await vi.advanceTimersByTimeAsync(800);
+    expect(router.snapshot()).toMatchObject({ status: "warning", attentionLevel: 3 });
+
+    await vi.advanceTimersByTimeAsync(9_200);
+    expect(router.snapshot()).toMatchObject({
+      status: "warning",
+      attentionLevel: 3,
+      userActionRequired: true,
+      source: "pty",
+    });
+    router.dispose();
+  });
+
+  it("does not periodically ask Jev outside Agent Monitor mode", async () => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue(null);
+    const { router } = recorder({ evaluate }, { monitorMode: "monitor" });
+
+    router.observeProcess("claude", ["zsh", "claude"]);
+    router.observeOutput(`${OSC}C\u0007`);
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(evaluate).not.toHaveBeenCalled();
+    router.dispose();
+  });
+
+  it("restarts the active Agent Monitor timer when its interval changes", async () => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue(null);
+    const { router } = recorder({ evaluate }, { monitorMode: "agent_monitor" });
+
+    router.observeOutput(`${OSC}C\u0007`);
+    await vi.advanceTimersByTimeAsync(5_000);
+    router.updateAttentionSettings({
+      debounceMs: 800,
+      agentMonitorIntervalSeconds: 5,
+      attentionThreshold: 1,
+      notificationThreshold: 3,
+    });
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(evaluate).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(evaluate).toHaveBeenCalledTimes(1);
+    router.dispose();
   });
 
   it("rejects a delayed running decision after new output arrives", async () => {

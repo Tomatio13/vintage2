@@ -6,13 +6,20 @@ const execFileAsync = promisify(execFile);
 export interface ForegroundProcessSnapshot {
   process: string;
   tree: string[];
+  agentCli: boolean;
 }
 
 interface ProcessRow {
   pid: number;
   parentPid: number;
   command: string;
+  args?: string;
 }
+
+const AGENT_PROCESS_NAMES = new Set(["claude", "claude-code", "codex", "opencode"]);
+const AGENT_RUNTIME_NAMES = new Set(["bun", "node"]);
+const AGENT_LAUNCH_PATH =
+  /(?:^|[/\\\s])(?:claude(?:-code)?|codex|opencode)(?:\.js)?(?=$|[/\\\s])/iu;
 
 export async function inspectForegroundProcess(
   terminalPid: number,
@@ -20,7 +27,7 @@ export async function inspectForegroundProcess(
   if (!Number.isInteger(terminalPid) || terminalPid <= 0 || process.platform === "win32")
     return null;
   try {
-    const { stdout } = await execFileAsync("ps", ["-eo", "pid=,ppid=,comm="], {
+    const { stdout } = await execFileAsync("ps", ["-eo", "pid=,ppid=,comm=,args="], {
       timeout: 1_000,
       windowsHide: true,
     });
@@ -31,6 +38,12 @@ export async function inspectForegroundProcess(
     return {
       process: leaf.command,
       tree: descendants.map((row) => row.command).slice(-8),
+      agentCli: descendants.some(
+        (row) =>
+          AGENT_PROCESS_NAMES.has(row.command.toLowerCase()) ||
+          (AGENT_RUNTIME_NAMES.has(row.command.toLowerCase()) &&
+            AGENT_LAUNCH_PATH.test(row.args ?? "")),
+      ),
     };
   } catch {
     return null;
@@ -40,12 +53,13 @@ export async function inspectForegroundProcess(
 export function parseProcessRows(output: string): ProcessRow[] {
   return output
     .split("\n")
-    .map((line) => line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/u))
+    .map((line) => line.trim().match(/^(\d+)\s+(\d+)\s+(\S+)(?:\s+(.*))?$/u))
     .filter((match): match is RegExpMatchArray => match !== null)
     .map((match) => ({
       pid: Number(match[1]),
       parentPid: Number(match[2]),
       command: match[3]!.trim(),
+      ...(match[4] === undefined ? {} : { args: match[4].trim() }),
     }))
     .filter(
       (row) => Number.isInteger(row.pid) && Number.isInteger(row.parentPid) && Boolean(row.command),

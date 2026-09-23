@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { basename } from "node:path";
 
-import { choice, noul, score, TypeSafeClient } from "@typesafe-ai/sdk";
+import { noul, score, TypeSafeClient } from "@typesafe-ai/sdk";
 
 import type { TerminalAttentionStatus } from "../shared/desktop.js";
 
@@ -11,19 +11,35 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_REQUESTS_PER_SECOND = 2;
 const MAX_REQUESTS_PER_MINUTE = 30;
 const MAX_CACHE_ENTRIES = 256;
-const MIN_CONFIDENCE = 0.55;
+const STATE_FACT_THRESHOLD = 0.5;
 const JEV_DEBUG = process.env.VINTAGE_JEV_DEBUG === "1";
 
-const STATUS_QUESTION = choice(
-  "Based only on command, exit_code, duration_ms, background, status_hints, and output_tail, what is the current terminal state? Choose the single best operational state. Do not infer facts absent from the state.",
-  {
-    completed: "The work ended successfully and does not need user review.",
-    failed: "The work failed, aborted, or is blocked by an error.",
-    waiting_input: "The process is paused and needs user input, approval, or a choice.",
-    warning: "The work produced a meaningful warning or risky result the user should review.",
-    running: "The process is still running normally and needs no user action.",
-    unknown: "The supplied state is insufficient or genuinely ambiguous.",
-  },
+const FAILED_QUESTION = noul(
+  "Has the current agent turn terminated in an unrecovered failure? Use explicit failure evidence or a non-zero exit code associated with this turn. A recoverable error that the agent is handling is not a failed turn.",
+);
+
+const NEEDS_USER_INPUT_QUESTION = noul(
+  "Is this same agent turn blocked on a specific user answer, approval, choice, or missing information before it can finish? Do not count the normal CLI prompt for the next independent request.",
+);
+
+const TURN_FINISHED_QUESTION = noul(
+  "Has the current agent turn finished? Answer yes if either the agent has clearly produced its final response with no further action pending, or the CLI has returned to its normal prompt ready for a new independent request. Do not require both conditions. The interactive CLI process may remain alive after the turn finishes. A normal prompt for the next independent request is completed, not waiting_input. This is a fact about the current turn, not process lifetime.",
+);
+
+const WARNING_QUESTION = noul(
+  "Is there a concrete, current warning or non-fatal problem in the terminal workflow that needs the user to inspect or address it? Do not count ordinary informational output, a caveat or disclaimer in the agent's final answer, a recommendation to verify facts, or a quoted warning that does not describe a current actionable issue.",
+);
+
+const PROCESS_ACTIVE_QUESTION = noul(
+  "Is a concrete command, tool, subprocess, or external program actively executing as part of the current turn? Do not count an interactive agent CLI that is merely sitting at its normal next-turn prompt.",
+);
+
+const AGENT_ACTIVE_QUESTION = noul(
+  "Is the agent actively reasoning, planning, interpreting results, choosing a tool, or generating another action for the current turn? output_changed alone is not evidence; inspect what the changed output means.",
+);
+
+const WAITING_EXTERNAL_QUESTION = noul(
+  "Is the current turn unfinished and waiting for an external operation or dependency, with no user input required? Silence alone is not sufficient evidence.",
 );
 
 const ATTENTION_QUESTION = score(
@@ -50,7 +66,13 @@ const KEEP_MONITORING_QUESTION = noul(
 );
 
 const QUESTIONS = {
-  status: STATUS_QUESTION,
+  failed: FAILED_QUESTION,
+  needsUserInput: NEEDS_USER_INPUT_QUESTION,
+  turnFinished: TURN_FINISHED_QUESTION,
+  warning: WARNING_QUESTION,
+  processActive: PROCESS_ACTIVE_QUESTION,
+  agentActive: AGENT_ACTIVE_QUESTION,
+  waitingExternal: WAITING_EXTERNAL_QUESTION,
   attention: ATTENTION_QUESTION,
   actionRequired: ACTION_REQUIRED_QUESTION,
   keepMonitoring: KEEP_MONITORING_QUESTION,
@@ -89,6 +111,38 @@ export interface JevDecision {
   confidence: number;
   semanticHash: string;
   model: string;
+}
+
+interface StateFacts {
+  failed: number;
+  needsUserInput: number;
+  turnFinished: number;
+  warning: number;
+  processActive: number;
+  agentActive: number;
+  waitingExternal: number;
+}
+
+const STATE_FACT_PRIORITY = [
+  ["failed", "failed"],
+  ["needsUserInput", "waiting_input"],
+  ["turnFinished", "completed"],
+  ["warning", "warning"],
+  ["processActive", "running"],
+  ["agentActive", "thinking"],
+  ["waitingExternal", "waiting"],
+] as const satisfies ReadonlyArray<readonly [keyof StateFacts, TerminalAttentionStatus]>;
+
+function resolveStatusFacts(facts: StateFacts): {
+  status: TerminalAttentionStatus;
+  confidence: number;
+} {
+  for (const [fact, status] of STATE_FACT_PRIORITY) {
+    if (facts[fact] >= STATE_FACT_THRESHOLD) {
+      return { status, confidence: facts[fact] };
+    }
+  }
+  return { status: "unknown", confidence: 0 };
 }
 
 export interface JevEvaluator {
@@ -142,7 +196,7 @@ export class JevEvaluationService implements JevEvaluator {
 
   async evaluate(context: JevEvaluationContext): Promise<JevDecision | null> {
     const state = buildJevState(context);
-    if (state.output_tail.length === 0) {
+    if (state.output_tail.length === 0 && !state.status_hints.includes("agent_monitor")) {
       logJevDebug("skipped", { reason: "empty_output" });
       return null;
     }
@@ -169,51 +223,58 @@ export class JevEvaluationService implements JevEvaluator {
         { state, questions: QUESTIONS },
         { timeout: REQUEST_TIMEOUT_MS, retry: { maxRetries: 0 } },
       );
-      const statusAnswer = response.answers.status;
       const attentionAnswer = response.answers.attention;
       const actionProbability = response.answers.actionRequired.noul;
       const scoredLevel = clampAttentionLevel(Math.round(attentionAnswer.score));
-      const statusReliable = statusAnswer.confidence >= MIN_CONFIDENCE;
-      const attentionRequired =
-        attentionAnswer.confidence >= MIN_CONFIDENCE &&
-        scoredLevel >= 2 &&
-        actionProbability >= 0.65;
+      const rawFacts: StateFacts = {
+        failed: response.answers.failed.noul,
+        needsUserInput: response.answers.needsUserInput.noul,
+        turnFinished: response.answers.turnFinished.noul,
+        warning: response.answers.warning.noul,
+        processActive: response.answers.processActive.noul,
+        agentActive: response.answers.agentActive.noul,
+        waitingExternal: response.answers.waitingExternal.noul,
+      };
+      const facts: StateFacts = {
+        ...rawFacts,
+        warning: actionProbability >= STATE_FACT_THRESHOLD ? rawFacts.warning : 0,
+      };
+      const resolved = resolveStatusFacts(facts);
+      const status = resolved.status;
       logJevDebug("response", {
         hash: diagnosticHash,
         elapsedMs: Date.now() - startedAt,
         model: response.model,
-        status: statusAnswer.choice,
-        statusConfidence: statusAnswer.confidence,
+        status,
+        statusFacts: rawFacts,
+        statusFactsUsed: facts,
+        statusFactProbability: resolved.confidence,
         attention: attentionAnswer.score,
         attentionConfidence: attentionAnswer.confidence,
         actionRequired: actionProbability,
       });
-      if (statusAnswer.choice === "unknown" || (!statusReliable && !attentionRequired)) {
+      if (status === "unknown") {
         logJevDebug("skipped", {
-          reason: statusAnswer.choice === "unknown" ? "unknown_status" : "low_confidence",
+          reason: "unknown_state_facts",
           hash: diagnosticHash,
-          statusConfidence: statusAnswer.confidence,
+          statusFacts: rawFacts,
+          statusFactsUsed: facts,
           attentionConfidence: attentionAnswer.confidence,
           actionRequired: actionProbability,
         });
         return null;
       }
 
-      const status = statusReliable ? statusAnswer.choice : "warning";
-      const confidence = statusReliable
-        ? Math.min(statusAnswer.confidence, attentionAnswer.confidence)
-        : Math.min(attentionAnswer.confidence, actionProbability);
-      if (!statusReliable) {
-        logJevDebug("fallback_warning", {
-          hash: diagnosticHash,
-          originalStatus: statusAnswer.choice,
-          statusConfidence: statusAnswer.confidence,
-          confidence,
-        });
-      }
-      const attentionLevel = minimumLevelForStatus(status, scoredLevel);
-      const userActionRequired =
-        actionProbability >= 0.65 || status === "failed" || status === "waiting_input";
+      const informationalStatus =
+        status === "thinking" ||
+        status === "running" ||
+        status === "waiting" ||
+        (status === "completed" && scoredLevel < 2 && actionProbability < 0.65);
+      const confidence = Math.min(resolved.confidence, attentionAnswer.confidence);
+      const attentionLevel = informationalStatus ? 0 : minimumLevelForStatus(status, scoredLevel);
+      const userActionRequired = informationalStatus
+        ? false
+        : actionProbability >= 0.65 || status === "failed" || status === "waiting_input";
       const decision: JevDecision = {
         status,
         attentionLevel,

@@ -16,6 +16,7 @@ function attentionSummary(item: SidebarAttentionItem): string {
   if (item.status === "waiting_input") return "This terminal may need your input.";
   if (item.status === "failed") return "The terminal reported a failure.";
   if (item.status === "completed") return "A terminal command completed.";
+  if (item.status === "waiting") return "This terminal is waiting for an external task.";
   return "This terminal needs your attention.";
 }
 

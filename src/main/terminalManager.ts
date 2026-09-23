@@ -152,7 +152,7 @@ function createTerminal(
   const processMonitor = setInterval(() => {
     void inspectForegroundProcess(process.pid).then((snapshot) => {
       if (!sessions.has(terminal.id) || !snapshot) return;
-      terminal.attention.observeProcess(snapshot.process, snapshot.tree);
+      terminal.attention.observeProcess(snapshot.process, snapshot.tree, snapshot.agentCli);
     });
   }, 1_000);
   processMonitor.unref();

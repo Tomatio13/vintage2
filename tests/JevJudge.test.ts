@@ -19,12 +19,13 @@ const response = {
   model: "jev-test",
   usage: { input_tokens: 10, output_tokens: 4 },
   answers: {
-    status: {
-      type: "choice",
-      choice: "waiting_input",
-      confidence: 0.9,
-      probabilities: { waiting_input: 0.9 },
-    },
+    failed: { type: "noul", noul: 0.1 },
+    needsUserInput: { type: "noul", noul: 0.9 },
+    turnFinished: { type: "noul", noul: 0.1 },
+    warning: { type: "noul", noul: 0.1 },
+    processActive: { type: "noul", noul: 0.1 },
+    agentActive: { type: "noul", noul: 0.1 },
+    waitingExternal: { type: "noul", noul: 0.1 },
     attention: {
       type: "score",
       score: 2.4,
@@ -69,6 +70,88 @@ describe("Jev evaluation preparation", () => {
   it("stays disabled when no API key is configured", () => {
     expect(createJevEvaluator({})).toBeNull();
   });
+
+  it("accepts quiet Agent Monitor snapshots without terminal output", async () => {
+    const client = clientWith({
+      ...response,
+      answers: {
+        ...response.answers,
+        needsUserInput: { ...response.answers.needsUserInput, noul: 0.1 },
+        turnFinished: { ...response.answers.turnFinished, noul: 0.1 },
+        agentActive: { ...response.answers.agentActive, noul: 0.9 },
+        attention: { ...response.answers.attention, score: 0 },
+        actionRequired: { type: "noul", noul: 0.1 },
+      },
+    });
+    const decision = await new JevEvaluationService(client).evaluate({
+      foregroundProcess: "claude",
+      processTree: ["zsh", "claude"],
+      background: true,
+      output: "",
+      statusHints: ["command_running", "agent_monitor", "no_new_output"],
+    });
+
+    expect(decision).toMatchObject({
+      status: "thinking",
+      attentionLevel: 0,
+      userActionRequired: false,
+    });
+    expect(client.systemOne).toHaveBeenCalledTimes(1);
+  });
+
+  it("prioritizes a finished turn over live processes and output_changed", async () => {
+    const client = clientWith({
+      ...response,
+      answers: {
+        ...response.answers,
+        needsUserInput: { ...response.answers.needsUserInput, noul: 0.1 },
+        turnFinished: { ...response.answers.turnFinished, noul: 0.9 },
+        processActive: { ...response.answers.processActive, noul: 0.9 },
+        agentActive: { ...response.answers.agentActive, noul: 0.9 },
+        attention: { ...response.answers.attention, score: 0 },
+        actionRequired: { type: "noul", noul: 0.1 },
+      },
+    });
+
+    await expect(
+      new JevEvaluationService(client).evaluate({
+        background: true,
+        output: "working on the next step\n",
+        statusHints: ["command_running", "agent_monitor", "output_changed"],
+      }),
+    ).resolves.toMatchObject({
+      status: "completed",
+      attentionLevel: 0,
+      userActionRequired: false,
+    });
+  });
+
+  it("returns waiting as informational when an Agent Monitor has no new output", async () => {
+    const client = clientWith({
+      ...response,
+      answers: {
+        ...response.answers,
+        needsUserInput: { ...response.answers.needsUserInput, noul: 0.1 },
+        turnFinished: { ...response.answers.turnFinished, noul: 0.1 },
+        waitingExternal: { ...response.answers.waitingExternal, noul: 0.9 },
+        attention: { ...response.answers.attention, score: 3 },
+        actionRequired: { type: "noul", noul: 0.1 },
+      },
+    });
+
+    await expect(
+      new JevEvaluationService(client).evaluate({
+        foregroundProcess: "claude",
+        background: true,
+        output: "",
+        statusHints: ["command_running", "agent_monitor", "no_new_output"],
+      }),
+    ).resolves.toMatchObject({
+      status: "waiting",
+      attentionLevel: 0,
+      userActionRequired: false,
+    });
+  });
 });
 
 describe("JevEvaluationService", () => {
@@ -91,12 +174,15 @@ describe("JevEvaluationService", () => {
     expect(client.systemOne).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to warning when attention and action corroborate a low-confidence status", async () => {
+  it("resolves explicit warning facts before active processes", async () => {
     const client = clientWith({
       ...response,
       answers: {
         ...response.answers,
-        status: { ...response.answers.status, confidence: 0.48 },
+        needsUserInput: { ...response.answers.needsUserInput, noul: 0.1 },
+        turnFinished: { ...response.answers.turnFinished, noul: 0.1 },
+        warning: { ...response.answers.warning, noul: 0.9 },
+        processActive: { ...response.answers.processActive, noul: 0.9 },
         attention: {
           ...response.answers.attention,
           score: 2.88,
@@ -110,15 +196,21 @@ describe("JevEvaluationService", () => {
       status: "warning",
       attentionLevel: 3,
       userActionRequired: true,
-      confidence: 0.76,
+      confidence: 0.9,
     });
   });
-  it("ignores low-confidence and failed evaluations", async () => {
+  it("returns no decision when state facts are ambiguous and when evaluation fails", async () => {
     const uncertainClient = clientWith({
       ...response,
       answers: {
         ...response.answers,
-        status: { ...response.answers.status, confidence: 0.3 },
+        failed: { ...response.answers.failed, noul: 0.3 },
+        needsUserInput: { ...response.answers.needsUserInput, noul: 0.3 },
+        turnFinished: { ...response.answers.turnFinished, noul: 0.3 },
+        warning: { ...response.answers.warning, noul: 0.3 },
+        processActive: { ...response.answers.processActive, noul: 0.3 },
+        agentActive: { ...response.answers.agentActive, noul: 0.3 },
+        waitingExternal: { ...response.answers.waitingExternal, noul: 0.3 },
       },
     });
     const failingClient = {

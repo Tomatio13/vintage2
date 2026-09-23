@@ -21,6 +21,7 @@ const MAX_OUTPUT_TAIL = 6000;
 const CONTINUOUS_EVALUATION_MIN_INTERVAL_MS = 5_000;
 const KEEP_MONITORING_RECHECK_MS = 15_000;
 const LONG_RUNNING_THRESHOLD_MS = 30_000;
+const AGENT_PROCESS_NAMES = new Set(["claude", "claude-code", "codex", "opencode"]);
 
 const WAITING_INPUT_PATTERNS = [
   /(?:password|passphrase)(?:\s+for\s+[^:]+)?:\s*$/iu,
@@ -78,6 +79,7 @@ export class AttentionRouter {
   private currentCwd: string | undefined;
   private foregroundProcess: string | undefined;
   private processTree: string[] = [];
+  private agentCliDetected = false;
   private promptVisible = false;
   private evaluationRevision = 0;
   private detectedIncident: DetectedIncident | null = null;
@@ -86,8 +88,10 @@ export class AttentionRouter {
   private protocolBuffer = "";
   private heuristicTimer: ReturnType<typeof setTimeout> | null = null;
   private continuousEvaluationTimer: ReturnType<typeof setTimeout> | null = null;
+  private agentMonitorTimer: ReturnType<typeof setTimeout> | null = null;
   private lastContinuousEvaluationAt = 0;
   private readonly evaluatedSemanticHashes = new Set<string>();
+  private lastAgentMonitorOutput = "";
   private attentionSettings: AttentionSettings;
   private monitorMode: TerminalMonitorMode;
   private state: TerminalAttentionState;
@@ -119,22 +123,51 @@ export class AttentionRouter {
       this.outputTail = "";
       return;
     }
-    this.outputTail = `${this.outputTail}${normalizeOutput(data)}`.slice(-MAX_OUTPUT_TAIL);
+    const normalizedOutput = normalizeOutput(data);
+    this.outputTail = `${this.outputTail}${normalizedOutput}`.slice(-MAX_OUTPUT_TAIL);
+    if (
+      this.monitorMode === "agent_monitor" &&
+      this.isAgentMonitorWorkActive() &&
+      normalizedOutput.trim() &&
+      !(this.state.userActionRequired && this.state.attentionLevel >= 2)
+    ) {
+      this.transition("thinking", 0, false, "pty", { reason: "agent_activity" });
+    }
     this.scheduleHeuristicEvaluation();
   }
 
-  observeProcess(process: string | undefined, tree: string[] = []): void {
+  observeProcess(process: string | undefined, tree: string[] = [], agentCliDetected = false): void {
     if (this.disposed) return;
+    const previousHadAgentProcess = this.hasKnownAgentProcess();
     const nextProcess = process?.trim() || undefined;
     const nextTree = tree.filter(Boolean).slice(0, 8);
     if (
       nextProcess === this.foregroundProcess &&
-      nextTree.join("\u0000") === this.processTree.join("\u0000")
+      nextTree.join("\u0000") === this.processTree.join("\u0000") &&
+      agentCliDetected === this.agentCliDetected
     )
       return;
     this.foregroundProcess = nextProcess;
     this.processTree = nextTree;
+    this.agentCliDetected = agentCliDetected;
     if (this.commandRunning) this.scheduleHeuristicEvaluation();
+    if (this.monitorMode === "agent_monitor" && this.hasKnownAgentProcess()) {
+      this.promptVisible = false;
+      if (this.state.status === "idle") {
+        this.transition("running", 0, false, "pty");
+      }
+      this.scheduleAgentMonitorEvaluation();
+    } else if (
+      this.monitorMode === "agent_monitor" &&
+      previousHadAgentProcess &&
+      !this.commandRunning
+    ) {
+      this.promptVisible = true;
+      this.cancelPendingEvaluations();
+      if (["running", "thinking", "waiting"].includes(this.state.status)) {
+        this.transition("idle", 0, false, "pty");
+      }
+    }
   }
 
   observeInput(): void {
@@ -144,9 +177,11 @@ export class AttentionRouter {
       this.outputTail = "";
       this.detectedIncident = null;
       this.transition("running", 0, false, "pty");
+      this.scheduleAgentMonitorEvaluation();
       return;
     }
     this.acknowledge();
+    this.scheduleAgentMonitorEvaluation();
   }
 
   observeSessionExit(exitCode: number): void {
@@ -174,13 +209,32 @@ export class AttentionRouter {
 
   setMonitorMode(mode: TerminalMonitorMode): void {
     if (this.disposed || this.monitorMode === mode) return;
+    const previousMode = this.monitorMode;
     this.monitorMode = mode;
+    this.cancelPendingEvaluations();
+    if (mode === "agent_monitor" && this.hasKnownAgentProcess()) {
+      this.promptVisible = false;
+    }
     if (mode === "ignore") {
-      this.cancelPendingEvaluations();
       this.outputTail = "";
       this.detectedIncident = null;
       this.resetAttention();
       return;
+    }
+    if (
+      previousMode === "agent_monitor" &&
+      this.state.source === "jev" &&
+      !this.state.userActionRequired &&
+      this.state.attentionLevel < 2
+    ) {
+      this.transition(this.commandRunning ? "running" : "idle", 0, false, "shell");
+    }
+    if (
+      mode === "agent_monitor" &&
+      this.isAgentMonitorWorkActive() &&
+      this.state.status === "idle"
+    ) {
+      this.transition("running", 0, false, "pty");
     }
     if (mode === "ignore_until_error" && !isErrorState(this.state)) {
       this.outputTail = "";
@@ -190,14 +244,26 @@ export class AttentionRouter {
       return;
     }
     this.publishCurrentState();
-    if (this.commandRunning) this.scheduleHeuristicEvaluation();
+    if (this.isAgentMonitorWorkActive()) {
+      if (mode === "agent_monitor") this.scheduleAgentMonitorEvaluation();
+      this.scheduleHeuristicEvaluation();
+    }
   }
 
   updateAttentionSettings(settings: AttentionSettings): void {
     if (this.disposed) return;
     const debounceChanged = this.attentionSettings.debounceMs !== settings.debounceMs;
+    const agentMonitorIntervalChanged =
+      this.attentionSettings.agentMonitorIntervalSeconds !== settings.agentMonitorIntervalSeconds;
     this.attentionSettings = { ...settings };
     this.publishCurrentState();
+    if (
+      agentMonitorIntervalChanged &&
+      this.isAgentMonitorWorkActive() &&
+      this.monitorMode === "agent_monitor"
+    ) {
+      this.scheduleAgentMonitorEvaluation();
+    }
     if (debounceChanged && this.commandRunning) {
       this.cancelHeuristicEvaluation();
       this.scheduleHeuristicEvaluation();
@@ -271,7 +337,15 @@ export class AttentionRouter {
       if (this.commandRunning) {
         this.commandRunning = false;
         this.cancelPendingEvaluations();
-        if (this.state.status === "running") this.transition("idle", 0, false, "shell");
+        if (
+          this.state.status === "running" ||
+          (this.state.reason === "agent_activity" && this.state.status === "thinking") ||
+          (this.state.source === "jev" &&
+            !this.state.userActionRequired &&
+            this.state.attentionLevel < 2)
+        ) {
+          this.transition("idle", 0, false, "shell");
+        }
       }
       return;
     }
@@ -287,8 +361,10 @@ export class AttentionRouter {
       this.commandStartedAt = Date.now();
       this.detectedIncident = null;
       this.outputTail = "";
+      this.lastAgentMonitorOutput = "";
       this.evaluatedSemanticHashes.clear();
       this.transition("running", 0, false, "shell");
+      this.scheduleAgentMonitorEvaluation();
       return;
     }
     if (event !== "D" || !this.commandRunning) return;
@@ -350,7 +426,14 @@ export class AttentionRouter {
   private scheduleJevEvaluation(context: JevEvaluationContext, running = false): void {
     const jev = this.options.jev;
     const evaluationQueue = this.options.evaluationQueue;
-    if (this.monitorMode === "ignore") return;
+    if (this.monitorMode === "ignore" || this.monitorMode === "ignore_until_error") {
+      logJevDebug("router_skipped", {
+        sessionId: this.sessionId,
+        reason: "monitor_mode",
+        monitorMode: this.monitorMode,
+      });
+      return;
+    }
     if (!jev && !evaluationQueue) {
       logJevDebug("router_skipped", {
         sessionId: this.sessionId,
@@ -370,6 +453,16 @@ export class AttentionRouter {
             sessionId: this.sessionId,
             reason: "no_decision",
           });
+          if (
+            running &&
+            this.monitorMode === "agent_monitor" &&
+            context.statusHints.includes("no_new_output") &&
+            this.state.status === "thinking" &&
+            this.state.source === "pty" &&
+            this.state.reason === "agent_activity"
+          ) {
+            this.transition("running", 0, false, "pty");
+          }
           return;
         }
         if (this.disposed || revision !== this.evaluationRevision) {
@@ -379,7 +472,30 @@ export class AttentionRouter {
           });
           return;
         }
-        if (!decision.userActionRequired && decision.attentionLevel < 2) {
+        const shouldPublishAgentStatus =
+          running &&
+          this.monitorMode === "agent_monitor" &&
+          (decision.status === "thinking" ||
+            decision.status === "running" ||
+            decision.status === "waiting" ||
+            decision.status === "completed");
+        if (
+          shouldPublishAgentStatus &&
+          this.state.userActionRequired &&
+          this.state.attentionLevel >= 2
+        ) {
+          logJevDebug("router_skipped", {
+            sessionId: this.sessionId,
+            reason: "preserving_existing_attention",
+            status: this.state.status,
+          });
+          return;
+        }
+        if (
+          !decision.userActionRequired &&
+          decision.attentionLevel < 2 &&
+          !shouldPublishAgentStatus
+        ) {
           logJevDebug("router_skipped", {
             sessionId: this.sessionId,
             reason: "low_attention",
@@ -410,7 +526,12 @@ export class AttentionRouter {
           attention: decision.attentionLevel,
           actionRequired: decision.userActionRequired,
         });
-        if (running && decision.keepMonitoring && this.commandRunning) {
+        if (
+          running &&
+          decision.keepMonitoring &&
+          this.commandRunning &&
+          this.monitorMode !== "agent_monitor"
+        ) {
           this.scheduleContinuousJevEvaluation(KEEP_MONITORING_RECHECK_MS);
         }
       })
@@ -430,7 +551,10 @@ export class AttentionRouter {
       this.heuristicTimer = null;
       if (!this.commandRunning || this.monitorMode === "ignore") return;
       const tail = this.outputTail.trimEnd();
-      if (WAITING_INPUT_PATTERNS.some((pattern) => pattern.test(tail))) {
+      if (
+        this.monitorMode !== "ignore_until_error" &&
+        WAITING_INPUT_PATTERNS.some((pattern) => pattern.test(tail))
+      ) {
         this.transition("waiting_input", 3, true, "pty", { reason: "input_request" });
         return;
       }
@@ -439,6 +563,7 @@ export class AttentionRouter {
         this.raiseIncident(incident.attentionLevel, incident.reason);
         return;
       }
+      if (this.monitorMode === "agent_monitor" || this.monitorMode === "ignore_until_error") return;
       this.scheduleContinuousJevEvaluation();
     }, this.attentionSettings.debounceMs);
   }
@@ -447,6 +572,7 @@ export class AttentionRouter {
     if (
       !this.commandRunning ||
       this.monitorMode === "ignore" ||
+      this.monitorMode === "ignore_until_error" ||
       (!this.options.jev && !this.options.evaluationQueue) ||
       !this.outputTail.trim()
     )
@@ -483,6 +609,52 @@ export class AttentionRouter {
     );
   }
 
+  private scheduleAgentMonitorEvaluation(): void {
+    if (
+      !this.isAgentMonitorWorkActive() ||
+      this.monitorMode !== "agent_monitor" ||
+      (!this.options.jev && !this.options.evaluationQueue)
+    ) {
+      return;
+    }
+    if (this.agentMonitorTimer) clearTimeout(this.agentMonitorTimer);
+    const intervalMs = this.attentionSettings.agentMonitorIntervalSeconds * 1_000;
+    this.agentMonitorTimer = setTimeout(() => {
+      this.agentMonitorTimer = null;
+      if (
+        this.disposed ||
+        !this.isAgentMonitorWorkActive() ||
+        this.monitorMode !== "agent_monitor"
+      ) {
+        return;
+      }
+      const durationMs =
+        this.commandStartedAt === null
+          ? undefined
+          : Math.max(0, Date.now() - this.commandStartedAt);
+      const outputChanged = this.outputTail !== this.lastAgentMonitorOutput;
+      const statusHints = runningStatusHints(this.outputTail).filter(
+        (hint) => hint !== "output_changed",
+      );
+      statusHints.push("agent_monitor", outputChanged ? "output_changed" : "no_new_output");
+      const context: JevEvaluationContext = {
+        ...(this.currentCommand === null ? {} : { command: this.currentCommand }),
+        ...(this.currentCwd === undefined ? {} : { cwd: this.currentCwd }),
+        ...(this.foregroundProcess === undefined
+          ? {}
+          : { foregroundProcess: this.foregroundProcess }),
+        ...(this.processTree.length === 0 ? {} : { processTree: this.processTree }),
+        ...(durationMs === undefined ? {} : { durationMs }),
+        background: !this.active,
+        output: this.outputTail,
+        statusHints,
+      };
+      this.lastAgentMonitorOutput = this.outputTail;
+      this.scheduleJevEvaluation(context, true);
+      this.scheduleAgentMonitorEvaluation();
+    }, intervalMs);
+  }
+
   private detectIncidentFromOutput(): DetectedIncident | null {
     const tail = this.outputTail.trimEnd();
     if (ERROR_OUTPUT_PATTERNS.some((pattern) => pattern.test(tail))) {
@@ -492,6 +664,19 @@ export class AttentionRouter {
       return { attentionLevel: 2, reason: "warning_output" };
     }
     return null;
+  }
+
+  private isAgentMonitorWorkActive(): boolean {
+    return this.commandRunning || (!this.promptVisible && this.hasKnownAgentProcess());
+  }
+
+  private hasKnownAgentProcess(): boolean {
+    if (this.agentCliDetected) return true;
+    return [this.foregroundProcess, ...this.processTree].some((processName) => {
+      if (!processName) return false;
+      const leafName = processName.trim().split(/[\\/]/u).at(-1)?.toLowerCase();
+      return leafName !== undefined && AGENT_PROCESS_NAMES.has(leafName);
+    });
   }
 
   private raiseIncident(
@@ -515,13 +700,19 @@ export class AttentionRouter {
     this.cancelHeuristicEvaluation();
     if (this.continuousEvaluationTimer) clearTimeout(this.continuousEvaluationTimer);
     this.continuousEvaluationTimer = null;
+    if (this.agentMonitorTimer) clearTimeout(this.agentMonitorTimer);
+    this.agentMonitorTimer = null;
     this.evaluationRevision += 1;
     this.options.evaluationQueue?.cancelTerminal(this.sessionId);
   }
 
   private acknowledge(): void {
     this.evaluationRevision += 1;
-    if (!["completed", "failed", "waiting_input", "warning"].includes(this.state.status)) return;
+    if (
+      !["completed", "failed", "waiting", "waiting_input", "warning"].includes(this.state.status)
+    ) {
+      return;
+    }
     this.detectedIncident = null;
     this.outputTail = "";
     this.transition("idle", 0, false, this.state.source);

@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
+  Sparkles,
   TriangleAlert,
   TerminalSquare,
 } from "lucide-react";
@@ -42,7 +43,19 @@ function resolveTerminalTheme() {
 }
 
 function attentionLabel(state: TerminalAttentionState | null): string | null {
-  if (!state || state.attentionLevel === 0) return null;
+  if (!state) return null;
+  if (state.monitorMode === "agent_monitor" && state.attentionLevel === 0) {
+    if (state.status === "running") return "◉ Running";
+    if (
+      state.status === "thinking" &&
+      (state.source === "jev" || state.reason === "agent_activity")
+    ) {
+      return "◌ Thinking";
+    }
+    if (state.source === "jev" && state.status === "waiting") return "◷ Waiting";
+    if (state.source === "jev" && state.status === "completed") return "✓ Completed";
+  }
+  if (state.attentionLevel === 0) return null;
   if (state.reason === "long_running_completed") return "✓ Long command completed";
   if (state.reason === "error_output") return "✕ Error output";
   if (state.reason === "warning_output") return "⚠ Warning";
@@ -76,6 +89,7 @@ function attentionNotificationBody(state: TerminalAttentionState): string {
 
 const monitorModeLabels: Record<TerminalMonitorMode, string> = {
   monitor: "Monitor",
+  agent_monitor: "Agent Monitor",
   ignore: "Ignore",
   mute: "Mute",
   always_notify: "Always Notify",
@@ -84,6 +98,7 @@ const monitorModeLabels: Record<TerminalMonitorMode, string> = {
 
 const monitorModeTriggerLabels: Record<TerminalMonitorMode, string> = {
   monitor: "Monitor",
+  agent_monitor: "Agent Monitor",
   ignore: "Ignore",
   mute: "Mute",
   always_notify: "Always Notify",
@@ -96,6 +111,12 @@ const monitorModeOptions = [
     label: "Monitor",
     description: "Show attention at your chosen threshold",
     Icon: Eye,
+  },
+  {
+    value: "agent_monitor",
+    label: "Agent Monitor",
+    description: "Use configured Jev to check agent state periodically",
+    Icon: Sparkles,
   },
   {
     value: "ignore",
@@ -579,6 +600,7 @@ export function TerminalPanel({
   }, [theme]);
 
   const attentionText = attentionLabel(attention);
+  const informationalAgentStatus = Boolean(attention && attention.attentionLevel === 0);
 
   return (
     <section className="flex h-full min-h-0 flex-col bg-terminal text-foreground">
@@ -617,14 +639,20 @@ export function TerminalPanel({
         >
           {attentionText && (
             <span
-              aria-label={`${attentionLevelLabel(attention?.attentionLevel ?? 1)} attention: ${attentionText}`}
+              aria-label={
+                informationalAgentStatus
+                  ? attentionText
+                  : `${attentionLevelLabel(attention?.attentionLevel ?? 1)} attention: ${attentionText}`
+              }
               aria-live="polite"
-              className={`min-w-0 max-w-[calc(100%-8.5rem)] flex-1 truncate rounded-full px-2 py-0.5 font-medium ${attentionLevelClass(attention?.attentionLevel ?? 1)}`}
+              className={`min-w-0 max-w-[calc(100%-8.5rem)] flex-1 truncate rounded-full px-2 py-0.5 font-medium ${informationalAgentStatus ? "bg-foreground/5 text-foreground-subtle" : attentionLevelClass(attention?.attentionLevel ?? 1)}`}
               data-attention-level={attention?.attentionLevel}
               role="status"
               title={attentionText}
             >
-              {attentionLevelLabel(attention?.attentionLevel ?? 1)} · {attentionText}
+              {informationalAgentStatus
+                ? attentionText
+                : `${attentionLevelLabel(attention?.attentionLevel ?? 1)} · ${attentionText}`}
             </span>
           )}
           <TerminalMonitorPicker

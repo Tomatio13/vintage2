@@ -97,7 +97,7 @@ pnpm start
 
 [TypeSafe JavaScript SDK](https://docs.typesafe.ai/sdk/javascript)を使い、ローカル規則だけでは意味が確定しないTerminalの出力をJevへ判定させられます。foreground/backgroundの両方を監視し、Paneの状態は判定コンテキストとして使います。Agent固有Hookやツール別Analyzerは使用しません。
 
-Jevはコマンドの成否だけでなく、出力やプロセス状態から「正常完了」「失敗・ブロック」「入力・承認待ち」「確認すべき警告」「通常実行中」のどれに当たるかを判定します。さらに注意度（0〜4）、ユーザーの対応が必要か、監視を続けるべきかも評価し、Attentionの表示や通知に反映します。不明瞭な場合は無理に確定せず、ローカル判定を優先します。
+Jevは現在のAgent Turnについて、失敗・入力要求・ターン終了・警告・実行中の処理・Agentの作業・外部待ちを個別に評価します。アプリ側で優先順位を適用し、「正常完了」「失敗・ブロック」「入力・承認待ち」「外部処理待ち」「確認すべき警告」「Agentの思考・作業中」「通常実行中」「不明」の状態に決めます。Agent CLIのプロセスが生きたまま通常の次回入力プロンプトに戻っていればCompletedです。出力更新だけではThinkingとせず、最後の出力内容からターンが終了したかを判定します。さらに注意度（0〜4）、ユーザーの対応が必要か、監視を続けるべきかも評価し、Attentionの表示や通知に反映します。不明瞭な場合は無理に確定せず、ローカル判定を優先します。
 
 APIキーはSettingsのIntegrationsから保存できます。キーはElectron MainでOSのcredential storageを使って暗号化し、Rendererへ読み戻しません。保存後は再起動せず、開いているTerminalにも反映されます。安全なcredential backendが利用できない環境では保存を拒否し、TYPESAFE_API_KEY環境変数を引き続き利用できます。保存済みキーは環境変数より優先されます。
 
@@ -111,7 +111,20 @@ APIキーはSettingsのIntegrationsから保存できます。キーはElectron 
 
 各Terminal上部のメニューから監視モードを切り替えられます。`Monitor`は通常監視、`Ignore`はAttention判定を抑止、`Mute`は検知とアプリ内表示を続けてOS通知のみ抑止、`Always Notify`はAttention thresholdとアプリ非アクティブ条件を無視してOS通知、`Ignore until error`は通常の完了・警告を抑止して失敗終了または明確なエラー出力を表示します。OS通知全体がSettingsのIntegrationsで無効なら、`Always Notify`でもOS通知は出ません。
 
+| モード          | Jevの評価タイミング                                                                                                                                          | Attentionと通知                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `Monitor`       | 出力のdebounce後やコマンド終了時に候補を評価します。出力が変わった場合は最短5秒間隔で再評価し、Jevが監視継続を返した場合は実行中に15秒後の再評価を行います。 | Attention thresholdと通知thresholdに従います。                                                      |
+| `Mute`          | `Monitor`と同じです。                                                                                                                                        | アプリ内のAttentionを表示し、OS通知を抑止します。                                                   |
+| `Always Notify` | `Monitor`と同じです。                                                                                                                                        | thresholdとアプリの非アクティブ状態にかかわらず通知します。OS通知全体が無効の場合は通知されません。 |
+| `Agent Monitor` | Agent作業中に設定周期で評価します。既定10秒、Settingsから5〜300秒に変更できます。                                                                            | 出力中はThinkingを表示し、JevがCompleted、Waiting inputなどの状態を判定します。                     |
+| `Errors Only`   | Jevは呼びません。                                                                                                                                            | ローカルで終了コードと明確なエラー出力を検知します。通常の完了や警告は抑止します。                  |
+| `Ignore`        | Jevは呼びません。                                                                                                                                            | TerminalのAttentionを抑止します。                                                                   |
+
+`Monitor`、`Mute`、`Always Notify`はJevの評価タイミングを共有し、表示と通知の扱いが異なります。通常モードでは静かな状態を定期評価しません。定期的な状態評価を行うのは`Agent Monitor`です。
+
 SettingsのAttentionから、出力debounce（100〜5,000 ms）、Attention threshold、デスクトップ通知thresholdを変更できます。変更は保存後すぐに実行中のTerminalにも反映されます。既定値は800 ms、LOW以上、HIGH以上です。
+
+Terminal上部の監視モードで`Agent Monitor`を選ぶと、ログが流れている間はThinkingを表示し、Jevも設定した周期で状態を判定します。Agent CLIが次の依頼を受け付けるプロンプトに戻った場合は、そのターンをCompletedとします。作業途中で具体的な質問や承認を求めている場合だけWaiting inputとし、出力停止中は外部処理待ちなども判定します。複数Terminalはそれぞれ独立した状態と評価キューで監視します。Codex・Claude Code・OpenCodeはシェルの開始イベントが取れない場合もプロセス監視から検出します。SettingsのAttentionで監視周期（5〜300秒、既定10秒）を設定できます。Jevを設定していない場合もログ流入中はThinkingを表示しますが、周期的な状態判定は行いません。
 
 アプリ設定とTerminalモードはElectronのuserData内の`attention-settings.json`に保存されます。Terminalモードの照合にはワークスペースの場所・タブ名・Terminal名から作成したハッシュのみを保存し、プロジェクトのパスやTerminal出力はこの設定ファイルへ記録しません。現在ワークスペース／タブ／ペイン構成自体は再起動後に復元されないため、Terminalモードの復元には同じワークスペースとタブ／Terminal名でTerminalを開き直す必要があります。
 
