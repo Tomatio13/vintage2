@@ -23,6 +23,9 @@ describe("FileViewer", () => {
         <FileViewer workspaceId="workspace" path="docs/notes.md" onClose={() => {}} />
       </div>,
     );
+    expect(screen.getByText("notes.md").parentElement?.querySelector("svg")).toHaveClass(
+      "text-foreground",
+    );
     await waitFor(() =>
       expect(screen.getByTestId("file-viewer-scroll")).toHaveClass("overflow-y-scroll"),
     );

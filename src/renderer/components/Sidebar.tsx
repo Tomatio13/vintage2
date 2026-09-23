@@ -1,91 +1,345 @@
-import { ChevronRight, FolderOpen, Plus, Settings, TerminalSquare } from "lucide-react";
+import {
+  Check,
+  CircleAlert,
+  FolderOpen,
+  Home,
+  OctagonAlert,
+  Plus,
+  Settings,
+  TriangleAlert,
+  X,
+} from "lucide-react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+
+import type {
+  TerminalAttentionReason,
+  TerminalAttentionState,
+  TerminalAttentionStatus,
+} from "../../shared/desktop.js";
 import { Button } from "./Button.js";
 
 export interface SidebarWorkspace {
   id: string;
   name: string;
+  kind?: "home" | "project";
   tabs: Array<{ id: string; title: string; panes: Array<unknown> }>;
   activeTabId: string;
 }
 
+export interface SidebarAttentionItem {
+  paneId: string;
+  sessionId: string;
+  paneTitle: string;
+  tabId: string;
+  tabTitle: string;
+  workspaceId: string;
+  workspaceName: string;
+  status: TerminalAttentionStatus;
+  source: TerminalAttentionState["source"];
+  attentionLevel: 1 | 2 | 3 | 4;
+  reason?: TerminalAttentionReason;
+  durationMs?: number;
+  judgmentConfidence?: number;
+  judgmentModel?: string;
+  lastActivityAt: number;
+}
+
+export interface SidebarAttentionHistoryItem extends SidebarAttentionItem {
+  id: string;
+  outcome: "active" | "resolved" | "dismissed" | "closed";
+  completedAt?: number;
+}
+
+function attentionLabel(item: SidebarAttentionItem): string {
+  if (item.reason === "long_running_completed") {
+    return "Long command completed";
+  }
+  if (item.reason === "error_output") {
+    return "Error output detected";
+  }
+  if (item.reason === "warning_output") {
+    return "Warning detected";
+  }
+  if (item.status === "completed") return "Completed";
+  if (item.status === "waiting_input") return "Input needed";
+  if (item.status === "warning") return "Warning";
+  return "Failed";
+}
+
+function attentionLevelLabel(level: SidebarAttentionItem["attentionLevel"]): string {
+  return ["", "LOW", "MEDIUM", "HIGH", "CRITICAL"][level]!;
+}
+
+function attentionLevelClass(level: SidebarAttentionItem["attentionLevel"]): string {
+  if (level === 1 || level === 2) return "bg-foreground/10 text-foreground";
+  if (level === 3) return "bg-destructive/15 text-destructive";
+  return "bg-destructive/20 text-destructive ring-1 ring-destructive/50";
+}
+
+function AttentionLevelIcon({ level }: { level: SidebarAttentionItem["attentionLevel"] }) {
+  if (level === 1) return <Check aria-hidden="true" className="size-4" />;
+  if (level === 2) return <TriangleAlert aria-hidden="true" className="size-4" />;
+  if (level === 3) return <CircleAlert aria-hidden="true" className="size-4" />;
+  return <OctagonAlert aria-hidden="true" className="size-4" />;
+}
+
+function focusAttentionByKey(event: ReactKeyboardEvent<HTMLButtonElement>): void {
+  let offset = 0;
+  if (event.key === "ArrowDown") offset = 1;
+  else if (event.key === "ArrowUp") offset = -1;
+  else if (event.key !== "Home" && event.key !== "End") return;
+  event.preventDefault();
+  const list = event.currentTarget.closest<HTMLElement>("[data-attention-list]");
+  const items = [...(list?.querySelectorAll<HTMLButtonElement>("[data-attention-item]") ?? [])];
+  if (items.length < 2) return;
+  const index = items.indexOf(event.currentTarget);
+  const target = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : index + offset;
+  items[(target + items.length) % items.length]?.focus();
+}
+
+function relativeTime(timestamp: number, now = Date.now()): string {
+  const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
+  if (seconds < 5) return "now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ago`;
+}
+
 export function Sidebar({
   workspaces,
+  attentionItems,
+  attentionHistory,
   activeWorkspaceId,
   onOpenWorkspace,
-  onNewTerminal,
+  onNewSpace,
   onSelectWorkspace,
   onSelectTab,
+  onSelectAttention,
+  onDismissAttention,
   onOpenSettings,
 }: {
   workspaces: SidebarWorkspace[];
+  attentionItems: SidebarAttentionItem[];
+  attentionHistory: SidebarAttentionHistoryItem[];
   activeWorkspaceId: string | null;
   onOpenWorkspace(): void;
-  onNewTerminal(): void;
+  onNewSpace(): void;
   onSelectWorkspace(workspaceId: string): void;
   onSelectTab(workspaceId: string, tabId: string): void;
+  onSelectAttention(item: SidebarAttentionItem): void;
+  onDismissAttention(item: SidebarAttentionItem): void;
   onOpenSettings(): void;
 }) {
+  const attentionCountByWorkspace = new Map<string, number>();
+  for (const item of attentionItems) {
+    attentionCountByWorkspace.set(
+      item.workspaceId,
+      (attentionCountByWorkspace.get(item.workspaceId) ?? 0) + 1,
+    );
+  }
+
+  const renderWorkspace = (workspace: SidebarWorkspace) => {
+    const active = workspace.id === activeWorkspaceId;
+    const attentionCount = attentionCountByWorkspace.get(workspace.id) ?? 0;
+    return (
+      <section className="mb-2" key={workspace.id}>
+        <button
+          aria-pressed={active}
+          className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-ui-sm ${active ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
+          onClick={() => onSelectWorkspace(workspace.id)}
+        >
+          {workspace.kind === "home" ? (
+            <Home className="size-4 shrink-0 text-foreground" />
+          ) : (
+            <FolderOpen className="size-4 shrink-0 text-foreground" />
+          )}
+          <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
+          {attentionCount > 0 && (
+            <span
+              aria-label={`${attentionCount} items need attention`}
+              className="rounded-full bg-destructive/15 px-1.5 font-mono text-ui-xs text-destructive"
+            >
+              {attentionCount}
+            </span>
+          )}
+        </button>
+        <div className="ml-3 mt-1 border-l border-border pl-2">
+          {workspace.tabs.map((tab) => {
+            const selected = active && tab.id === workspace.activeTabId;
+            return (
+              <button
+                aria-pressed={selected}
+                className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-ui-sm ${selected ? "bg-hover text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
+                key={tab.id}
+                onClick={() => onSelectTab(workspace.id, tab.id)}
+              >
+                <span className="size-1.5 rounded-full bg-foreground" />
+                <span className="min-w-0 flex-1 truncate">{tab.title}</span>
+                <span className="font-mono text-ui-xs text-foreground-subtlest">
+                  {tab.panes.length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    );
+  };
+  const localWorkspaces = workspaces.filter((workspace) => workspace.kind === "home");
+  const projectWorkspaces = workspaces.filter((workspace) => workspace.kind !== "home");
+
   return (
     <aside className="flex h-full min-w-0 flex-col bg-sidebar">
-      <header className="window-drag flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
-        <span className="text-ui-xs font-medium tracking-[0.14em] text-foreground-subtlest">
-          WORKSPACE
-        </span>
-        <Button aria-label="Open workspace" size="icon" variant="ghost" onClick={onOpenWorkspace}>
-          <Plus />
+      <header className="window-drag flex h-12 shrink-0 items-center justify-between px-3">
+        <span className="text-ui-sm font-semibold text-foreground-subtle">Workspace</span>
+        <Button
+          aria-label="Open workspace"
+          className="size-7 rounded-lg px-0"
+          size="icon"
+          variant="ghost"
+          onClick={onOpenWorkspace}
+        >
+          <Plus aria-hidden="true" className="size-4 text-foreground" />
         </Button>
       </header>
-      <div className="space-y-1 border-b border-border p-2">
-        <Button className="w-full justify-start" variant="outline" onClick={onNewTerminal}>
-          <TerminalSquare />
-          New terminal
+      <div className="space-y-1 px-2 py-3">
+        <Button className="w-full justify-start" variant="ghost" onClick={onNewSpace}>
+          <Plus aria-hidden="true" className="size-4 text-foreground" />
+          New space
         </Button>
         <Button className="w-full justify-start" variant="ghost" onClick={onOpenWorkspace}>
-          <FolderOpen />
+          <FolderOpen aria-hidden="true" className="size-4 text-foreground" />
           Open folder
         </Button>
       </div>
-      <div className="px-3 pb-1 pt-4 text-ui-xs font-medium tracking-[0.14em] text-foreground-subtlest">
-        PROJECTS
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {workspaces.length === 0 ? (
-          <p className="p-2 text-ui-sm text-foreground-subtle">Open a project folder to begin.</p>
-        ) : (
-          workspaces.map((workspace) => {
-            const active = workspace.id === activeWorkspaceId;
-            return (
-              <section className="mb-2" key={workspace.id}>
-                <button
-                  className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-ui-sm ${active ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
-                  onClick={() => onSelectWorkspace(workspace.id)}
-                >
-                  <ChevronRight
-                    className={`size-3.5 shrink-0 transition-transform ${active ? "rotate-90" : ""}`}
-                  />
-                  <FolderOpen className="size-4 shrink-0 text-brand" />
-                  <span className="truncate">{workspace.name}</span>
-                </button>
-                {active && (
-                  <div className="ml-3 mt-1 border-l border-border pl-2">
-                    {workspace.tabs.map((tab) => (
-                      <button
-                        className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-ui-sm ${tab.id === workspace.activeTabId ? "bg-hover text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
-                        key={tab.id}
-                        onClick={() => onSelectTab(workspace.id, tab.id)}
-                      >
-                        <span className="size-1.5 rounded-full bg-brand" />
-                        <span className="min-w-0 flex-1 truncate">{tab.title}</span>
-                        <span className="font-mono text-ui-xs text-foreground-subtlest">
-                          {tab.panes.length}
+
+      {attentionItems.length > 0 && (
+        <section className="shrink-0 border-b border-border px-2 pb-2 pt-3">
+          <div className="flex items-center justify-between px-1 pb-1.5">
+            <span className="text-ui-sm font-medium text-foreground-subtle">Attention</span>
+            <span className="rounded-full bg-destructive/15 px-1.5 font-mono text-ui-xs text-destructive">
+              {attentionItems.length}
+            </span>
+          </div>
+          <div className="max-h-52 space-y-1 overflow-y-auto" data-attention-list>
+            {attentionItems.map((item) => {
+              const label = attentionLabel(item);
+              const level = attentionLevelLabel(item.attentionLevel);
+              const confidence =
+                item.source === "jev" && item.judgmentConfidence !== undefined
+                  ? ` · ${Math.round(item.judgmentConfidence * 100)}% confidence`
+                  : "";
+              return (
+                <div className="group flex items-stretch gap-1" key={item.paneId}>
+                  <button
+                    aria-label={`${level} ${item.paneTitle}: ${label}`}
+                    className="flex min-w-0 flex-1 items-start gap-2 rounded-md px-2 py-2 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+                    data-attention-item
+                    onClick={() => onSelectAttention(item)}
+                    onKeyDown={focusAttentionByKey}
+                  >
+                    <span
+                      className={`mt-0.5 flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-ui-xs font-semibold ${attentionLevelClass(item.attentionLevel)}`}
+                    >
+                      <AttentionLevelIcon level={item.attentionLevel} />
+                      {level}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="min-w-0 flex-1 truncate text-ui-sm font-medium text-foreground">
+                          {item.paneTitle}
                         </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </section>
-            );
-          })
+                        <time
+                          className="shrink-0 font-mono text-ui-xs text-foreground-subtlest"
+                          dateTime={new Date(item.lastActivityAt).toISOString()}
+                        >
+                          {relativeTime(item.lastActivityAt)}
+                        </time>
+                      </span>
+                      <span className="block text-ui-xs text-foreground-subtle">{label}</span>
+                      <span className="block truncate text-ui-xs text-foreground-subtlest">
+                        {item.workspaceName} · {item.tabTitle}
+                      </span>
+                      <span className="block truncate text-ui-xs text-foreground-subtlest">
+                        Source: {item.source.toUpperCase()}
+                        {confidence}
+                        {item.judgmentModel ? ` · ${item.judgmentModel}` : ""}
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    aria-label={`Dismiss ${item.paneTitle} attention`}
+                    className="grid w-8 shrink-0 place-items-center rounded-md text-foreground opacity-60 hover:bg-hover hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+                    title="Dismiss attention"
+                    onClick={() => onDismissAttention(item)}
+                  >
+                    <X aria-hidden="true" className="size-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {attentionHistory.length > 0 && (
+        <details className="shrink-0 border-b border-border px-3 py-2">
+          <summary className="cursor-pointer list-none text-ui-sm font-medium text-foreground-subtle focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand">
+            Attention history · {attentionHistory.length}
+          </summary>
+          <div className="mt-2 max-h-44 space-y-1 overflow-y-auto" data-attention-list>
+            {attentionHistory.map((item) => (
+              <button
+                aria-label={`${attentionLevelLabel(item.attentionLevel)} ${item.paneTitle}: ${attentionLabel(item)} (${item.outcome})`}
+                className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+                data-attention-item
+                key={item.id}
+                onClick={() => onSelectAttention(item)}
+                onKeyDown={focusAttentionByKey}
+              >
+                <span
+                  className={`mt-0.5 flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-ui-xs font-semibold ${attentionLevelClass(item.attentionLevel)}`}
+                >
+                  <AttentionLevelIcon level={item.attentionLevel} />
+                  {attentionLevelLabel(item.attentionLevel)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-ui-sm font-medium text-foreground">
+                    {item.paneTitle} · {attentionLabel(item)}
+                  </span>
+                  <span className="block text-ui-xs text-foreground-subtlest">
+                    {item.outcome} · {item.source.toUpperCase()}
+                    {item.judgmentConfidence === undefined
+                      ? ""
+                      : ` · ${Math.round(item.judgmentConfidence * 100)}% confidence`}
+                  </span>
+                  <time
+                    className="block text-ui-xs text-foreground-subtlest"
+                    dateTime={new Date(item.completedAt ?? item.lastActivityAt).toISOString()}
+                  >
+                    {relativeTime(item.completedAt ?? item.lastActivityAt)}
+                  </time>
+                </span>
+              </button>
+            ))}
+          </div>
+        </details>
+      )}
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+        {localWorkspaces.length > 0 && (
+          <>
+            <div className="px-1 pb-1 pt-4 text-ui-base font-semibold text-foreground">Local</div>
+            {localWorkspaces.map(renderWorkspace)}
+          </>
+        )}
+        <div className="px-1 pb-1 pt-4 text-ui-base font-semibold text-foreground">Projects</div>
+        {projectWorkspaces.length === 0 ? (
+          <p className="px-1 py-2 text-ui-base text-foreground-subtle">No open projects.</p>
+        ) : (
+          projectWorkspaces.map(renderWorkspace)
         )}
       </div>
       <footer className="flex h-16 shrink-0 items-center justify-between border-t border-border px-3 text-ui-sm text-foreground-subtle">
@@ -93,8 +347,14 @@ export function Sidebar({
           <img alt="" aria-hidden="true" className="size-[18px]" src="./favicon.svg" />
           VINTAGE
         </span>
-        <Button aria-label="Open settings" size="icon" variant="ghost" onClick={onOpenSettings}>
-          <Settings />
+        <Button
+          aria-label="Open settings"
+          className="size-7 rounded-lg px-0"
+          size="icon"
+          variant="ghost"
+          onClick={onOpenSettings}
+        >
+          <Settings aria-hidden="true" className="size-4 text-foreground" />
         </Button>
       </footer>
     </aside>

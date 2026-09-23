@@ -8,8 +8,15 @@ import {
   Plus,
   RotateCcw,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
+import {
+  DEFAULT_ATTENTION_SETTINGS,
+  type AttentionLevel,
+  type AttentionSettings,
+  type JevSettingsStatus,
+} from "../../shared/desktop.js";
+import { normalizeBrowserUrl } from "../lib/browserUrl.js";
 import { Button } from "./Button.js";
 import {
   defaultShortcuts,
@@ -23,6 +30,8 @@ import {
 const sections: Array<{ id: SettingsSection; label: string }> = [
   { id: "appearance", label: "Appearance" },
   { id: "terminal", label: "Terminal" },
+  { id: "browser", label: "Browser" },
+  { id: "attention", label: "Attention" },
   { id: "shortcuts", label: "Shortcuts" },
   { id: "integrations", label: "Integrations" },
   { id: "updates", label: "Updates" },
@@ -34,18 +43,18 @@ const themes: Array<{ id: Theme; label: string; description: string }> = [
   { id: "graphite", label: "Graphite", description: "A neutral charcoal workspace" },
 ];
 const shortcutGroups: Array<[string, ShortcutAction[]]> = [
-  ["Tabs", ["previous-tab", "next-tab", "new-terminal"]],
+  ["Spaces", ["previous-tab", "next-tab", "new-terminal"]],
   ["Panes", ["previous-pane", "next-pane", "split-right", "split-down", "close-pane"]],
   ["Workspaces", ["previous-workspace", "next-workspace", "toggle-sidebar"]],
 ];
 const shortcutLabels: Record<ShortcutAction, string> = {
-  "previous-tab": "Previous tab",
-  "next-tab": "Next tab",
+  "previous-tab": "Previous space",
+  "next-tab": "Next space",
   "previous-pane": "Previous pane",
   "next-pane": "Next pane",
   "previous-workspace": "Previous workspace",
   "next-workspace": "Next workspace",
-  "new-terminal": "New terminal",
+  "new-terminal": "New space",
   "split-right": "Split right",
   "split-down": "Split down",
   "toggle-sidebar": "Toggle sidebar",
@@ -221,7 +230,8 @@ export function SettingsDialog() {
       terminalFontFamily: store.terminalFontFamily,
       scrollback: store.scrollback,
       shell: store.shell,
-      hookNotifications: store.hookNotifications,
+      browserDefaultUrl: store.browserDefaultUrl,
+      desktopNotifications: store.desktopNotifications,
       shortcuts: store.shortcuts,
     }),
     [
@@ -231,7 +241,8 @@ export function SettingsDialog() {
       store.terminalFontFamily,
       store.scrollback,
       store.shell,
-      store.hookNotifications,
+      store.browserDefaultUrl,
+      store.desktopNotifications,
       store.shortcuts,
     ],
   );
@@ -239,9 +250,109 @@ export function SettingsDialog() {
   const [section, setSection] = useState<SettingsSection>("appearance");
   const [recording, setRecording] = useState<ShortcutAction | null>(null);
   const [shortcutError, setShortcutError] = useState<string | null>(null);
+  const [browserUrlError, setBrowserUrlError] = useState<string | null>(null);
+  const [jevApiKey, setJevApiKey] = useState("");
+  const [jevStatus, setJevStatus] = useState<JevSettingsStatus | null>(null);
+  const [jevBusy, setJevBusy] = useState(false);
+  const [jevMessage, setJevMessage] = useState<string | null>(null);
+  const [attentionDraft, setAttentionDraft] = useState<AttentionSettings>({
+    ...DEFAULT_ATTENTION_SETTINGS,
+  });
+  const [attentionSaved, setAttentionSaved] = useState<AttentionSettings>({
+    ...DEFAULT_ATTENTION_SETTINGS,
+  });
+  const [attentionLoading, setAttentionLoading] = useState(false);
+  const [attentionMessage, setAttentionMessage] = useState<string | null>(null);
+  const save = useCallback(
+    async (closeAfterSave = true) => {
+      if (attentionLoading) return;
+      setAttentionMessage(null);
+      let browserDefaultUrl: string;
+      try {
+        browserDefaultUrl = normalizeBrowserUrl(draft.browserDefaultUrl);
+      } catch (error) {
+        setBrowserUrlError(error instanceof Error ? error.message : String(error));
+        setSection("browser");
+        return;
+      }
+      setBrowserUrlError(null);
+      const normalizedDraft = { ...draft, browserDefaultUrl };
+      try {
+        const setAttentionSettings = window.desktop?.setAttentionSettings;
+        const savedAttention = setAttentionSettings
+          ? await setAttentionSettings(attentionDraft)
+          : attentionDraft;
+        setAttentionDraft(savedAttention);
+        setAttentionSaved(savedAttention);
+        store.saveSettings(normalizedDraft);
+        setDraft(normalizedDraft);
+        if (closeAfterSave) store.setSettingsOpen(false);
+      } catch (error) {
+        setAttentionMessage(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [attentionDraft, attentionLoading, draft, store],
+  );
   useEffect(() => {
-    if (store.settingsOpen) setDraft(saved);
+    if (store.settingsOpen) {
+      setDraft(saved);
+      setBrowserUrlError(null);
+    }
   }, [store.settingsOpen, saved]);
+  useEffect(() => {
+    if (!store.settingsOpen) return;
+    let cancelled = false;
+    setAttentionLoading(true);
+    setAttentionMessage(null);
+    const getAttentionSettings = window.desktop?.getAttentionSettings;
+    if (!getAttentionSettings) {
+      setAttentionDraft({ ...DEFAULT_ATTENTION_SETTINGS });
+      setAttentionSaved({ ...DEFAULT_ATTENTION_SETTINGS });
+      setAttentionLoading(false);
+      return;
+    }
+    void getAttentionSettings()
+      .then((settings) => {
+        if (cancelled) return;
+        setAttentionDraft(settings);
+        setAttentionSaved(settings);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setAttentionMessage(error instanceof Error ? error.message : String(error));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAttentionLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store.settingsOpen]);
+  useEffect(() => {
+    if (!store.settingsOpen) return;
+    let cancelled = false;
+    setJevApiKey("");
+    setJevMessage(null);
+    const bridge = window.desktop;
+    if (!bridge) {
+      setJevStatus(null);
+      return;
+    }
+    void bridge
+      .getJevSettings()
+      .then((status) => {
+        if (!cancelled) setJevStatus(status);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setJevMessage(error instanceof Error ? error.message : String(error));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store.settingsOpen]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!store.settingsOpen) return;
@@ -287,25 +398,64 @@ export function SettingsDialog() {
       }
       if (event.ctrlKey && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        store.saveSettings(draft);
+        void save(false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [draft, recording, store]);
+  }, [draft.shortcuts, recording, save, store]);
   if (!store.settingsOpen) return null;
-  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
-  const change = (patch: Partial<VintageSettings>) =>
+  const dirty =
+    JSON.stringify(draft) !== JSON.stringify(saved) ||
+    JSON.stringify(attentionDraft) !== JSON.stringify(attentionSaved);
+  const change = (patch: Partial<VintageSettings>) => {
+    if (patch.browserDefaultUrl !== undefined) setBrowserUrlError(null);
     setDraft((current) => ({ ...current, ...patch }));
-  const save = () => {
-    store.saveSettings(draft);
-    store.setSettingsOpen(false);
   };
   const discard = () => {
     setDraft(saved);
+    setAttentionDraft(attentionSaved);
     setRecording(null);
     setShortcutError(null);
+    setBrowserUrlError(null);
+    setAttentionMessage(null);
     store.setSettingsOpen(false);
+  };
+  const saveJevApiKey = async () => {
+    const bridge = window.desktop;
+    if (!bridge || !jevApiKey.trim()) return;
+    setJevBusy(true);
+    setJevMessage(null);
+    try {
+      const status = await bridge.setJevApiKey(jevApiKey);
+      setJevStatus(status);
+      setJevApiKey("");
+      setJevMessage("API key saved and activated.");
+    } catch (error) {
+      setJevMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setJevBusy(false);
+    }
+  };
+  const clearJevApiKey = async () => {
+    const bridge = window.desktop;
+    if (!bridge) return;
+    setJevBusy(true);
+    setJevMessage(null);
+    try {
+      const status = await bridge.clearJevApiKey();
+      setJevStatus(status);
+      setJevApiKey("");
+      setJevMessage(
+        status.source === "environment"
+          ? "Saved key removed. The environment variable is still active."
+          : "Saved API key removed.",
+      );
+    } catch (error) {
+      setJevMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setJevBusy(false);
+    }
   };
 
   const content = (() => {
@@ -501,6 +651,133 @@ export function SettingsDialog() {
           </Card>
         </>
       );
+    if (section === "browser")
+      return (
+        <>
+          <div>
+            <h2 className="text-2xl font-semibold">Browser</h2>
+            <p className="mt-1 text-ui-base text-foreground-subtle">
+              Choose the page shown when you open the Browser pane.
+            </p>
+          </div>
+          <Card>
+            <Field
+              label="Default start URL"
+              description="HTTP and HTTPS URLs are supported. Leave empty to open a blank page."
+            >
+              <input
+                aria-label="Default browser URL"
+                autoComplete="url"
+                className="h-9 w-full rounded-md border border-input-border bg-background px-3 text-ui-sm text-foreground outline-none focus:border-brand"
+                inputMode="url"
+                spellCheck={false}
+                type="text"
+                value={draft.browserDefaultUrl}
+                onChange={(event) => change({ browserDefaultUrl: event.target.value })}
+              />
+            </Field>
+            {browserUrlError && (
+              <p className="mt-2 text-ui-sm text-destructive" role="alert">
+                {browserUrlError}
+              </p>
+            )}
+          </Card>
+        </>
+      );
+    if (section === "attention")
+      return (
+        <>
+          <div>
+            <h2 className="text-2xl font-semibold">Attention</h2>
+            <p className="mt-1 text-ui-base text-foreground-subtle">
+              Tune terminal monitoring and when attention should be raised.
+            </p>
+          </div>
+          <Card>
+            <div className="space-y-5">
+              <Field
+                label="Output debounce"
+                description="Wait for output to settle before checking a running terminal."
+              >
+                <label className="flex items-center gap-2 text-ui-sm">
+                  <input
+                    aria-label="Attention debounce"
+                    className="h-9 w-24 rounded-md border border-input-border bg-background px-2 text-right outline-none focus:border-brand"
+                    max={5000}
+                    min={100}
+                    step={100}
+                    type="number"
+                    value={attentionDraft.debounceMs}
+                    onChange={(event) =>
+                      setAttentionDraft((current) => ({
+                        ...current,
+                        debounceMs: Number(event.target.value),
+                      }))
+                    }
+                  />
+                  ms
+                </label>
+              </Field>
+              <div className="border-t border-border pt-5">
+                <Field
+                  label="Attention threshold"
+                  description="Hide lower-priority attention from badges and the Attention list."
+                >
+                  <div className="relative">
+                    <select
+                      aria-label="Attention threshold"
+                      className="h-9 min-w-36 appearance-none rounded-md border border-input-border bg-background px-3 pr-9 text-ui-sm outline-none focus:border-brand"
+                      value={attentionDraft.attentionThreshold}
+                      onChange={(event) =>
+                        setAttentionDraft((current) => ({
+                          ...current,
+                          attentionThreshold: Number(event.target.value) as AttentionLevel,
+                        }))
+                      }
+                    >
+                      <option value={1}>LOW and above</option>
+                      <option value={2}>MEDIUM and above</option>
+                      <option value={3}>HIGH and above</option>
+                      <option value={4}>CRITICAL only</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2 top-2 size-4 text-foreground-subtle" />
+                  </div>
+                </Field>
+              </div>
+              <div className="border-t border-border pt-5">
+                <Field
+                  label="Desktop notification threshold"
+                  description="Native notifications require VINTAGE to be unfocused unless a terminal uses Always Notify."
+                >
+                  <div className="relative">
+                    <select
+                      aria-label="Desktop notification threshold"
+                      className="h-9 min-w-36 appearance-none rounded-md border border-input-border bg-background px-3 pr-9 text-ui-sm outline-none focus:border-brand"
+                      value={attentionDraft.notificationThreshold}
+                      onChange={(event) =>
+                        setAttentionDraft((current) => ({
+                          ...current,
+                          notificationThreshold: Number(event.target.value) as AttentionLevel,
+                        }))
+                      }
+                    >
+                      <option value={1}>LOW and above</option>
+                      <option value={2}>MEDIUM and above</option>
+                      <option value={3}>HIGH and above</option>
+                      <option value={4}>CRITICAL only</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2 top-2 size-4 text-foreground-subtle" />
+                  </div>
+                </Field>
+              </div>
+            </div>
+          </Card>
+          <p className="text-ui-sm text-foreground-subtle">
+            Terminal-specific modes are available in each terminal header. Mute affects native
+            notifications only; terminal input, output, and detection continue normally.
+          </p>
+        </>
+      );
     if (section === "shortcuts")
       return (
         <>
@@ -565,55 +842,104 @@ export function SettingsDialog() {
       return (
         <>
           <div>
-            <h2 className="text-2xl font-semibold">Agent connections</h2>
+            <h2 className="text-2xl font-semibold">Integrations</h2>
             <p className="mt-1 text-ui-base text-foreground-subtle">
-              Manage workspace notifications and supported agent connections.
+              Configure semantic terminal judgment and attention notifications.
             </p>
           </div>
           <Card>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-ui-base font-semibold">TypeSafe / Jev</h3>
+                <p className="mt-1 text-ui-sm text-foreground-subtle">
+                  The key is encrypted by the operating system and is never returned to this page.
+                </p>
+              </div>
+              <span className="rounded-full bg-hover px-2 py-1 text-ui-xs text-foreground-subtle">
+                {jevStatus?.source === "saved"
+                  ? "Saved securely"
+                  : jevStatus?.source === "environment"
+                    ? "Environment variable"
+                    : jevStatus
+                      ? "Not configured"
+                      : "Loading…"}
+              </span>
+            </div>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <input
+                aria-label="TypeSafe API key"
+                autoComplete="off"
+                className="h-10 min-w-0 flex-1 rounded-md border border-input-border bg-background px-3 font-mono text-ui-sm outline-none focus:border-brand"
+                disabled={jevBusy || jevStatus?.secureStorageAvailable === false}
+                onChange={(event) => setJevApiKey(event.target.value)}
+                placeholder={jevStatus?.configured ? "Enter a replacement key" : "Enter API key"}
+                spellCheck={false}
+                type="password"
+                value={jevApiKey}
+              />
+              <Button
+                disabled={
+                  jevBusy || !jevApiKey.trim() || jevStatus?.secureStorageAvailable === false
+                }
+                size="compact"
+                variant="primary"
+                onClick={() => void saveJevApiKey()}
+              >
+                Save API key
+              </Button>
+              {jevStatus?.source === "saved" && (
+                <Button
+                  disabled={jevBusy}
+                  size="compact"
+                  variant="ghost"
+                  onClick={() => void clearJevApiKey()}
+                >
+                  Clear saved key
+                </Button>
+              )}
+            </div>
+            {jevStatus?.secureStorageAvailable === false && (
+              <p className="mt-3 text-ui-sm text-warning">
+                Secure OS credential storage is unavailable. Use TYPESAFE_API_KEY in the environment
+                instead.
+              </p>
+            )}
+            {jevStatus?.storageBackend && (
+              <p className="mt-3 text-ui-xs text-foreground-subtle">
+                Credential backend: {jevStatus.storageBackend}
+              </p>
+            )}
+            {jevMessage && (
+              <p aria-live="polite" className="mt-3 text-ui-sm text-foreground-subtle">
+                {jevMessage}
+              </p>
+            )}
+          </Card>
+          <Card>
             <Field
-              label="Attention notifications"
-              description="Show blocked agent requests in the workspace sidebar, pane, and notification card."
+              label="Desktop notifications"
+              description="Show a native OS notification for high-priority attention while VINTAGE is not focused."
             >
               <div className="flex gap-2">
                 <Choice
-                  active={draft.hookNotifications}
-                  onClick={() => change({ hookNotifications: true })}
+                  active={draft.desktopNotifications}
+                  onClick={() => change({ desktopNotifications: true })}
                 >
                   On
                 </Choice>
                 <Choice
-                  active={!draft.hookNotifications}
-                  onClick={() => change({ hookNotifications: false })}
+                  active={!draft.desktopNotifications}
+                  onClick={() => change({ desktopNotifications: false })}
                 >
                   Off
                 </Choice>
               </div>
             </Field>
           </Card>
-          {[
-            ["Codex", "Cx", "Managed session-start hook"],
-            ["Claude Code", "Cl", "Managed lifecycle hooks"],
-            ["OpenCode", "Op", "Managed lifecycle plugin"],
-          ].map(([name, initials, description]) => (
-            <Card key={name}>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="grid size-11 place-items-center rounded-lg bg-hover text-ui-sm font-semibold">
-                  {initials}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-medium">{name}</h3>
-                  <p className="mt-1 text-ui-sm text-foreground-subtle">{description}</p>
-                  <p className="mt-1 text-ui-sm text-foreground-subtle">
-                    Not available in this Electron edition.
-                  </p>
-                </div>
-                <span className="rounded-full bg-hover px-2 py-1 text-ui-xs text-foreground-subtle">
-                  Unavailable
-                </span>
-              </div>
-            </Card>
-          ))}
+          <p className="text-ui-sm text-foreground-subtle">
+            Sidebar and pane badges remain available regardless of this setting. Agent-specific
+            hooks are not used.
+          </p>
         </>
       );
     return (
@@ -686,13 +1012,22 @@ export function SettingsDialog() {
       <footer className="shrink-0 border-t border-border bg-panel px-5 py-3">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3">
           <span className={`text-ui-sm ${dirty ? "text-brand" : "text-foreground-subtle"}`}>
-            {dirty ? "Unsaved changes" : "All changes saved"}
+            {attentionMessage ??
+              (attentionLoading
+                ? "Loading attention settings…"
+                : dirty
+                  ? "Unsaved changes"
+                  : "All changes saved")}
           </span>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={discard}>
               Discard
             </Button>
-            <Button disabled={!dirty} variant="primary" onClick={save}>
+            <Button
+              disabled={!dirty || attentionLoading}
+              variant="primary"
+              onClick={() => void save()}
+            >
               <Check /> Save changes
             </Button>
           </div>

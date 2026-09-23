@@ -3,8 +3,17 @@ import { persist } from "zustand/middleware";
 
 import type { TerminalShell } from "../../shared/desktop.js";
 
+export const DEFAULT_BROWSER_START_URL = "https://example.com/";
+
 export type Theme = "system" | "light" | "dark" | "graphite";
-export type SettingsSection = "appearance" | "terminal" | "shortcuts" | "integrations" | "updates";
+export type SettingsSection =
+  | "appearance"
+  | "terminal"
+  | "browser"
+  | "attention"
+  | "shortcuts"
+  | "integrations"
+  | "updates";
 export const shortcutActions = [
   "previous-tab",
   "next-tab",
@@ -47,7 +56,8 @@ export interface VintageSettings {
   terminalFontFamily: string;
   scrollback: number;
   shell: TerminalShell;
-  hookNotifications: boolean;
+  browserDefaultUrl: string;
+  desktopNotifications: boolean;
   shortcuts: ShortcutBinding[];
 }
 
@@ -80,7 +90,8 @@ export const useUiStore = create<UiState>()(
       terminalFontFamily: '"Cica", "HackGen", "JetBrains Mono", monospace',
       scrollback: 5000,
       shell: "system",
-      hookNotifications: true,
+      browserDefaultUrl: DEFAULT_BROWSER_START_URL,
+      desktopNotifications: true,
       shortcuts: defaultShortcuts,
       sidebarOpen: true,
       sidePaneOpen: true,
@@ -109,7 +120,8 @@ export const useUiStore = create<UiState>()(
         terminalFontFamily,
         scrollback,
         shell,
-        hookNotifications,
+        browserDefaultUrl,
+        desktopNotifications,
         shortcuts,
         sidebarOpen,
         sidePaneOpen,
@@ -124,7 +136,8 @@ export const useUiStore = create<UiState>()(
         terminalFontFamily,
         scrollback,
         shell,
-        hookNotifications,
+        browserDefaultUrl,
+        desktopNotifications,
         shortcuts,
         sidebarOpen,
         sidePaneOpen,

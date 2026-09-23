@@ -1,21 +1,38 @@
 # VINTAGE
 
-VINTAGE は、複数のターミナルとプロジェクトファイルを一つのウィンドウで扱うための、ローカル完結型デスクトップワークスペースです。
+**必要になったTerminalが、あなたを呼び戻す。**
 
-Electron、React、xterm.js、node-pty を使い、選択したプロジェクトフォルダーを作業ディレクトリとする本物のシェルを起動します。Chrome風のタブ、縦横のペイン分割、ファイルプレビュー、組み込みブラウザーを備えています。
+VINTAGEは、複数CLIと作業文脈をSpaceにまとめるローカルデスクトップアプリです。バックグラウンドTerminalで完了・失敗・入力待ちが起きたら、Attention一覧から対象のSpace・Terminalへ戻れます。
 
-> 現在は開発版です。ワークスペースやタブ構成の永続化、エージェント連携、リリース署名などは未実装です。
+![Space 2で作業中に、別SpaceのTerminal 2で発生した入力待ちをAttention一覧に表示するVINTAGEの画面](assets/readme/vintage-background-attention.png)
+
+_別Spaceで作業していても、入力が必要なTerminalを見失いません。_
+
+### Attentionから、対象のTerminalへ
+
+![Attention一覧からTerminal 2を選び、入力待ちのSpace 1へ移動したVINTAGEの画面](assets/readme/vintage-attention-routing.png)
+
+_Attention項目を選ぶと、対象のSpaceとTerminalへ直接移動します。両画面はVINTAGEの実UIをデモ用セッションで撮影しており、Terminalの出力はサンプルです。_
+
+## 見に行かなくても、必要なTerminalを知らせる
+
+複数のCLIを動かすと、処理中のTerminalを順番に巡回して、完了・失敗・入力待ちを探すことになりがちです。VINTAGEはShell IntegrationとPTY出力を見守り、Agent固有Hookに依存せず、注意が必要な結果を一か所へ集約します。曖昧な出力だけ任意でJevに判定させることもできます。結果はSpaceのBadge、アプリ内通知、Attention履歴に反映され、30秒以上のコマンド完了も強調表示。通知や一覧から該当Terminalへ一操作で戻れます。
+
+Terminalごとに `Monitor`、`Ignore`、`Mute`、`Always Notify`、`Errors Only` を選べるので、常時稼働する開発サーバーと応答待ちのCLIを同じ設定で扱う必要もありません。
+
+> 現在は開発版です。Workspace・Space・Terminal構成の永続化、コード署名、リリース自動配布などは未対応です。
 
 ## 主な機能
 
 - ネイティブのフォルダー選択から複数のワークスペースを登録
 - ワークスペース直下で zsh、bash、fish、またはシステム既定シェルを起動
-- ターミナルタブの追加、切り替え、終了、名前変更
-- 選択中のペインを右または下へ再帰的に分割
+- ワークスペース内にSpace 1/2…を作成し、SpaceごとにTerminal 1/2…を追加・分割
+- SpaceとTerminalの切り替え、終了、名前変更
 - 各ターミナルペインの名前変更と個別終了
 - ファイルツリーからテキストファイルを読み取り専用でプレビュー
 - Markdownの見出し、リスト、コードブロックを簡易表示
-- 分離されたセッションで動作する組み込みブラウザー
+- ターミナル出力の範囲選択を自動コピー
+- 分離されたセッションで動作する組み込みブラウザー。Browserタブは複数、Filesペインは一つ
 - System、Light、Dark、Graphiteの4テーマ
 - UIサイズ、ターミナルフォント、文字サイズ、スクロールバック、シェルを設定
 - キーボードショートカットの再割り当て
@@ -23,11 +40,12 @@ Electron、React、xterm.js、node-pty を使い、選択したプロジェク�
 
 ## 基本操作
 
-1. `Open folder` または `Open workspace` からプロジェクトフォルダーを選びます。
-2. 選んだフォルダーをカレントディレクトリとして、最初のターミナルが開きます。
-3. タブ右側の `+` で新しいターミナルタブを追加します。
-4. 上部の分割ボタンで、選択中のペインを右または下へ分割します。
+1. 起動するとHomeをルートにした `Space 1` と `Terminal 1` が開きます。プロジェクトフォルダーを選ばずに使い始められます。
+2. プロジェクトで作業する場合は `Open folder` から追加します。選んだフォルダーがそのWorkspaceのTerminalの作業ディレクトリになります。
+3. サイドバーの `New space` またはタブ右側の `+` でSpaceを追加します。各Spaceは `Terminal 1` から始まります。
+4. 上部の分割ボタンで、選択中のTerminalを右または下へ分割します（`Terminal 2`、`Terminal 3`…）。
 5. 右ペインの `Files` を開き、ファイルをダブルクリックすると中央領域の右側へプレビューが開きます。
+6. バックグラウンドTerminalで状態が変わると、左側のAttention一覧から対象Paneへ移動できます。
 
 タブ名はタブのタイトルを、ターミナル名はペイン上部のタイトルをダブルクリックすると変更できます。`Enter` またはフォーカス移動で確定し、`Escape` でキャンセルします。
 
@@ -37,13 +55,13 @@ Electron、React、xterm.js、node-pty を使い、選択したプロジェク�
 
 | 操作                   | ショートカット |
 | ---------------------- | -------------- |
-| 前のタブ               | `Ctrl+Shift+←` |
-| 次のタブ               | `Ctrl+Shift+→` |
+| 前のSpace              | `Ctrl+Shift+←` |
+| 次のSpace              | `Ctrl+Shift+→` |
 | 前のペイン             | `Ctrl+Shift+↑` |
 | 次のペイン             | `Ctrl+Shift+↓` |
 | 前のワークスペース     | `Alt+←`        |
 | 次のワークスペース     | `Alt+→`        |
-| 新しいターミナル       | `Ctrl+Shift+N` |
+| 新しいSpace            | `Ctrl+Shift+N` |
 | 右へ分割               | `Ctrl+Shift+D` |
 | 下へ分割               | `Ctrl+Shift+T` |
 | サイドバー表示切り替え | `Ctrl+B`       |
@@ -74,6 +92,28 @@ pnpm dev
 pnpm build
 pnpm start
 ```
+
+## Jev意味判定（任意）
+
+[TypeSafe JavaScript SDK](https://docs.typesafe.ai/sdk/javascript)を使い、ローカル規則だけでは意味が確定しないTerminalの出力をJevへ判定させられます。foreground/backgroundの両方を監視し、Paneの状態は判定コンテキストとして使います。Agent固有Hookやツール別Analyzerは使用しません。
+
+Jevはコマンドの成否だけでなく、出力やプロセス状態から「正常完了」「失敗・ブロック」「入力・承認待ち」「確認すべき警告」「通常実行中」のどれに当たるかを判定します。さらに注意度（0〜4）、ユーザーの対応が必要か、監視を続けるべきかも評価し、Attentionの表示や通知に反映します。不明瞭な場合は無理に確定せず、ローカル判定を優先します。
+
+APIキーはSettingsのIntegrationsから保存できます。キーはElectron MainでOSのcredential storageを使って暗号化し、Rendererへ読み戻しません。保存後は再起動せず、開いているTerminalにも反映されます。安全なcredential backendが利用できない環境では保存を拒否し、TYPESAFE_API_KEY環境変数を引き続き利用できます。保存済みキーは環境変数より優先されます。
+
+ローカルで確定できない正常終了や実行中の出力候補をQueueで評価します。Jevへ送るのは秘密らしい値をマスクしたコマンド、ワークスペース名、終了コード、実行時間、状態ヒント、末尾40行・最大4,000文字の出力だけです。完全なパス、環境変数、Terminalの全scrollbackは送信しません。APIキーはElectron Mainだけが利用し、起動するPTYには渡しません。判定は10秒でタイムアウトし、アプリ全体で毎秒2件・毎分30件を上限とします。Terminal単位のQueue cooldownは1秒、連続出力の評価間隔は最低5秒です。API障害時はTerminal操作を止めずローカル結果を維持します。
+
+動作を診断するときは、VINTAGEを完全に終了してから次のように再起動します。ログには送信本文やAPIキーを出さず、enabled、request、response、applied、skipped理由だけを表示します。
+
+    VINTAGE_JEV_DEBUG=1 pnpm dev
+
+## Attentionの監視設定
+
+各Terminal上部のメニューから監視モードを切り替えられます。`Monitor`は通常監視、`Ignore`はAttention判定を抑止、`Mute`は検知とアプリ内表示を続けてOS通知のみ抑止、`Always Notify`はAttention thresholdとアプリ非アクティブ条件を無視してOS通知、`Ignore until error`は通常の完了・警告を抑止して失敗終了または明確なエラー出力を表示します。OS通知全体がSettingsのIntegrationsで無効なら、`Always Notify`でもOS通知は出ません。
+
+SettingsのAttentionから、出力debounce（100〜5,000 ms）、Attention threshold、デスクトップ通知thresholdを変更できます。変更は保存後すぐに実行中のTerminalにも反映されます。既定値は800 ms、LOW以上、HIGH以上です。
+
+アプリ設定とTerminalモードはElectronのuserData内の`attention-settings.json`に保存されます。Terminalモードの照合にはワークスペースの場所・タブ名・Terminal名から作成したハッシュのみを保存し、プロジェクトのパスやTerminal出力はこの設定ファイルへ記録しません。現在ワークスペース／タブ／ペイン構成自体は再起動後に復元されないため、Terminalモードの復元には同じワークスペースとタブ／Terminal名でTerminalを開き直す必要があります。
 
 ## 検証
 
@@ -130,7 +170,7 @@ Renderer UI
 - `src/shared` — Main、Preload、Renderer間のシリアライズ可能な契約
 - `tests` — コンポーネント、状態制御、URL処理、Electronスモークテスト
 
-詳しい設計は [ARCHITECTURE.md](./ARCHITECTURE.md)、プロダクト上の境界は [SPEC.md](./SPEC.md) を参照してください。
+プロセス境界の詳細は [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) を参照してください。
 
 ## セキュリティ
 
@@ -149,7 +189,7 @@ VINTAGEはエージェントCLIの認証情報を管理しません。Codexな�
 - ワークスペース、タブ、ペイン構成はアプリ再起動後に復元されません。
 - 分割境界のドラッグリサイズには対応していません。
 - ファイルプレビューは読み取り専用で、コード編集機能はありません。
-- エージェントのHook通知、実行状態連携、認証、リモートワークスペースには対応していません。
+- Attention RouterはAgent固有Hookを使用しません。SSH先などShell Integrationが届かない処理は、PTY出力による推定になります。
 - ブラウザーのダウンロード、拡張機能、認証情報の注入には対応していません。
 - 自動更新、テレメトリー、リリース署名は実装していません。
 

@@ -73,7 +73,7 @@ export function FileViewer({
     <section className="flex h-full min-h-0 min-w-0 flex-col bg-panel">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
         <div className="flex min-w-0 items-center gap-2">
-          <FileText className="size-4 text-brand" />
+          <FileText className="size-4 text-foreground" />
           <span className="truncate text-ui-base font-medium">{name}</span>
         </div>
         <button

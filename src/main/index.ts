@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Notification, shell } from "electron";
 import { randomUUID } from "node:crypto";
 import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import { release as readPlatformRelease } from "node:os";
@@ -8,18 +8,28 @@ import { fileURLToPath } from "node:url";
 import appConfig from "../../app.config.mjs";
 import {
   DesktopChannels,
+  type AttentionNotification,
   type DesktopWindowState,
   type RegisteredWorkspace,
   type WorkspaceFileEntry,
 } from "../shared/desktop.js";
+import { AttentionSettingsManager } from "./attentionSettings.js";
+import { JevCredentialStore, JevSettingsManager } from "./jevSettings.js";
+import { JevEvaluationQueue } from "./jevEvaluationQueue.js";
 import { registerTerminalIpc } from "./terminalManager.js";
 import { configureBrowserSession, configureWebviewSecurity } from "./webviewSecurity.js";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 let _mainWindow: BrowserWindow | null = null;
 const workspaces = new Map<string, RegisteredWorkspace>();
+const homeWorkspaceId = "vintage:home";
 const maxFileBytes = 1_000_000;
 const ignoredWorkspaceEntries = new Set([".git", "node_modules", "dist", "build", "target"]);
+const notificationHistory: number[] = [];
+const lastNotificationByKey = new Map<string, number>();
+const NOTIFICATION_DEDUPE_MS = 5_000;
+const NOTIFICATION_LIMIT_PER_SECOND = 2;
+const NOTIFICATION_LIMIT_PER_MINUTE = 30;
 
 function registeredWorkspace(rawId: unknown): RegisteredWorkspace {
   if (typeof rawId !== "string") throw new TypeError("Workspace id must be a string");
@@ -28,12 +38,24 @@ function registeredWorkspace(rawId: unknown): RegisteredWorkspace {
   return workspace;
 }
 
+async function registerHomeWorkspace(): Promise<RegisteredWorkspace> {
+  const path = await realpath(app.getPath("home"));
+  const existing = workspaces.get(homeWorkspaceId);
+  if (existing) return existing;
+  const workspace: RegisteredWorkspace = {
+    id: homeWorkspaceId,
+    name: "Home",
+    path,
+    kind: "home",
+  };
+  workspaces.set(workspace.id, workspace);
+  return workspace;
+}
+
 async function listWorkspaceEntries(
   directory: string,
   relative = "",
-  depth = 0,
 ): Promise<WorkspaceFileEntry[]> {
-  if (depth > 8) return [];
   const entries = await readdir(directory, { withFileTypes: true });
   return Promise.all(
     entries
@@ -53,10 +75,23 @@ async function listWorkspaceEntries(
           path,
           name: entry.name,
           kind: "directory",
-          children: await listWorkspaceEntries(resolve(directory, entry.name), path, depth + 1),
         };
       }),
   );
+}
+
+async function resolveWorkspaceDirectory(workspaceId: unknown, rawPath: unknown): Promise<string> {
+  if (rawPath !== undefined && (typeof rawPath !== "string" || rawPath.includes("\0"))) {
+    throw new TypeError("Workspace directory path must be a string");
+  }
+  const root = await realpath(registeredWorkspace(workspaceId).path);
+  const directory = await realpath(resolve(root, (rawPath as string | undefined) ?? ""));
+  const pathFromRoot = relative(root, directory);
+  if (isAbsolute(pathFromRoot) || /^\.\.(?:[\\/]|$)/u.test(pathFromRoot)) {
+    throw new Error("Directory is outside the workspace");
+  }
+  if (!(await lstat(directory)).isDirectory()) throw new Error("Workspace path is not a directory");
+  return directory;
 }
 
 async function resolveWorkspaceFile(workspaceId: unknown, rawPath: unknown): Promise<string> {
@@ -107,7 +142,69 @@ function resolveSenderWindow(event: Electron.IpcMainInvokeEvent): BrowserWindow 
   return window;
 }
 
-function registerDesktopIpc(): void {
+function parseAttentionNotification(raw: unknown): AttentionNotification {
+  if (!raw || typeof raw !== "object") throw new TypeError("Notification is required");
+  const { title, body, dedupeKey, attentionLevel, targetPaneId, force } =
+    raw as Partial<AttentionNotification>;
+  if (typeof title !== "string" || !title.trim() || title.length > 120) {
+    throw new TypeError("Notification title must be 1-120 characters");
+  }
+  if (typeof body !== "string" || !body.trim() || body.length > 500) {
+    throw new TypeError("Notification body must be 1-500 characters");
+  }
+  if (typeof dedupeKey !== "string" || !dedupeKey || dedupeKey.length > 200) {
+    throw new TypeError("Notification dedupe key must be 1-200 characters");
+  }
+  if (
+    attentionLevel !== 1 &&
+    attentionLevel !== 2 &&
+    attentionLevel !== 3 &&
+    attentionLevel !== 4
+  ) {
+    throw new TypeError("Notification attention level must be between 1 and 4");
+  }
+  if (typeof targetPaneId !== "string" || !targetPaneId || targetPaneId.length > 120) {
+    throw new TypeError("Notification target pane is required");
+  }
+  if (force !== undefined && typeof force !== "boolean") {
+    throw new TypeError("Notification force must be a boolean");
+  }
+  return {
+    title: title.trim(),
+    body: body.trim(),
+    dedupeKey,
+    attentionLevel,
+    targetPaneId,
+    ...(force ? { force: true } : {}),
+  };
+}
+
+function reserveNotification(dedupeKey: string, now = Date.now()): boolean {
+  const minuteAgo = now - 60_000;
+  while (notificationHistory[0] !== undefined && notificationHistory[0] < minuteAgo) {
+    notificationHistory.shift();
+  }
+  for (const [key, timestamp] of lastNotificationByKey) {
+    if (timestamp < now - NOTIFICATION_DEDUPE_MS) lastNotificationByKey.delete(key);
+  }
+  const previous = lastNotificationByKey.get(dedupeKey);
+  if (previous !== undefined && now - previous < NOTIFICATION_DEDUPE_MS) return false;
+  const recentCount = notificationHistory.filter((timestamp) => timestamp >= now - 1_000).length;
+  if (
+    recentCount >= NOTIFICATION_LIMIT_PER_SECOND ||
+    notificationHistory.length >= NOTIFICATION_LIMIT_PER_MINUTE
+  ) {
+    return false;
+  }
+  notificationHistory.push(now);
+  lastNotificationByKey.set(dedupeKey, now);
+  return true;
+}
+
+function registerDesktopIpc(
+  jevSettings: JevSettingsManager,
+  attentionSettings: AttentionSettingsManager,
+): void {
   ipcMain.handle(DesktopChannels.minimize, (event) => resolveSenderWindow(event).minimize());
   ipcMain.handle(DesktopChannels.toggleMaximize, (event) => {
     const window = resolveSenderWindow(event);
@@ -126,6 +223,61 @@ function registerDesktopIpc(): void {
       throw new Error(`Unsupported external URL protocol: ${url.protocol}`);
     await shell.openExternal(url.toString());
   });
+  ipcMain.handle(DesktopChannels.clipboardWriteText, (event, text: unknown) => {
+    resolveSenderWindow(event);
+    if (typeof text !== "string") throw new TypeError("Clipboard text must be a string");
+    clipboard.writeText(text);
+  });
+  ipcMain.handle(DesktopChannels.showAttentionNotification, (event, raw: unknown) => {
+    const window = resolveSenderWindow(event);
+    const payload = parseAttentionNotification(raw);
+    if ((!payload.force && window.isFocused()) || !Notification.isSupported()) return false;
+    if (!reserveNotification(payload.dedupeKey)) return false;
+    const notification = new Notification({
+      title: payload.attentionLevel === 4 ? `CRITICAL · ${payload.title}` : payload.title,
+      body: payload.body,
+      icon: resolve(currentDir, "../../build/icon.png"),
+      ...(payload.attentionLevel === 4 && process.platform === "linux"
+        ? { urgency: "critical" as const }
+        : {}),
+      ...(payload.attentionLevel === 4 && ["linux", "win32"].includes(process.platform)
+        ? { timeoutType: "never" as const }
+        : {}),
+    });
+    notification.on("click", () => {
+      if (window.isDestroyed()) return;
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.focus();
+      window.webContents.send(DesktopChannels.attentionNotificationClicked, payload.targetPaneId);
+    });
+    notification.show();
+    return true;
+  });
+  ipcMain.handle(DesktopChannels.jevSettingsGet, (event) => {
+    resolveSenderWindow(event);
+    return jevSettings.status();
+  });
+  ipcMain.handle(DesktopChannels.jevSettingsSet, (event, apiKey: unknown) => {
+    resolveSenderWindow(event);
+    return jevSettings.setApiKey(apiKey);
+  });
+  ipcMain.handle(DesktopChannels.jevSettingsClear, (event) => {
+    resolveSenderWindow(event);
+    return jevSettings.clearApiKey();
+  });
+  ipcMain.handle(DesktopChannels.attentionSettingsGet, (event) => {
+    resolveSenderWindow(event);
+    return attentionSettings.getSettings();
+  });
+  ipcMain.handle(DesktopChannels.attentionSettingsSet, (event, raw: unknown) => {
+    resolveSenderWindow(event);
+    return attentionSettings.setSettings(raw);
+  });
+  ipcMain.handle(DesktopChannels.workspaceHome, async (event) => {
+    resolveSenderWindow(event);
+    return registerHomeWorkspace();
+  });
   ipcMain.handle(
     DesktopChannels.workspaceChoose,
     async (event): Promise<RegisteredWorkspace | null> => {
@@ -135,15 +287,25 @@ function registerDesktopIpc(): void {
       });
       if (result.canceled || !result.filePaths[0]) return null;
       const path = await realpath(result.filePaths[0]);
+      if (path === (await realpath(app.getPath("home")))) return registerHomeWorkspace();
       const existing = [...workspaces.values()].find((workspace) => workspace.path === path);
       if (existing) return existing;
-      const workspace = { id: randomUUID(), name: basename(path), path };
+      const workspace: RegisteredWorkspace = {
+        id: randomUUID(),
+        name: basename(path),
+        path,
+        kind: "project",
+      };
       workspaces.set(workspace.id, workspace);
       return workspace;
     },
   );
-  ipcMain.handle(DesktopChannels.workspaceListFiles, (_event, workspaceId: unknown) =>
-    listWorkspaceEntries(registeredWorkspace(workspaceId).path),
+  ipcMain.handle(
+    DesktopChannels.workspaceListFiles,
+    async (_event, workspaceId: unknown, directoryPath: unknown) => {
+      const directory = await resolveWorkspaceDirectory(workspaceId, directoryPath);
+      return listWorkspaceEntries(directory, (directoryPath as string | undefined) ?? "");
+    },
   );
   ipcMain.handle(
     DesktopChannels.workspaceReadFile,
@@ -217,8 +379,13 @@ async function createMainWindow(): Promise<BrowserWindow> {
 
 app.setName(appConfig.productName);
 app.whenReady().then(async () => {
-  registerDesktopIpc();
-  registerTerminalIpc((id) => registeredWorkspace(id).path);
+  const jevSettings = new JevSettingsManager(new JevCredentialStore(app.getPath("userData")));
+  const attentionSettings = new AttentionSettingsManager(app.getPath("userData"));
+  const evaluationQueue = new JevEvaluationQueue(jevSettings.evaluator);
+  jevSettings.initialize();
+  attentionSettings.initialize();
+  registerDesktopIpc(jevSettings, attentionSettings);
+  registerTerminalIpc((id) => registeredWorkspace(id).path, evaluationQueue, attentionSettings);
   configureBrowserSession();
   _mainWindow = await createMainWindow();
   app.on("activate", async () => {

@@ -359,6 +359,7 @@ button {
 }
 
 .xterm .xterm-viewport {
+  background-color: var(--color-terminal);
   overflow-x: hidden;
   scrollbar-color: var(--color-foreground-subtlest) var(--color-terminal);
 }

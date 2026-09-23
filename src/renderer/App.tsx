@@ -1,13 +1,18 @@
-import { FolderOpen, Plus, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, CircleAlert, FolderOpen, OctagonAlert, Plus, TriangleAlert, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
-import type { RegisteredWorkspace } from "../shared/desktop.js";
+import type { RegisteredWorkspace, TerminalAttentionState } from "../shared/desktop.js";
 import { Button } from "./components/Button.js";
+import { AttentionToast } from "./components/AttentionToast.js";
 import { FileViewer } from "./components/FileViewer.js";
 import { ResizeHandle } from "./components/ResizeHandle.js";
 import { SettingsDialog } from "./components/SettingsDialog.js";
 import { SidePane } from "./components/SidePane.js";
-import { Sidebar } from "./components/Sidebar.js";
+import {
+  Sidebar,
+  type SidebarAttentionHistoryItem,
+  type SidebarAttentionItem,
+} from "./components/Sidebar.js";
 import { TerminalPanel } from "./components/TerminalPanel.js";
 import { WindowFrame } from "./components/WindowFrame.js";
 import { type ShortcutAction, useUiStore } from "./store/uiStore.js";
@@ -26,13 +31,23 @@ type Tab = {
   activePaneId: string;
 };
 type VintageWorkspace = RegisteredWorkspace & { tabs: Tab[]; activeTabId: string };
+type ToastAttentionItem = { id: string; item: SidebarAttentionItem };
 
 const MAX_PANES = 64;
 const MAX_LAYOUT_DEPTH = 8;
 const id = () => crypto.randomUUID();
 
-function terminal(title: string): Tab {
-  const pane: TerminalPane = { id: id(), title, kind: "terminal" };
+function nextNumberedTitle(prefix: string, titles: string[]): string {
+  const pattern = new RegExp(`^${prefix} (\\d+)$`);
+  const highestNumber = titles.reduce((highest, title) => {
+    const match = pattern.exec(title);
+    return Math.max(highest, match ? Number(match[1]) : 0);
+  }, 0);
+  return `${prefix} ${highestNumber + 1}`;
+}
+
+function createSpace(title: string): Tab {
+  const pane: TerminalPane = { id: id(), title: "Terminal 1", kind: "terminal" };
   return {
     id: id(),
     title,
@@ -40,6 +55,132 @@ function terminal(title: string): Tab {
     layout: { type: "pane", paneId: pane.id },
     activePaneId: pane.id,
   };
+}
+
+function strongestAttention(
+  tab: Tab,
+  states: Record<string, TerminalAttentionState>,
+): TerminalAttentionState | null {
+  return (
+    tab.panes
+      .map((pane) => states[pane.id])
+      .filter((state): state is TerminalAttentionState => Boolean(state))
+      .sort((left, right) => right.attentionLevel - left.attentionLevel)[0] ?? null
+  );
+}
+
+function collectAttentionItems(
+  workspaces: VintageWorkspace[],
+  states: Record<string, TerminalAttentionState>,
+): SidebarAttentionItem[] {
+  const items: SidebarAttentionItem[] = [];
+  for (const workspace of workspaces) {
+    for (const tab of workspace.tabs) {
+      for (const pane of tab.panes) {
+        const state = states[pane.id];
+        if (!state || state.attentionLevel === 0) continue;
+        items.push({
+          paneId: pane.id,
+          paneTitle: pane.title,
+          tabId: tab.id,
+          tabTitle: tab.title,
+          workspaceId: workspace.id,
+          workspaceName: workspace.name,
+          status: state.status,
+          ...(state.reason === undefined ? {} : { reason: state.reason }),
+          ...(state.durationMs === undefined ? {} : { durationMs: state.durationMs }),
+          ...(state.judgmentConfidence === undefined
+            ? {}
+            : { judgmentConfidence: state.judgmentConfidence }),
+          ...(state.judgmentModel === undefined ? {} : { judgmentModel: state.judgmentModel }),
+          attentionLevel: state.attentionLevel,
+          source: state.source,
+          sessionId: state.sessionId,
+          lastActivityAt: state.lastActivityAt,
+        });
+      }
+    }
+  }
+  return items.sort(
+    (left, right) =>
+      right.attentionLevel - left.attentionLevel ||
+      right.lastActivityAt - left.lastActivityAt ||
+      left.paneTitle.localeCompare(right.paneTitle),
+  );
+}
+
+function sidebarItemForState(
+  workspaces: VintageWorkspace[],
+  paneId: string,
+  state: TerminalAttentionState,
+): SidebarAttentionItem | null {
+  if (state.attentionLevel === 0) return null;
+  for (const workspace of workspaces) {
+    for (const tab of workspace.tabs) {
+      const pane = tab.panes.find((item) => item.id === paneId);
+      if (!pane) continue;
+      return {
+        paneId,
+        sessionId: state.sessionId,
+        paneTitle: pane.title,
+        tabId: tab.id,
+        tabTitle: tab.title,
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        status: state.status,
+        source: state.source,
+        attentionLevel: state.attentionLevel,
+        ...(state.reason === undefined ? {} : { reason: state.reason }),
+        ...(state.durationMs === undefined ? {} : { durationMs: state.durationMs }),
+        ...(state.judgmentConfidence === undefined
+          ? {}
+          : { judgmentConfidence: state.judgmentConfidence }),
+        ...(state.judgmentModel === undefined ? {} : { judgmentModel: state.judgmentModel }),
+        lastActivityAt: state.lastActivityAt,
+      };
+    }
+  }
+  return null;
+}
+
+function attentionEventId(state: TerminalAttentionState): string {
+  return JSON.stringify([
+    state.sessionId,
+    state.status,
+    state.reason ?? null,
+    state.semanticHash ?? null,
+    state.lastExitCode ?? null,
+    state.lastActivityAt,
+  ]);
+}
+
+function TabAttentionBadge({ state }: { state: TerminalAttentionState | null }) {
+  if (!state || state.attentionLevel === 0) return null;
+  const label = ["", "LOW", "MEDIUM", "HIGH", "CRITICAL"][state.attentionLevel]!;
+  const Icon =
+    state.attentionLevel === 1
+      ? Check
+      : state.attentionLevel === 2
+        ? TriangleAlert
+        : state.attentionLevel === 3
+          ? CircleAlert
+          : OctagonAlert;
+  const color =
+    state.attentionLevel === 1
+      ? "text-brand"
+      : state.attentionLevel === 2
+        ? "text-warning"
+        : "text-destructive";
+  return (
+    <span
+      aria-label={`${label} attention: ${state.status}`}
+      className={`${color} ${state.attentionLevel === 4 ? "rounded-full bg-destructive/15 p-0.5" : ""}`}
+      data-attention-level={state.attentionLevel}
+      title={state.status.replace("_", " ")}
+    >
+      <Icon aria-hidden="true" className="size-3.5" />
+    </span>
+  );
 }
 
 function paneIds(layout: PaneLayout): string[] {
@@ -148,6 +289,7 @@ function PaneView({
   onClosePane,
   onActivatePane,
   onRenamePane,
+  onAttentionChange,
 }: {
   workspaceId: string;
   tab: Tab;
@@ -157,12 +299,13 @@ function PaneView({
   onClosePane(paneId: string): void;
   onActivatePane(paneId: string): void;
   onRenamePane(paneId: string, title: string): void;
+  onAttentionChange(paneId: string, state: TerminalAttentionState | null): void;
 }) {
   const active = pane.id === tab.activePaneId;
   return (
     <div
       data-pane-kind={pane.kind}
-      className={`absolute flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-background ${active ? "border-pane-active-border" : "border-border"}`}
+      className={`absolute flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border bg-background ${active ? "border-pane-active-border" : "border-border"}`}
       onMouseDown={() => onActivatePane(pane.id)}
       style={{
         left: cssLength(bounds.leftPercent, bounds.leftPixels),
@@ -174,8 +317,11 @@ function PaneView({
       {pane.kind === "terminal" ? (
         <TerminalPanel
           active={visible && active}
+          paneId={pane.id}
+          tabTitle={tab.title}
           workspaceId={workspaceId}
           title={pane.title}
+          onAttentionChange={onAttentionChange}
           onRename={(title) => onRenamePane(pane.id, title)}
         />
       ) : (
@@ -187,14 +333,15 @@ function PaneView({
       )}
       <button
         aria-label={`Close ${pane.title}`}
-        className="absolute right-2 top-1 rounded border border-border bg-background/80 p-1 text-foreground-subtle hover:bg-foreground/10"
+        className="absolute right-2 top-1 z-20 grid size-7 place-items-center rounded-md text-foreground transition-colors hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+        title={`Close ${pane.title}`}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
           onClosePane(pane.id);
         }}
       >
-        <X className="size-3" />
+        <X className="size-4" />
       </button>
     </div>
   );
@@ -207,6 +354,7 @@ function TabSurface({
   onClosePane,
   onActivatePane,
   onRenamePane,
+  onAttentionChange,
 }: {
   workspaceId: string;
   tab: Tab;
@@ -214,6 +362,7 @@ function TabSurface({
   onClosePane(paneId: string): void;
   onActivatePane(paneId: string): void;
   onRenamePane(paneId: string, title: string): void;
+  onAttentionChange(paneId: string, state: TerminalAttentionState | null): void;
 }) {
   const positions = new Map(positionedPanes(tab.layout).map((item) => [item.paneId, item.bounds]));
   return (
@@ -236,6 +385,7 @@ function TabSurface({
               onClosePane={onClosePane}
               onActivatePane={onActivatePane}
               onRenamePane={onRenamePane}
+              onAttentionChange={onAttentionChange}
             />
           );
         })}
@@ -248,9 +398,53 @@ export function App() {
   const ui = useUiStore();
   const [workspaces, setWorkspaces] = useState<VintageWorkspace[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [homeLoadStatus, setHomeLoadStatus] = useState<"idle" | "loading" | "failed">(() =>
+    window.desktop?.getHomeWorkspace ? "loading" : "idle",
+  );
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [tabTitleDraft, setTabTitleDraft] = useState("");
+  const [attentionByPane, setAttentionByPane] = useState<Record<string, TerminalAttentionState>>(
+    {},
+  );
+  const [attentionHistory, setAttentionHistory] = useState<SidebarAttentionHistoryItem[]>([]);
+  const [attentionToasts, setAttentionToasts] = useState<ToastAttentionItem[]>([]);
+  const seenAttentionEventsRef = useRef(new Set<string>());
+  const activeAttentionEventByPaneRef = useRef(new Map<string, string>());
+  const pendingAttentionDismissalsRef = useRef(new Set<string>());
+  const notificationNavigateRef = useRef<(paneId: string) => void>(() => {});
+  const homeWorkspaceRequestRef = useRef<Promise<RegisteredWorkspace> | null>(null);
+  const userSelectedWorkspaceRef = useRef(false);
   const active = workspaces.find((workspace) => workspace.id === activeId) ?? null;
+  const attentionItems = collectAttentionItems(workspaces, attentionByPane);
+
+  useEffect(() => {
+    const getHomeWorkspace = window.desktop?.getHomeWorkspace;
+    if (!getHomeWorkspace) return;
+    let cancelled = false;
+    homeWorkspaceRequestRef.current ??= getHomeWorkspace();
+    void homeWorkspaceRequestRef.current
+      .then((home) => {
+        if (cancelled) return;
+        const firstSpace = createSpace("Space 1");
+        const workspace: VintageWorkspace = {
+          ...home,
+          tabs: [firstSpace],
+          activeTabId: firstSpace.id,
+        };
+        setWorkspaces((items) =>
+          items.some((item) => item.id === home.id) ? items : [workspace, ...items],
+        );
+        if (!userSelectedWorkspaceRef.current) setActiveId(home.id);
+        setHomeLoadStatus("idle");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setHomeLoadStatus("failed");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const dark =
@@ -269,20 +463,25 @@ export function App() {
   const openWorkspace = async () => {
     const chosen = await window.desktop?.chooseWorkspace();
     if (!chosen) return;
+    userSelectedWorkspaceRef.current = true;
     const existing = workspaces.find((item) => item.id === chosen.id);
     if (existing) return setActiveId(existing.id);
     const workspace: VintageWorkspace = {
       ...chosen,
-      tabs: [terminal("Terminal 1")],
+      tabs: [createSpace("Space 1")],
       activeTabId: "",
     };
     workspace.activeTabId = workspace.tabs[0]!.id;
     setWorkspaces((items) => [...items, workspace]);
     setActiveId(workspace.id);
   };
-  const addTab = () =>
+  const addSpace = () =>
     update((workspace) => {
-      const next = terminal(`Terminal ${workspace.tabs.length + 1}`);
+      const title = nextNumberedTitle(
+        "Space",
+        workspace.tabs.map((tab) => tab.title),
+      );
+      const next = createSpace(title);
       return { ...workspace, tabs: [...workspace.tabs, next], activeTabId: next.id };
     });
   const closeTab = (tabId: string) =>
@@ -301,7 +500,10 @@ export function App() {
       if (!tab || tab.panes.length >= MAX_PANES) return workspace;
       const pane: TerminalPane = {
         id: id(),
-        title: `Terminal ${tab.panes.length + 1}`,
+        title: nextNumberedTitle(
+          "Terminal",
+          tab.panes.map((item) => item.title),
+        ),
         kind: "terminal",
       };
       const layout = splitPaneLayout(
@@ -461,7 +663,7 @@ export function App() {
       case "next-workspace":
         return moveWorkspace(1);
       case "new-terminal":
-        return addTab();
+        return addSpace();
       case "split-right":
         return split("right");
       case "split-down":
@@ -506,6 +708,67 @@ export function App() {
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [ui.settingsOpen, ui.shortcuts, active, workspaces]);
 
+  const finishAttentionHistory = (id: string, outcome: SidebarAttentionHistoryItem["outcome"]) => {
+    setAttentionHistory((items) =>
+      items.map((item) =>
+        item.id === id && item.outcome === "active"
+          ? { ...item, outcome, completedAt: Date.now() }
+          : item,
+      ),
+    );
+    setAttentionToasts((items) => items.filter((item) => item.id !== id));
+  };
+
+  const updateAttention = (paneId: string, state: TerminalAttentionState | null) => {
+    setAttentionByPane((current) => {
+      if (state && state.attentionLevel > 0) return { ...current, [paneId]: state };
+      if (!(paneId in current)) return current;
+      const next = { ...current };
+      delete next[paneId];
+      return next;
+    });
+
+    const activeEventId = activeAttentionEventByPaneRef.current.get(paneId);
+    if (!state || state.attentionLevel === 0) {
+      if (!activeEventId) return;
+      activeAttentionEventByPaneRef.current.delete(paneId);
+      const dismissed = pendingAttentionDismissalsRef.current.delete(paneId);
+      finishAttentionHistory(
+        activeEventId,
+        dismissed ? "dismissed" : state ? "resolved" : "closed",
+      );
+      return;
+    }
+
+    const nextEventId = attentionEventId(state);
+    if (activeEventId && activeEventId !== nextEventId) {
+      finishAttentionHistory(activeEventId, "resolved");
+    }
+    activeAttentionEventByPaneRef.current.set(paneId, nextEventId);
+    if (seenAttentionEventsRef.current.has(nextEventId)) return;
+    const item = sidebarItemForState(workspaces, paneId, state);
+    if (!item) return;
+
+    seenAttentionEventsRef.current.add(nextEventId);
+    while (seenAttentionEventsRef.current.size > 500) {
+      const oldest = seenAttentionEventsRef.current.values().next().value;
+      if (oldest === undefined) break;
+      seenAttentionEventsRef.current.delete(oldest);
+    }
+    setAttentionHistory((items) =>
+      [{ ...item, id: nextEventId, outcome: "active" as const }, ...items].slice(0, 100),
+    );
+    if (state.attentionLevel >= 3) {
+      setAttentionToasts((items) => {
+        const next = [
+          { id: nextEventId, item },
+          ...items.filter((toast) => toast.id !== nextEventId),
+        ];
+        return next.length <= 4 ? next : next.slice(0, 4);
+      });
+    }
+  };
+
   const commitTabTitle = (tabId: string) => {
     const title = tabTitleDraft.trim();
     setEditingTabId(null);
@@ -524,6 +787,7 @@ export function App() {
           data-active={tab.id === active.activeTabId}
           key={tab.id}
         >
+          <TabAttentionBadge state={strongestAttention(tab, attentionByPane)} />
           {editingTabId === tab.id ? (
             <input
               autoFocus
@@ -561,23 +825,82 @@ export function App() {
         </div>
       ))}
       <Button
-        aria-label="New terminal tab"
+        aria-label="New space"
         className="mb-0.5 size-7"
         size="icon"
         variant="ghost"
-        onClick={addTab}
+        onClick={addSpace}
       >
         <Plus />
       </Button>
     </div>
   );
 
+  const selectLocation = (workspaceId: string, tabId: string, paneId: string) => {
+    const workspace = workspaces.find((item) => item.id === workspaceId);
+    if (
+      !workspace?.tabs.some(
+        (tab) => tab.id === tabId && tab.panes.some((pane) => pane.id === paneId),
+      )
+    )
+      return;
+    setActiveId(workspaceId);
+    setWorkspaces((items) =>
+      items.map((workspace) =>
+        workspace.id !== workspaceId
+          ? workspace
+          : {
+              ...workspace,
+              activeTabId: tabId,
+              tabs: workspace.tabs.map((tab) =>
+                tab.id === tabId ? { ...tab, activePaneId: paneId } : tab,
+              ),
+            },
+      ),
+    );
+  };
+
+  const selectAttention = (item: SidebarAttentionItem) =>
+    selectLocation(item.workspaceId, item.tabId, item.paneId);
+
+  const navigateToPane = (paneId: string) => {
+    for (const workspace of workspaces) {
+      for (const tab of workspace.tabs) {
+        if (tab.panes.some((pane) => pane.id === paneId)) {
+          selectLocation(workspace.id, tab.id, paneId);
+          return;
+        }
+      }
+    }
+  };
+  notificationNavigateRef.current = navigateToPane;
+
+  useEffect(() => {
+    const subscribe = window.desktop?.onAttentionNotificationClick;
+    if (!subscribe) return;
+    return subscribe((paneId) => notificationNavigateRef.current(paneId));
+  }, []);
+
+  const dismissAttention = (item: SidebarAttentionItem) => {
+    const dismiss = window.desktop?.dismissTerminalAttention;
+    if (!dismiss) return;
+    pendingAttentionDismissalsRef.current.add(item.paneId);
+    void dismiss(item.sessionId).catch(() => {
+      pendingAttentionDismissalsRef.current.delete(item.paneId);
+    });
+  };
+
+  const closeAttentionToast = (id: string) =>
+    setAttentionToasts((items) => items.filter((item) => item.id !== id));
+
   const sidebarContent = ui.sidebarOpen ? (
     <Sidebar
       workspaces={workspaces}
+      attentionItems={attentionItems}
+      attentionHistory={attentionHistory.filter((item) => item.outcome !== "active")}
       activeWorkspaceId={activeId}
       onOpenWorkspace={() => void openWorkspace()}
-      onNewTerminal={addTab}
+      onNewSpace={addSpace}
       onSelectWorkspace={setActiveId}
       onSelectTab={(workspaceId, tabId) => {
         setActiveId(workspaceId);
@@ -587,69 +910,111 @@ export function App() {
           ),
         );
       }}
+      onSelectAttention={selectAttention}
+      onDismissAttention={dismissAttention}
       onOpenSettings={() => ui.setSettingsOpen(true)}
     />
   ) : undefined;
 
   return (
-    <WindowFrame
-      sidebar={sidebarContent}
-      topContent={topContent}
-      onSplitRight={active ? () => split("right") : undefined}
-      onSplitDown={active ? () => split("down") : undefined}
-    >
-      <div className="flex h-full min-h-0 bg-background">
-        <main className="relative min-w-0 flex-1 overflow-hidden bg-background">
-          {!active ? (
-            <div className="grid h-full place-items-center p-8 text-center">
-              <div>
-                <h1 className="text-ui-xl font-semibold">Your workspace, ready when you are</h1>
-                <p className="mt-2 text-ui-base text-foreground-subtle">
-                  Open a folder, then add a terminal tab.
-                </p>
-                <Button className="mt-5" variant="primary" onClick={() => void openWorkspace()}>
-                  <FolderOpen />
-                  Open workspace
-                </Button>
+    <>
+      <WindowFrame
+        sidebar={sidebarContent}
+        topContent={topContent}
+        onSplitRight={active ? () => split("right") : undefined}
+        onSplitDown={active ? () => split("down") : undefined}
+      >
+        <div className="relative flex h-full min-h-0 bg-background">
+          <main className="relative min-w-0 flex-1 overflow-hidden bg-background">
+            {!active ? (
+              <div className="grid h-full place-items-center p-8 text-center">
+                <div>
+                  <h1 className="text-ui-xl font-semibold">
+                    {homeLoadStatus === "loading"
+                      ? "Starting your local terminal…"
+                      : "Your workspace, ready when you are"}
+                  </h1>
+                  <p className="mt-2 text-ui-base text-foreground-subtle">
+                    {homeLoadStatus === "failed"
+                      ? "Your Home space could not be opened. You can start by opening a folder instead."
+                      : "VINTAGE can start in Home, or you can open a project folder."}
+                  </p>
+                  <Button className="mt-5" variant="primary" onClick={() => void openWorkspace()}>
+                    <FolderOpen />
+                    Open folder
+                  </Button>
+                </div>
               </div>
-            </div>
-          ) : (
-            workspaces.flatMap((workspace) =>
-              workspace.tabs.map((tab) => (
-                <TabSurface
-                  key={`${workspace.id}:${tab.id}`}
-                  workspaceId={workspace.id}
-                  tab={tab}
-                  visible={workspace.id === activeId && tab.id === workspace.activeTabId}
-                  onClosePane={(paneId) => closePane(workspace.id, tab.id, paneId)}
-                  onActivatePane={(paneId) => activatePane(workspace.id, tab.id, paneId)}
-                  onRenamePane={(paneId, title) => renamePane(workspace.id, tab.id, paneId, title)}
-                />
-              )),
-            )
-          )}
-        </main>
-        {ui.sidePaneOpen && (
+            ) : (
+              workspaces.flatMap((workspace) =>
+                workspace.tabs.map((tab) => (
+                  <TabSurface
+                    key={`${workspace.id}:${tab.id}`}
+                    workspaceId={workspace.id}
+                    tab={tab}
+                    visible={workspace.id === activeId && tab.id === workspace.activeTabId}
+                    onClosePane={(paneId) => closePane(workspace.id, tab.id, paneId)}
+                    onActivatePane={(paneId) => activatePane(workspace.id, tab.id, paneId)}
+                    onRenamePane={(paneId, title) =>
+                      renamePane(workspace.id, tab.id, paneId, title)
+                    }
+                    onAttentionChange={updateAttention}
+                  />
+                )),
+              )
+            )}
+          </main>
           <>
-            <ResizeHandle
-              axis="x"
-              invert
-              label="Resize browser pane"
-              max={760}
-              min={300}
-              value={ui.sidePaneWidth}
-              onChange={ui.setSidePaneWidth}
-            />
+            {ui.sidePaneOpen && (
+              <ResizeHandle
+                axis="x"
+                invert
+                label="Resize browser pane"
+                max={760}
+                min={300}
+                value={ui.sidePaneWidth}
+                onChange={ui.setSidePaneWidth}
+              />
+            )}
             <div
-              className="workspace-side-panel my-1 mr-1 overflow-hidden rounded-xl border border-border"
+              aria-hidden={!ui.sidePaneOpen}
+              className={`workspace-side-panel my-1 mr-1 overflow-hidden rounded-xl border border-border ${
+                ui.sidePaneOpen
+                  ? ""
+                  : "pointer-events-none invisible absolute bottom-0 right-0 top-0"
+              }`}
               style={{ width: ui.sidePaneWidth }}
             >
-              <SidePane workspaceId={active?.id ?? null} onOpenFile={openFile} />
+              <SidePane
+                workspaceId={active?.id ?? null}
+                workspaceName={active?.name ?? null}
+                onOpenFile={openFile}
+              />
             </div>
           </>
-        )}
+        </div>
+        <SettingsDialog />
+      </WindowFrame>
+      <div
+        aria-label="Attention notifications"
+        className="pointer-events-none fixed right-5 top-16 z-[80] flex w-[min(24rem,calc(100vw-2.5rem))] flex-col gap-2"
+      >
+        {attentionToasts.map(({ id, item }) => (
+          <AttentionToast
+            item={item}
+            key={id}
+            onOpen={() => {
+              selectAttention(item);
+              closeAttentionToast(id);
+            }}
+            onDismiss={() => {
+              dismissAttention(item);
+              closeAttentionToast(id);
+            }}
+            onClose={() => closeAttentionToast(id)}
+          />
+        ))}
       </div>
-      <SettingsDialog />
-    </WindowFrame>
+    </>
   );
 }

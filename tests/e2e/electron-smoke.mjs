@@ -8,7 +8,47 @@ try {
   const window = await app.firstWindow();
   await window.evaluate(() => localStorage.clear());
   await window.reload();
-  await window.getByText("Your workspace, ready when you are").waitFor();
+  await window.getByText("Home", { exact: true }).waitFor();
+  await window.locator('.workspace-tab[data-active="true"]').waitFor();
+  await window.locator('[data-pane-kind="terminal"] .xterm').waitFor();
+  await window.getByText("Home directory", { exact: true }).waitFor();
+  const home = await window.evaluate(async () => {
+    const workspace = await window.desktop.getHomeWorkspace();
+    const entries = await window.desktop.listWorkspaceFiles(workspace.id);
+    let rejectsOutsidePath = false;
+    try {
+      await window.desktop.listWorkspaceFiles(workspace.id, "../");
+    } catch {
+      rejectsOutsidePath = true;
+    }
+    return {
+      name: workspace.name,
+      kind: workspace.kind,
+      path: workspace.path,
+      directoriesLoadLazily: entries.every((entry) => !entry.children),
+      rejectsOutsidePath,
+    };
+  });
+  if (home.name !== "Home" || home.kind !== "home" || !home.path) {
+    throw new Error("default local space did not resolve to the user's Home directory");
+  }
+  if (!home.directoriesLoadLazily) {
+    throw new Error("Home Files eagerly loaded nested directories");
+  }
+  if (!home.rejectsOutsidePath) {
+    throw new Error("Home Files accepted a path outside the selected root");
+  }
+  const terminalHeader = window.locator(
+    '[data-pane-kind="terminal"] button[title="Double-click to rename"]',
+  );
+  await window.waitForFunction(
+    (homePath) =>
+      document
+        .querySelector('[data-pane-kind="terminal"] button[title="Double-click to rename"]')
+        ?.textContent?.includes(homePath),
+    home.path,
+  );
+  await terminalHeader.waitFor();
   const brandIcon = window.getByRole("button", { name: "Toggle sidebar" }).locator("img");
   await brandIcon.waitFor();
   if ((await brandIcon.evaluate((image) => image.naturalWidth)) === 0) {
@@ -48,7 +88,15 @@ try {
   await window.getByRole("button", { name: "Open settings" }).click();
   await window.getByRole("dialog", { name: "Settings" }).waitFor();
   await window.getByRole("button", { name: /Graphite A neutral charcoal workspace/ }).waitFor();
-  console.log("electron smoke: VINTAGE landing workspace and appearance settings OK");
+  await window.getByRole("button", { name: "Attention" }).click();
+  await window.getByLabel("Attention debounce").waitFor();
+  await window.getByLabel("Attention threshold").waitFor();
+  await window.getByLabel("Desktop notification threshold").waitFor();
+  await window.getByRole("button", { name: "Integrations" }).click();
+  await window.getByText("TypeSafe / Jev").waitFor();
+  await window.getByText(/Saved securely|Environment variable|Not configured/).waitFor();
+  await window.getByLabel("TypeSafe API key").waitFor();
+  console.log("electron smoke: Home terminal, appearance, attention, and Jev settings OK");
 } finally {
   await app.close();
 }
