@@ -1,4 +1,4 @@
-import type { KeyboardEvent, PointerEvent } from "react";
+import type { CSSProperties, KeyboardEvent, PointerEvent } from "react";
 
 export function ResizeHandle({
   axis,
@@ -6,6 +6,8 @@ export function ResizeHandle({
   min,
   max,
   invert = false,
+  relative = false,
+  style,
   onChange,
   label,
 }: {
@@ -14,6 +16,8 @@ export function ResizeHandle({
   min: number;
   max: number;
   invert?: boolean;
+  relative?: boolean;
+  style?: CSSProperties;
   onChange(value: number): void;
   label: string;
 }) {
@@ -23,12 +27,20 @@ export function ResizeHandle({
     const origin = axis === "x" ? event.clientX : event.clientY;
     const start = value;
     const target = event.currentTarget;
+    const parentBounds = target.parentElement?.getBoundingClientRect();
+    const availableLength = relative
+      ? Math.max(
+          1,
+          (axis === "x" ? (parentBounds?.width ?? 0) : (parentBounds?.height ?? 0)) -
+            (axis === "x" ? target.offsetWidth : target.offsetHeight),
+        )
+      : 1;
     target.setPointerCapture(event.pointerId);
     document.documentElement.classList.add(`is-resizing-${axis}`);
 
     const move = (next: globalThis.PointerEvent) => {
       const point = axis === "x" ? next.clientX : next.clientY;
-      const delta = (point - origin) * (invert ? -1 : 1);
+      const delta = ((point - origin) * (invert ? -1 : 1)) / (relative ? availableLength : 1);
       onChange(clamp(start + delta, min, max));
     };
     const end = () => {
@@ -48,18 +60,27 @@ export function ResizeHandle({
     if (!backward && !forward) return;
     event.preventDefault();
     const direction = (forward ? 1 : -1) * (invert ? -1 : 1);
-    onChange(clamp(value + direction * 16, min, max));
+    const parentBounds = event.currentTarget.parentElement?.getBoundingClientRect();
+    const availableLength = relative
+      ? Math.max(
+          1,
+          (axis === "x" ? (parentBounds?.width ?? 0) : (parentBounds?.height ?? 0)) -
+            (axis === "x" ? event.currentTarget.offsetWidth : event.currentTarget.offsetHeight),
+        )
+      : 1;
+    onChange(clamp(value + direction * (relative ? 16 / availableLength : 16), min, max));
   }
 
   return (
     <div
       aria-label={label}
       aria-orientation={axis === "x" ? "vertical" : "horizontal"}
-      aria-valuemax={max}
-      aria-valuemin={min}
-      aria-valuenow={Math.round(value)}
+      aria-valuemax={relative ? Math.round(max * 100) : max}
+      aria-valuemin={relative ? Math.round(min * 100) : min}
+      aria-valuenow={relative ? Math.round(value * 100) : Math.round(value)}
       className={axis === "x" ? "resize-handle-x" : "resize-handle-y"}
       role="separator"
+      style={style}
       tabIndex={0}
       onKeyDown={keyboard}
       onPointerDown={begin}

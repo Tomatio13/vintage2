@@ -1,5 +1,5 @@
 import { Check, CircleAlert, FolderOpen, OctagonAlert, Plus, TriangleAlert, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import type { RegisteredWorkspace, TerminalAttentionState } from "../shared/desktop.js";
 import { Button } from "./components/Button.js";
@@ -22,7 +22,14 @@ type FilePane = { id: string; title: string; kind: "file"; path: string };
 type Pane = TerminalPane | FilePane;
 type PaneLayout =
   | { type: "pane"; paneId: string }
-  | { type: "split"; axis: "horizontal" | "vertical"; first: PaneLayout; second: PaneLayout };
+  | {
+      type: "split";
+      splitId: string;
+      axis: "horizontal" | "vertical";
+      ratio: number;
+      first: PaneLayout;
+      second: PaneLayout;
+    };
 type Tab = {
   id: string;
   title: string;
@@ -199,7 +206,9 @@ function splitPaneLayout(
     if (layout.paneId !== targetPaneId || depth >= MAX_LAYOUT_DEPTH) return null;
     return {
       type: "split",
+      splitId: id(),
       axis,
+      ratio: 0.5,
       first: layout,
       second: { type: "pane", paneId: newPaneId },
     };
@@ -219,6 +228,18 @@ function removePaneFromLayout(layout: PaneLayout, paneId: string): PaneLayout | 
   return { ...layout, first, second };
 }
 
+function resizePaneLayout(layout: PaneLayout, splitId: string, ratio: number): PaneLayout {
+  if (layout.type === "pane") return layout;
+  return {
+    ...layout,
+    ...(layout.splitId === splitId ? { ratio } : {}),
+    first: resizePaneLayout(layout.first, splitId, ratio),
+    second: resizePaneLayout(layout.second, splitId, ratio),
+  };
+}
+
+const PANE_RESIZE_HANDLE_SIZE = 10;
+
 type PaneBounds = {
   leftPercent: number;
   leftPixels: number;
@@ -231,8 +252,13 @@ type PaneBounds = {
 };
 
 type PositionedPane = { paneId: string; bounds: PaneBounds };
+type PositionedSplitHandle = {
+  splitId: string;
+  axis: "horizontal" | "vertical";
+  ratio: number;
+  bounds: PaneBounds;
+};
 
-const PANE_GAP_PIXELS = 4;
 const ROOT_PANE_BOUNDS: PaneBounds = {
   leftPercent: 0,
   leftPixels: 0,
@@ -244,48 +270,71 @@ const ROOT_PANE_BOUNDS: PaneBounds = {
   heightPixels: 0,
 };
 
-function positionedPanes(layout: PaneLayout, bounds = ROOT_PANE_BOUNDS): PositionedPane[] {
-  if (layout.type === "pane") return [{ paneId: layout.paneId, bounds }];
-  if (layout.axis === "horizontal") {
-    const widthPercent = bounds.widthPercent / 2;
-    const widthPixels = (bounds.widthPixels - PANE_GAP_PIXELS) / 2;
-    return [
-      ...positionedPanes(layout.first, { ...bounds, widthPercent, widthPixels }),
-      ...positionedPanes(layout.second, {
-        ...bounds,
-        leftPercent: bounds.leftPercent + widthPercent,
-        leftPixels: bounds.leftPixels + widthPixels + PANE_GAP_PIXELS,
-        widthPercent,
-        widthPixels,
-      }),
-    ];
-  }
-  const heightPercent = bounds.heightPercent / 2;
-  const heightPixels = (bounds.heightPixels - PANE_GAP_PIXELS) / 2;
-  return [
-    ...positionedPanes(layout.first, { ...bounds, heightPercent, heightPixels }),
-    ...positionedPanes(layout.second, {
-      ...bounds,
-      topPercent: bounds.topPercent + heightPercent,
-      topPixels: bounds.topPixels + heightPixels + PANE_GAP_PIXELS,
-      heightPercent,
-      heightPixels,
-    }),
-  ];
-}
-
 function cssLength(percent: number, pixels: number): string {
   if (pixels === 0) return `${percent}%`;
   const operator = pixels < 0 ? "-" : "+";
   return `calc(${percent}% ${operator} ${Math.abs(pixels)}px)`;
 }
 
+function positionedLayout(
+  layout: PaneLayout,
+  bounds = ROOT_PANE_BOUNDS,
+): { panes: PositionedPane[]; handles: PositionedSplitHandle[] } {
+  if (layout.type === "pane") return { panes: [{ paneId: layout.paneId, bounds }], handles: [] };
+
+  const ratio = layout.ratio;
+  const remainingRatio = 1 - ratio;
+  let firstBounds: PaneBounds;
+  let secondBounds: PaneBounds;
+
+  if (layout.axis === "horizontal") {
+    firstBounds = {
+      ...bounds,
+      widthPercent: bounds.widthPercent * ratio,
+      widthPixels: bounds.widthPixels * ratio - PANE_RESIZE_HANDLE_SIZE * ratio,
+    };
+    secondBounds = {
+      ...bounds,
+      leftPercent: bounds.leftPercent + bounds.widthPercent * ratio,
+      leftPixels:
+        bounds.leftPixels + bounds.widthPixels * ratio + PANE_RESIZE_HANDLE_SIZE * remainingRatio,
+      widthPercent: bounds.widthPercent * remainingRatio,
+      widthPixels: bounds.widthPixels * remainingRatio - PANE_RESIZE_HANDLE_SIZE * remainingRatio,
+    };
+  } else {
+    firstBounds = {
+      ...bounds,
+      heightPercent: bounds.heightPercent * ratio,
+      heightPixels: bounds.heightPixels * ratio - PANE_RESIZE_HANDLE_SIZE * ratio,
+    };
+    secondBounds = {
+      ...bounds,
+      topPercent: bounds.topPercent + bounds.heightPercent * ratio,
+      topPixels:
+        bounds.topPixels + bounds.heightPixels * ratio + PANE_RESIZE_HANDLE_SIZE * remainingRatio,
+      heightPercent: bounds.heightPercent * remainingRatio,
+      heightPixels: bounds.heightPixels * remainingRatio - PANE_RESIZE_HANDLE_SIZE * remainingRatio,
+    };
+  }
+
+  const first = positionedLayout(layout.first, firstBounds);
+  const second = positionedLayout(layout.second, secondBounds);
+  return {
+    panes: [...first.panes, ...second.panes],
+    handles: [
+      { splitId: layout.splitId, axis: layout.axis, ratio, bounds },
+      ...first.handles,
+      ...second.handles,
+    ],
+  };
+}
+
 function PaneView({
   workspaceId,
   tab,
   pane,
-  bounds,
   visible,
+  style,
   onClosePane,
   onActivatePane,
   onRenamePane,
@@ -294,8 +343,8 @@ function PaneView({
   workspaceId: string;
   tab: Tab;
   pane: Pane;
-  bounds: PaneBounds;
   visible: boolean;
+  style?: CSSProperties;
   onClosePane(paneId: string): void;
   onActivatePane(paneId: string): void;
   onRenamePane(paneId: string, title: string): void;
@@ -305,14 +354,9 @@ function PaneView({
   return (
     <div
       data-pane-kind={pane.kind}
-      className={`absolute flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border bg-background ${active ? "border-pane-active-border" : "border-border"}`}
+      className={`relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border bg-background ${active ? "border-pane-active-border" : "border-border"}`}
       onMouseDown={() => onActivatePane(pane.id)}
-      style={{
-        left: cssLength(bounds.leftPercent, bounds.leftPixels),
-        top: cssLength(bounds.topPercent, bounds.topPixels),
-        width: cssLength(bounds.widthPercent, bounds.widthPixels),
-        height: cssLength(bounds.heightPercent, bounds.heightPixels),
-      }}
+      style={style}
     >
       {pane.kind === "terminal" ? (
         <TerminalPanel
@@ -355,6 +399,7 @@ function TabSurface({
   onActivatePane,
   onRenamePane,
   onAttentionChange,
+  onResizeSplit,
 }: {
   workspaceId: string;
   tab: Tab;
@@ -363,8 +408,10 @@ function TabSurface({
   onActivatePane(paneId: string): void;
   onRenamePane(paneId: string, title: string): void;
   onAttentionChange(paneId: string, state: TerminalAttentionState | null): void;
+  onResizeSplit(tabId: string, splitId: string, ratio: number): void;
 }) {
-  const positions = new Map(positionedPanes(tab.layout).map((item) => [item.paneId, item.bounds]));
+  const positions = positionedLayout(tab.layout);
+  const boundsByPane = new Map(positions.panes.map(({ paneId, bounds }) => [paneId, bounds]));
   return (
     <section
       aria-hidden={!visible}
@@ -372,7 +419,7 @@ function TabSurface({
     >
       <div className="relative h-full min-h-0 min-w-0 overflow-hidden rounded-xl bg-panel-divider">
         {tab.panes.map((pane) => {
-          const bounds = positions.get(pane.id);
+          const bounds = boundsByPane.get(pane.id);
           if (!bounds) return null;
           return (
             <PaneView
@@ -380,13 +427,59 @@ function TabSurface({
               workspaceId={workspaceId}
               tab={tab}
               pane={pane}
-              bounds={bounds}
               visible={visible}
+              style={{
+                position: "absolute",
+                left: cssLength(bounds.leftPercent, bounds.leftPixels),
+                top: cssLength(bounds.topPercent, bounds.topPixels),
+                width: cssLength(bounds.widthPercent, bounds.widthPixels),
+                height: cssLength(bounds.heightPercent, bounds.heightPixels),
+              }}
               onClosePane={onClosePane}
               onActivatePane={onActivatePane}
               onRenamePane={onRenamePane}
               onAttentionChange={onAttentionChange}
             />
+          );
+        })}
+        {positions.handles.map((handle) => {
+          const horizontal = handle.axis === "horizontal";
+          const bounds = handle.bounds;
+          return (
+            <div
+              className="pointer-events-none absolute"
+              data-layout-split-id={handle.splitId}
+              key={handle.splitId}
+              style={{
+                left: cssLength(bounds.leftPercent, bounds.leftPixels),
+                top: cssLength(bounds.topPercent, bounds.topPixels),
+                width: cssLength(bounds.widthPercent, bounds.widthPixels),
+                height: cssLength(bounds.heightPercent, bounds.heightPixels),
+                zIndex: 10,
+              }}
+            >
+              <ResizeHandle
+                axis={horizontal ? "x" : "y"}
+                label={horizontal ? "Resize pane width" : "Resize pane height"}
+                max={0.85}
+                min={0.15}
+                relative
+                value={handle.ratio}
+                style={{
+                  position: "absolute",
+                  left: horizontal
+                    ? `calc(${handle.ratio * 100}% - ${handle.ratio * PANE_RESIZE_HANDLE_SIZE}px)`
+                    : 0,
+                  top: horizontal
+                    ? 0
+                    : `calc(${handle.ratio * 100}% - ${handle.ratio * PANE_RESIZE_HANDLE_SIZE}px)`,
+                  height: horizontal ? "100%" : undefined,
+                  width: horizontal ? undefined : "100%",
+                  pointerEvents: "auto",
+                }}
+                onChange={(ratio) => onResizeSplit(tab.id, handle.splitId, ratio)}
+              />
+            </div>
           );
         })}
       </div>
@@ -460,6 +553,13 @@ export function App() {
     if (active)
       setWorkspaces((items) => items.map((item) => (item.id === active.id ? fn(item) : item)));
   };
+  const resizeSplit = (tabId: string, splitId: string, ratio: number) =>
+    update((workspace) => ({
+      ...workspace,
+      tabs: workspace.tabs.map((tab) =>
+        tab.id === tabId ? { ...tab, layout: resizePaneLayout(tab.layout, splitId, ratio) } : tab,
+      ),
+    }));
   const openWorkspace = async () => {
     const chosen = await window.desktop?.chooseWorkspace();
     if (!chosen) return;
@@ -612,7 +712,9 @@ export function App() {
       };
       const layout: PaneLayout = {
         type: "split",
+        splitId: id(),
         axis: "horizontal",
+        ratio: 0.5,
         first: tab.layout,
         second: { type: "pane", paneId: pane.id },
       };
@@ -959,6 +1061,7 @@ export function App() {
                       renamePane(workspace.id, tab.id, paneId, title)
                     }
                     onAttentionChange={updateAttention}
+                    onResizeSplit={(tabId, splitId, ratio) => resizeSplit(tabId, splitId, ratio)}
                   />
                 )),
               )
