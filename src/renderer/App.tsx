@@ -369,7 +369,9 @@ function PaneView({
       )}
       <button
         aria-label={`Close ${pane.title}`}
-        className="absolute right-2 top-2.5 z-20 grid size-7 place-items-center rounded-md text-foreground transition-colors hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+        className={`absolute right-2 z-20 grid size-7 place-items-center rounded-md text-foreground transition-colors hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${
+          pane.kind === "terminal" ? "top-0.5" : "top-2.5"
+        }`}
         title={`Close ${pane.title}`}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => {
