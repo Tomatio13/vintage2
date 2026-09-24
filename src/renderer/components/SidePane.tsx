@@ -3,10 +3,10 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
-  File,
   Folder,
   FolderOpen,
   Globe2,
+  GitBranch,
   Plus,
   RefreshCw,
   X,
@@ -17,6 +17,7 @@ import type { WorkspaceFileEntry } from "../../shared/desktop.js";
 import { useUiStore } from "../store/uiStore.js";
 import { BrowserPane } from "./BrowserPane.js";
 import { Button } from "./Button.js";
+import { LanguageIcon, ReviewPane } from "./ReviewPane.js";
 
 interface BrowserTab {
   id: string;
@@ -48,6 +49,7 @@ export function SidePane({
   const [files, setFiles] = useState<WorkspaceFileEntry[]>([]);
   const [filesWorkspaceId, setFilesWorkspaceId] = useState<string | null>(null);
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [reviewRefreshVersion, setReviewRefreshVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [revealHiddenFiles, setRevealHiddenFiles] = useState(false);
@@ -163,6 +165,19 @@ export function SidePane({
         >
           <FolderOpen aria-hidden="true" className="size-3.5" />
           <span>Files</span>
+        </button>
+        <button
+          aria-pressed={activeTabId === "review"}
+          className={`flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${
+            activeTabId === "review"
+              ? "bg-selected text-foreground"
+              : "text-foreground-subtle hover:bg-hover hover:text-foreground"
+          }`}
+          onClick={() => setActiveTabId("review")}
+          type="button"
+        >
+          <GitBranch aria-hidden="true" className="size-3.5" />
+          <span>Review</span>
         </button>
         <div
           aria-label="Browser tabs"
@@ -292,6 +307,18 @@ export function SidePane({
             )}
           </div>
         </div>
+        <div
+          aria-hidden={activeTabId !== "review"}
+          className="absolute inset-0"
+          hidden={activeTabId !== "review"}
+        >
+          <ReviewPane
+            active={activeTabId === "review"}
+            refreshVersion={reviewRefreshVersion}
+            workspaceId={workspaceId}
+            onRefresh={() => setReviewRefreshVersion((version) => version + 1)}
+          />
+        </div>
         {browserTabs.map((browserTab) => {
           const active = activeTabId === browserTab.id;
           return (
@@ -370,7 +397,7 @@ function FileTree({
         className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-ui-sm hover:bg-hover"
         onDoubleClick={() => onSelect(entry.path)}
       >
-        <File className="size-4 shrink-0 text-foreground-subtlest" />
+        <LanguageIcon path={entry.path} />
         <span className="truncate">{entry.name}</span>
       </button>
     );

@@ -10,6 +10,8 @@ import {
   type TerminalExitEvent,
   type TerminalAttentionState,
   type TerminalMonitorMode,
+  type WorkspaceGitReviewDiffRequest,
+  type WorkspaceGitReviewSource,
 } from "../shared/desktop.js";
 
 const bridge: DesktopBridge = {
@@ -51,6 +53,10 @@ const bridge: DesktopBridge = {
     ipcRenderer.invoke(DesktopChannels.workspaceReadFile, workspaceId, path),
   readWorkspaceImage: (workspaceId, path) =>
     ipcRenderer.invoke(DesktopChannels.workspaceReadImage, workspaceId, path),
+  getWorkspaceGitReview: (workspaceId: string, source: WorkspaceGitReviewSource) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceGitReview, workspaceId, source),
+  getWorkspaceGitReviewDiff: (workspaceId: string, request: WorkspaceGitReviewDiffRequest) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceGitReviewDiff, workspaceId, request),
   createTerminal: (options) => ipcRenderer.invoke(DesktopChannels.terminalCreate, options),
   readyTerminal: (sessionId) => ipcRenderer.invoke(DesktopChannels.terminalReady, sessionId),
   writeTerminal: (sessionId, data) =>

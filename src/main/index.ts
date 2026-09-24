@@ -19,6 +19,7 @@ import { AttentionSettingsManager } from "./attentionSettings.js";
 import { JevCredentialStore, JevSettingsManager } from "./jevSettings.js";
 import { JevEvaluationQueue } from "./jevEvaluationQueue.js";
 import { registerTerminalIpc } from "./terminalManager.js";
+import { getWorkspaceGitReview, getWorkspaceGitReviewDiff } from "./workspaceGitReview.js";
 import { restoreSavedProjects } from "./workspaceRestore.js";
 import { parseWorkspaceState, WorkspaceStateManager } from "./workspaceState.js";
 import { configureBrowserSession, configureWebviewSecurity } from "./webviewSecurity.js";
@@ -445,6 +446,20 @@ function registerDesktopIpc(
         throw new Error("Workspace image exceeds the size limit");
       }
       return `data:${mimeType};base64,${image.toString("base64")}`;
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceGitReview,
+    async (event, workspaceId: unknown, source: unknown) => {
+      resolveSenderWindow(event);
+      return getWorkspaceGitReview(registeredWorkspace(workspaceId), source);
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceGitReviewDiff,
+    async (event, workspaceId: unknown, request: unknown) => {
+      resolveSenderWindow(event);
+      return getWorkspaceGitReviewDiff(registeredWorkspace(workspaceId), request);
     },
   );
 }

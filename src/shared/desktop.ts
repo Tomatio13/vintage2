@@ -21,6 +21,8 @@ export const DesktopChannels = {
   workspaceListFiles: "workspace:list-files",
   workspaceReadFile: "workspace:read-file",
   workspaceReadImage: "workspace:read-image",
+  workspaceGitReview: "workspace:git-review",
+  workspaceGitReviewDiff: "workspace:git-review-diff",
   terminalCreate: "terminal:create",
   terminalReady: "terminal:ready",
   terminalWrite: "terminal:write",
@@ -96,6 +98,43 @@ export interface WorkspaceFileContent {
   path: string;
   content: string;
   truncated: boolean;
+}
+
+export type WorkspaceGitReviewSource = "unstaged" | "staged";
+
+export type WorkspaceGitReviewChangeKind =
+  | "modified"
+  | "added"
+  | "deleted"
+  | "renamed"
+  | "untracked"
+  | "conflicted";
+
+export interface WorkspaceGitReviewChange {
+  path: string;
+  originalPath?: string;
+  kind: WorkspaceGitReviewChangeKind;
+  added: number | null;
+  removed: number | null;
+}
+
+export interface WorkspaceGitReviewSnapshot {
+  status: "ready" | "not-repository" | "git-unavailable";
+  changes: WorkspaceGitReviewChange[];
+}
+
+export interface WorkspaceGitReviewDiffRequest {
+  source: WorkspaceGitReviewSource;
+  path: string;
+  originalPath?: string;
+  kind: WorkspaceGitReviewChangeKind;
+  contextLines?: number;
+}
+
+export interface WorkspaceGitReviewDiff {
+  availability: "patch" | "binary" | "unavailable";
+  patch: string | null;
+  summary: string | null;
 }
 
 export type JevApiKeySource = "saved" | "environment" | "none";
@@ -246,6 +285,14 @@ export interface DesktopBridge {
   listWorkspaceFiles(workspaceId: string, directoryPath?: string): Promise<WorkspaceFileEntry[]>;
   readWorkspaceFile(workspaceId: string, path: string): Promise<WorkspaceFileContent>;
   readWorkspaceImage(workspaceId: string, path: string): Promise<string>;
+  getWorkspaceGitReview(
+    workspaceId: string,
+    source: WorkspaceGitReviewSource,
+  ): Promise<WorkspaceGitReviewSnapshot>;
+  getWorkspaceGitReviewDiff(
+    workspaceId: string,
+    request: WorkspaceGitReviewDiffRequest,
+  ): Promise<WorkspaceGitReviewDiff>;
   createTerminal(options: TerminalCreateOptions): Promise<TerminalSession>;
   readyTerminal(sessionId: string): Promise<void>;
   writeTerminal(sessionId: string, data: string): Promise<void>;

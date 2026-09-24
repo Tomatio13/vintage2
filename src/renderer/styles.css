@@ -52,6 +52,17 @@
   --color-success: #55754b;
   --color-warning: #984a27;
   --color-destructive: #984a27;
+  --color-diff-added: #e3eddf;
+  --color-diff-added-foreground: #3e6938;
+  --color-diff-removed: #f2e0dc;
+  --color-diff-removed-foreground: #91483a;
+  --color-syntax-keyword: #72519a;
+  --color-syntax-string: #3f7148;
+  --color-syntax-number: #98512d;
+  --color-syntax-literal: #80528d;
+  --color-syntax-type: #286782;
+  --color-syntax-function: #795c30;
+  --color-syntax-attribute: #8b5c2a;
 }
 
 .dark {
@@ -81,6 +92,17 @@
   --color-success: #8eae76;
   --color-warning: #e8aa82;
   --color-destructive: #e8aa82;
+  --color-diff-added: #2c3b29;
+  --color-diff-added-foreground: #add096;
+  --color-diff-removed: #472d2a;
+  --color-diff-removed-foreground: #e4a096;
+  --color-syntax-keyword: #c5a3ec;
+  --color-syntax-string: #a2cc91;
+  --color-syntax-number: #f0ad80;
+  --color-syntax-literal: #d4a1e0;
+  --color-syntax-type: #83c6e5;
+  --color-syntax-function: #e2c27d;
+  --color-syntax-attribute: #e7a982;
 }
 
 .graphite {
@@ -110,6 +132,17 @@
   --color-success: #8eae76;
   --color-warning: #e28b74;
   --color-destructive: #e28b74;
+  --color-diff-added: #293a2b;
+  --color-diff-added-foreground: #a7d091;
+  --color-diff-removed: #452b2b;
+  --color-diff-removed-foreground: #e5a097;
+  --color-syntax-keyword: #c3a1ef;
+  --color-syntax-string: #a0ce8e;
+  --color-syntax-number: #efa77d;
+  --color-syntax-literal: #d3a0df;
+  --color-syntax-type: #80c4e3;
+  --color-syntax-function: #deb978;
+  --color-syntax-attribute: #e4a47d;
 }
 
 * {
