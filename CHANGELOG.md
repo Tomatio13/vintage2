@@ -1,5 +1,24 @@
 # VINTAGE Changelog
 
+## [0.2.2] - 2026-09-25
+
+### Added
+
+- **Workspace file previews:** Preview images, HTML, PDF, audio, and video files from Files. HTML runs in an isolated preview with scripts and external resources blocked.
+- **Structured and source views:** Open Markdown with local images and tables, format JSON, browse searchable CSV/TSV tables, or switch supported formats to their source.
+- **Source controls:** Search and copy source, toggle line wrapping, and view syntax highlighting for common programming and text files.
+
+### Improved
+
+- Render large source files progressively and cache syntax tokenizers to reduce display delay while retaining syntax highlighting as you scroll.
+- Document supported preview types, controls, and file-size limits in both READMEs.
+
+### Fixed
+
+- Read only the actual bytes returned for workspace files, preventing padded characters from appearing after short files.
+
+**Full Changelog:** [v0.2.1...v0.2.2](https://github.com/Tomatio13/vintage2/compare/v0.2.1...v0.2.2)
+
 ## [0.2.1] - 2026-09-25
 
 ### Added
