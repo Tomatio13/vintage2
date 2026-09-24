@@ -1,268 +1,270 @@
 # VINTAGE
 
-**必要なターミナルが、あなたを呼び戻す。**
+English | [日本語](README_JP.md)
 
-VINTAGEは、複数のCLIツールや作業コンテキストを「Space」にまとめて管理できるデスクトップアプリケーションです。
-バックグラウンドのターミナルで「コマンド完了」「エラー」「ユーザー入力待ち」などが発生すると、通知（Attention）一覧から該当するSpaceやターミナルへ即座に戻ることができます。
-右側のReviewペインでは、ワークスペースのGit差分をファイルごとに確認できます。
+**The right terminal calls you back.**
 
-![Space 2で作業中に、Space 1のTerminal 1のエラーをAttention一覧に表示し、Filesで言語別アイコンを確認する画面](assets/readme/vintage-background-attention.png)
+VINTAGE is a desktop app for organizing multiple CLI tools and work contexts into “Spaces.” When a background terminal finishes a command, reports an error, or waits for input, return to the relevant Space or terminal from the Attention list. The Review pane on the right lets you inspect workspace Git changes file by file.
 
-_サンプルワークスペースの画面です。別のSpaceで起きたAttentionを一覧で確認でき、Filesでは言語ごとのアイコンでファイルを見分けられます。_
+![A background terminal error in Space 1 shown in the Attention list while working in Space 2, with language-specific file icons visible in Files](assets/readme/vintage-background-attention.png)
 
-### Attentionから、対象のTerminalへ
+_Sample workspace. See an Attention from another Space, and identify files by their language-specific icons in Files._
 
-![Attention一覧から対象のTerminalへ移動し、右ペインのReviewにGit変更一覧を表示した画面](assets/readme/vintage-attention-routing.png)
+### Go straight from Attention to the terminal that needs you
 
-_サンプルワークスペースの画面です。Attentionの項目をクリックすると対象のSpaceとTerminalへ移動し、右ペインでは未ステージのGit変更を確認できます。_
+![The Attention list is used to open the terminal that needs attention, while the Review pane on the right shows workspace Git changes](assets/readme/vintage-attention-routing.png)
 
-## 見に行かなくても、必要なターミナルを通知
+_Sample workspace. Click an Attention item to open its Space and terminal. The Review pane on the right shows unstaged Git changes._
 
-複数のCLIツール（AIエージェント、ビルドツール、開発サーバーなど）を並行して動かしていると、どのターミナルで処理が終わったか、エラーや入力待ちで止まっていないかを何度も巡回して確認しがちです。
+## Get notified when a terminal needs you
 
-VINTAGEは、シェルの連携機能（Shell Integration）やターミナル出力（PTY出力）を監視し、ツール固有の設定に依存せず「ユーザーの注意が必要なイベント」を1か所に集約します。出力内容が曖昧でローカルルールだけでは判断できない場合は、外部AI（Jev）に判定を委ねることも可能です（任意機能）。
+When you run several CLI tools at once—such as AI agents, build tools, and development servers—you can end up repeatedly checking which terminal has finished, encountered an error, or is waiting for input.
 
-検知されたイベントはSpaceのバッジ、アプリ内通知、Attention（注意）履歴に反映され、30秒以上かかった長時間のコマンド完了も強調表示されます。通知や一覧をクリックするだけで、該当するターミナルへワンアクションで戻れます。
+VINTAGE monitors shell integration and terminal output (PTY output) to collect events that need your attention in one place, without relying on tool-specific settings. If local rules cannot confidently interpret ambiguous output, you can optionally ask the external AI service Jev to classify it.
 
-ターミナルごとに監視モード（`Monitor` / `Ignore` / `Mute` / `Always Notify` / `Errors Only` など）を個別に設定できるため、「常時稼働する開発サーバーのログ」と「応答を待つ対話型CLI」を同じ設定で煩わしく通知させることもありません。
+Detected events appear as Space badges, in-app notifications, and in the Attention history. Long-running commands that take at least 30 seconds to complete are highlighted. Click a notification or list item to return to the relevant terminal in one action.
 
-## 主な機能
+Set a monitoring mode for each terminal, such as `Monitor`, `Ignore`, `Mute`, `Always Notify`, or `Errors Only`. This lets you avoid noisy notifications from a continuously running development server while still hearing about a CLI that is waiting for your response.
 
-- **複数ワークスペースの管理**: ネイティブのフォルダー選択ダイアログから複数のプロジェクトを登録
-- **柔軟なシェル環境**: 各ワークスペース直下で zsh、bash、fish、またはOS既定のシェルを起動
-- **Spaceとターミナル分割**: ワークスペース内に複数の「Space」を作成し、Spaceごとにターミナルを縦横に分割・配置
-- **直感的なタブ・ペイン操作**: Spaceやターミナルの切り替え、終了、名前変更に対応
-- **ファイルプレビュー**: テキストを閲覧でき、Markdownはローカル画像や表を含むPreviewとSourceを切り替え可能
-- **Git Review**: 未ステージの変更（未追跡ファイルを含む）を一覧し、ファイルごとの追加・削除差分を確認
-- **テキストの自動コピー**: ターミナル出力をマウスで範囲選択するだけで自動的にクリップボードへコピー
-- **組み込みブラウザー**: ターミナルと分離された独立セッションで動作（複数タブ表示に対応）
-- **選べる4つのテーマ**: System、Light、Dark、Graphite
-- **豊富なカスタマイズ**: UIサイズ、ターミナルフォント、文字サイズ、スクロールバック行数、シェルの設定
-- **キーボードショートカット**: 主要なショートカットキーを自由に再割り当て可能
-- **クロスプラットフォーム対応**: Linux、Windows、macOSそれぞれに最適化されたカスタムウィンドウフレーム
+## Features
 
-## 基本操作
+- **Multiple workspaces**: Add projects with the native folder picker
+- **Flexible shells**: Launch zsh, bash, fish, or the operating system’s default shell in each workspace directory
+- **Spaces and split terminals**: Create multiple Spaces in a workspace, then arrange terminals side by side or vertically within each Space
+- **Tabs and panes**: Switch between, close, and rename Spaces and terminal panes
+- **File preview**: Read text files; switch Markdown between Preview and Source, with support for local images and tables
+- **Git Review**: List unstaged changes, including untracked files, and inspect added and removed lines for each file
+- **Automatic text copy**: Select terminal output with the mouse to copy it to the clipboard
+- **Built-in browser**: Use a separate session from the terminal, with support for multiple tabs
+- **Four themes**: System, Light, Dark, and Graphite
+- **Extensive customization**: Configure UI size, terminal font and text size, scrollback length, and shell settings
+- **Keyboard shortcuts**: Reassign the main shortcuts
+- **Cross-platform support**: Custom window frames adapted for Linux, Windows, and macOS
 
-1. **起動**: アプリを起動すると、ホームディレクトリを開いた状態で `Space 1` と `Terminal 1` が立ち上がります。事前のフォルダー選択なしですぐに使えます。
-2. **プロジェクトを開く**: 作業したいフォルダーがある場合は、`Open folder` からワークスペースを追加します。選択したフォルダーがターミナルの作業ディレクトリになります。
-3. **Spaceの追加**: サイドバーの `New space` またはタブ右側の `+` ボタンをクリックしてSpaceを追加します（新しいSpaceには `Terminal 1` が作成されます）。
-4. **ターミナルの分割**: 上部の分割ボタンをクリックすると、アクティブなターミナルを「右」または「下」に分割できます（`Terminal 2`、`Terminal 3`…）。
-5. **ファイルのプレビュー**: 右側ペインの `Files` を開き、ファイルをダブルクリックすると中央ペイン右側にプレビューが開きます。Markdownは `Preview` / `Source` の切り替えと再読み込みができます。
-6. **Git差分の確認**: 右側ペインの `Review` を開き、変更ファイルを選ぶと差分を表示します。更新アイコンでGitの状態を再取得できます。
-7. **Attention（通知）からの移動**: バックグラウンドのターミナルで処理完了やエラーが起きると、左側のAttention一覧に通知されます。クリックすると該当のペインへ即座に移動できます。
+## Getting started
 
-> **Tips:** タブ名やターミナルペインの名前は、タイトル部分をダブルクリックすることで変更できます。`Enter` キーまたはフォーカス移動で確定、`Escape` キーでキャンセルします。
+1. **Launch the app**: VINTAGE opens `Space 1` and `Terminal 1` in your home directory, so you can start working without first selecting a folder.
+2. **Open a project**: Choose **Open folder** to add a workspace. The selected folder becomes the terminal’s working directory.
+3. **Add a Space**: Click **New space** in the sidebar or the `+` button to the right of the tabs. Each new Space starts with `Terminal 1`.
+4. **Split a terminal**: Use the split buttons at the top to split the active terminal to the right or below. The new panes are named `Terminal 2`, `Terminal 3`, and so on.
+5. **Preview a file**: Open **Files** in the right pane and double-click a file to open its preview beside the central pane. For Markdown, switch between **Preview** and **Source**, or reload the file.
+6. **Review Git changes**: Open **Review** in the right pane and select a changed file to see its diff. Use the refresh button to reload the Git status.
+7. **Return from Attention**: When a background terminal finishes or reports an error, it appears in the Attention list on the left. Click it to open the relevant pane.
 
-### Git差分をReviewする
+> **Tip:** Double-click a tab title or terminal pane title to rename it. Press `Enter` or move focus to save, or press `Escape` to cancel.
 
-`Review` は、選択中のワークスペースにある未ステージの変更と未追跡ファイルを表示します。ファイルを選ぶと追加・削除行を色分けした差分が開きます。Reviewは閲覧専用で、Stage / Unstageの操作は行いません。
+### Review Git changes
 
-![VINTAGEのReviewタブでTypeScriptファイルのGit差分を展開した画面](assets/readme/vintage-git-review.png)
+`Review` lists unstaged changes and untracked files in the selected workspace. Select a file to view a diff with added and removed lines highlighted. Review is read-only; it does not stage or unstage changes.
 
-_サンプルリポジトリの差分です。ファイル名には言語ごとのアイコンが付き、追加行と削除行を色分けして表示します。_
+![A TypeScript Git diff expanded in VINTAGE’s Review tab](assets/readme/vintage-git-review.png)
 
-## 既定のキーボードショートカット
+_Sample repository diff. File names have language-specific icons, and added and removed lines are highlighted._
 
-設定画面の `Shortcuts` からキーの割り当てを変更できます。
+## Default keyboard shortcuts
 
-| 操作                   | ショートカット |
-| :--------------------- | :------------- |
-| 前のSpace              | `Ctrl+Shift+←` |
-| 次のSpace              | `Ctrl+Shift+→` |
-| 前のペイン             | `Ctrl+Shift+↑` |
-| 次のペイン             | `Ctrl+Shift+↓` |
-| 前のワークスペース     | `Alt+←`        |
-| 次のワークスペース     | `Alt+→`        |
-| 新しいSpace            | `Ctrl+Shift+N` |
-| 右へ分割               | `Ctrl+Shift+D` |
-| 下へ分割               | `Ctrl+Shift+T` |
-| サイドバー表示切り替え | `Ctrl+B`       |
-| 選択中のペインを閉じる | `Ctrl+Shift+W` |
+You can reassign shortcuts in **Settings → Shortcuts**.
 
-設定画面はサイドバー左下の歯車アイコンから開きます。編集した設定は `Ctrl+S` で保存できます。
+| Action              | Shortcut       |
+| :------------------ | :------------- |
+| Previous Space      | `Ctrl+Shift+←` |
+| Next Space          | `Ctrl+Shift+→` |
+| Previous pane       | `Ctrl+Shift+↑` |
+| Next pane           | `Ctrl+Shift+↓` |
+| Previous workspace  | `Alt+←`        |
+| Next workspace      | `Alt+→`        |
+| New Space           | `Ctrl+Shift+N` |
+| Split right         | `Ctrl+Shift+D` |
+| Split below         | `Ctrl+Shift+T` |
+| Toggle sidebar      | `Ctrl+B`       |
+| Close selected pane | `Ctrl+Shift+W` |
 
-## 必要環境
+Open Settings with the gear icon at the bottom left of the sidebar. Press `Ctrl+S` to save changes.
 
-- **Node.js**: 24以上
-- **pnpm**: 10.33.2以上
-- **C/C++開発環境**: `node-pty` のビルドに必要なネイティブコンパイラー環境（Linuxの場合は C/C++コンパイラー、`make`、Pythonなど）
+## Requirements
 
-## セットアップ
+- **Node.js**: 24 or later
+- **pnpm**: 10.33.2 or later
+- **C/C++ build tools**: A native compiler toolchain is required to build `node-pty` (for example, a C/C++ compiler, `make`, and Python on Linux)
+
+## Setup
+
+Install dependencies:
 
 ```bash
-# 依存パッケージのインストール
+# Install dependencies
 pnpm install
 
-# 開発モードで起動（Main / Renderer / Electronを監視モードで実行）
+# Start in development mode (watches Main, Renderer, and Electron)
 pnpm dev
 ```
 
-本番ビルドをローカルで起動する場合は、以下を実行します：
+To build and run the production app locally:
 
 ```bash
 pnpm build
 pnpm start
 ```
 
-## Jevによる意味判定（任意機能）
+## Optional semantic analysis with Jev
 
-[TypeSafe JavaScript SDK](https://docs.typesafe.ai/sdk/javascript) を利用し、ターミナルの出力ログから「コマンドが現在どのような状態にあるか」をAI（Jev）に解析・判定させることができます。
-終了コードや単純な正規表現（ローカルルール）だけでは判別しづらい対話型CLIやAIエージェントの出力でも、高精度に状態を認識できます。特定のツール専用フックに依存せず、あらゆるCLIで動作します。
+VINTAGE can use the [TypeSafe JavaScript SDK](https://docs.typesafe.ai/sdk/javascript) to analyze terminal output with Jev and determine the current state of a command. This can help identify the state of interactive CLIs and AI agents when exit codes or simple local regular-expression rules are not enough. It works across CLI tools without relying on tool-specific hooks.
 
-### 判定される状態
+### States Jev can detect
 
-Jevはターミナルの直近の出力を解析し、以下の状態を判定してAttention一覧や通知に反映します：
+Jev analyzes recent terminal output and reports states in the Attention list and notifications:
 
-- **正常完了 (Completed)**: コマンドやAIエージェントのターンが正常に終了し、次の入力プロンプト待ちに戻った状態
-- **失敗・ブロック (Failed)**: エラー終了や処理の中断が発生した状態
-- **入力・承認待ち (Waiting input)**: ユーザーの確認、承認、キー入力を待っている状態
-- **外部処理待ち (Waiting external)**: 外部APIや別プロセスの応答を待っている状態
-- **要確認の警告 (Warning)**: 処理は継続しているが注意すべき警告が出ている状態
-- **思考・作業中 (Thinking / Busy)**: AIエージェントが思考中、またはバックグラウンドで処理が進行している状態
-- **通常実行中 / 不明**: 通常のコマンド実行中、または判定不能な状態
+- **Completed**: A command or AI agent turn has finished and returned to its next input prompt
+- **Failed**: A command failed or was interrupted
+- **Waiting input**: The tool is waiting for user confirmation, approval, or a key press
+- **Waiting external**: The tool is waiting for an external API or another process
+- **Warning**: A warning needs attention, though processing may continue
+- **Thinking / Busy**: An AI agent is thinking or other background work is in progress
+- **Running / Unknown**: A command is running normally, or its state cannot be determined
 
-あわせて注意度（0〜4のレベル）や対応の要否も算出されます。判定が曖昧な場合は無理に確定せず、ローカルの確実な判定結果を優先します。
+Jev also estimates attention severity on a scale of 0–4 and whether action is needed. If the result is ambiguous, VINTAGE avoids forcing a classification and prefers a reliable local result.
 
-### プライバシーとセキュリティ
+### Privacy and security
 
-外部AIへ送信するデータは最小限に抑えられており、安全に配慮されています：
+VINTAGE limits the data sent to the external AI service:
 
-- **送信される情報**: 秘密情報と思われる値をマスキングしたコマンド名、ワークスペース名、終了コード、実行時間、および末尾40行（最大4,000文字）の出力ログのみです。
-- **送信されない情報**: フルパス、環境変数、ターミナルの全スクロール履歴などは一切送信されません。
-- **レート制限**: アプリ全体で毎秒2件・毎分30件までに制限されており、タイムアウトは10秒です。API通信に障害が発生してもターミナル自体の操作はブロックされず、ローカル判定にフォールバックします。
+- **Sent**: A command name with values that appear to be secrets masked, the workspace name, exit code, elapsed time, and the last 40 lines of terminal output (up to 4,000 characters)
+- **Not sent**: Full paths, environment variables, or the full terminal scrollback
+- **Rate limits**: Up to 2 requests per second and 30 per minute across the app, with a 10-second timeout. If the API is unavailable, terminal interaction remains unblocked and VINTAGE falls back to local classification.
 
-### APIキーの設定
+### Set an API key
 
-1. 設定画面（**Settings**）の **Integrations** を開きます。
-2. JevのAPIキーを入力して保存します。
-   - キーはOSの安全な資格情報ストレージ（Keychain / Secret Service等）を用いて暗号化して保存されます（Rendererプロセスへは渡されません）。
-   - 安全なストレージが利用できない環境では、環境変数 `TYPESAFE_API_KEY` を通じた設定も可能です（保存済みキーがある場合はそちらが優先されます）。
-   - 設定後はアプリを再起動することなく、実行中のターミナルに即座に反映されます。
+1. Open **Settings → Integrations**.
+2. Enter and save your Jev API key.
+   - The key is encrypted using the operating system’s secure credential store (such as Keychain or Secret Service) and is never passed to the Renderer process.
+   - If secure storage is unavailable, you can set the key with the `TYPESAFE_API_KEY` environment variable. A saved key takes precedence.
+   - Changes take effect in running terminals without restarting VINTAGE.
 
-### デバッグ方法
+### Debug logging
 
-判定の動作ログを確認したい場合は、VINTAGEを完全に終了してから次のように起動します（送信本文やAPIキーは出力されず、有効状態や判定理由、スキップ理由のみが出力されます）。
+To inspect classification logs, fully quit VINTAGE and start it as follows. The logs do not include the request body or API key; they show only whether the integration is enabled, the reason for a classification, and why an evaluation was skipped.
 
 ```bash
 VINTAGE_JEV_DEBUG=1 pnpm dev
 ```
 
-## Attentionの監視設定
+## Attention monitoring settings
 
-各ターミナル上部にあるメニューから、ターミナルごとの監視モードを切り替えることができます。
+Use the menu at the top of each terminal to select its monitoring mode.
 
-| モード          | Jev（AI）の評価タイミング                                                               | Attention一覧と通知の動作                                                                                               |
-| :-------------- | :-------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
-| `Monitor`       | 出力の停止後（debounce後）やコマンド終了時に評価。出力が続く場合は最短5秒間隔で再評価。 | 設定されたしきい値（threshold）に従ってAttention一覧への表示およびOS通知を行います。                                    |
-| `Mute`          | `Monitor` と同様                                                                        | Attention一覧には表示しますが、OSデスクトップ通知は行いません。                                                         |
-| `Always Notify` | `Monitor` と同様                                                                        | しきい値やアプリのアクティブ状態にかかわらず常にOS通知を送ります。（※アプリ全体の通知設定が無効の場合は通知されません） |
-| `Agent Monitor` | AIエージェントの作業中、定期的に状態を評価（既定10秒。設定で5〜300秒に変更可能）。      | ログ出力中は「Thinking（思考中）」と表示し、ターン完了や入力待ちを自動検知します。                                      |
-| `Errors Only`   | Jevは呼び出されません。                                                                 | コマンドの異常終了（エラーコード）や明らかなエラー出力のみを検知し、通常の完了や警告は通知しません。                    |
-| `Ignore`        | Jevは呼び出されません。                                                                 | このターミナルの監視およびAttention通知を完全に停止します。                                                             |
+| Mode            | When Jev evaluates                                                                                                                       | Attention list and notification behavior                                                                                 |
+| :-------------- | :--------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------- |
+| `Monitor`       | After output settles (after the debounce period) and when a command exits. If output continues, reevaluates as often as every 5 seconds. | Adds Attention items and sends OS notifications according to the configured thresholds.                                  |
+| `Mute`          | Same as `Monitor`.                                                                                                                       | Shows Attention items but does not send OS desktop notifications.                                                        |
+| `Always Notify` | Same as `Monitor`.                                                                                                                       | Always sends OS notifications regardless of thresholds or app activity. Notifications must still be enabled for the app. |
+| `Agent Monitor` | Periodically while an AI agent is working (10 seconds by default; configurable from 5 to 300 seconds).                                   | Shows “Thinking” while output is streaming and detects completed turns and requests for input.                           |
+| `Errors Only`   | Jev is not called.                                                                                                                       | Detects non-zero command exits and clear error output; ordinary completion and warnings do not trigger Attention.        |
+| `Ignore`        | Jev is not called.                                                                                                                       | Stops monitoring and Attention notifications for this terminal.                                                          |
 
-- **`Monitor` / `Mute` / `Always Notify`**: 主に出力停止時やコマンド終了時に判定を行います（通常モードでは静かな状態の定期評価は行いません）。
-- **`Agent Monitor`**: Claude Code、Codex、OpenCode などのAIエージェントCLI向けモードです。プロセス監視によりエージェントの稼働を検知し、ログが流れている間は「Thinking」、質問や承認待ちになったときは「Waiting input」、次のプロンプトに戻ったときは「Completed」と判定します。Jev未設定時でもログ流入中の「Thinking」表示は機能します。
+- **`Monitor` / `Mute` / `Always Notify`**: Usually evaluate after output stops or a command exits. In regular `Monitor` mode, quiet terminals are not evaluated periodically.
+- **`Agent Monitor`**: Intended for AI agent CLIs such as Claude Code, Codex, and OpenCode. Process monitoring detects when an agent is running. VINTAGE shows “Thinking” while output is streaming, “Waiting input” when the agent asks a question or requests approval, and “Completed” when it returns to its prompt. The “Thinking” indicator works while Jev is not configured.
 
-### 詳細設定のカスタマイズ
+### Customize advanced settings
 
-設定画面（**Settings**）の **Attention** から、以下の設定を調整できます：
+Open **Settings → Attention** to adjust:
 
-- **出力の安定待ち時間（Debounce）**: 100〜5,000 ms（既定値: 800 ms）
-- **Attention一覧への表示しきい値**: 重要度 LOW 以上など
-- **デスクトップ通知の送信しきい値**: 重要度 HIGH 以上など
-- **Agent Monitorの監視周期**: 5〜300秒（既定値: 10秒）
+- **Output settle time (debounce)**: 100–5,000 ms (default: 800 ms)
+- **Attention list threshold**: For example, LOW severity and above
+- **Desktop notification threshold**: For example, HIGH severity and above
+- **Agent Monitor interval**: 5–300 seconds (default: 10 seconds)
 
-※ 設定変更は保存後、実行中のターミナルにも即座に反映されます。
+Changes take effect in running terminals as soon as you save them.
 
-### 設定の保存場所
+### Where settings are stored
 
-ターミナルごとの監視モードやアプリ設定は、OSのユーザーデータ領域にある `attention-settings.json` に保存されます。
-ターミナル監視モードの照合には「ワークスペースパス・タブ名・ターミナル名」から生成したハッシュ値を使います。`attention-settings.json` にはプロジェクトの絶対パスやログ内容を平文で記録しません。
-HomeやProject、Space、ペイン構成、開いているファイルは別の `workspace-state.json` に保存されます。このファイルには復元に必要なProjectの絶対パスとファイルの相対パスが含まれます。保存先のフォルダーが見つからない場合もSpace情報は保持され、フォルダーを再指定するかProject一覧から削除できます。Terminalのプロセスや出力内容は保存しません。
+Terminal monitoring modes and app settings are stored in `attention-settings.json` in the operating system’s user data directory. VINTAGE matches a terminal’s monitoring mode using a hash derived from its workspace path, tab title, and terminal title. The settings file does not store project paths or logs as plain text.
 
-## 動作確認・テスト
+Home and Project workspaces, Spaces, pane layouts, and open files are stored separately in `workspace-state.json`. It contains the project paths and relative file paths needed to restore the workspace. If a folder is missing, its Space information is retained so you can select the folder again or remove the project. Terminal processes and their output are not saved.
 
-開発時の各種チェックやテストは以下のコマンドで行えます。
+## Verification and tests
+
+Run the following commands for development checks and tests:
 
 ```bash
-# 型検査・Lint・フォーマット・単体テスト・ビルドの一括実行
+# Run boundary checks, type checking, lint, formatting checks, unit tests, and a build
 pnpm verify
 
-# Electronを実際に起動するE2Eスモークテスト
+# Run an end-to-end smoke test that launches Electron
 pnpm test:e2e
 ```
 
-### 個別コマンド
+### Individual commands
 
-| コマンド                 | 内容                                          |
-| :----------------------- | :-------------------------------------------- |
-| `pnpm typecheck`         | Main / RendererプロセスのTypeScript型チェック |
-| `pnpm lint`              | oxlint による静的コード解析                   |
-| `pnpm fmt`               | oxfmt によるコード自動整形                    |
-| `pnpm fmt:check`         | コードフォーマットの検証                      |
-| `pnpm test`              | Vitest による単体・コンポーネントテスト       |
-| `pnpm build`             | Main、Preload、Rendererの本番用ビルド         |
-| `pnpm verify:boundaries` | Electronのプロセス境界・依存関係ルールの検証  |
+| Command                  | Description                                               |
+| :----------------------- | :-------------------------------------------------------- |
+| `pnpm typecheck`         | Check TypeScript types in the Main and Renderer processes |
+| `pnpm lint`              | Run static analysis with oxlint                           |
+| `pnpm fmt`               | Format source files with oxfmt                            |
+| `pnpm fmt:check`         | Check formatting                                          |
+| `pnpm test`              | Run unit and component tests with Vitest                  |
+| `pnpm build`             | Build Main, Preload, and Renderer for production          |
+| `pnpm verify:boundaries` | Check Electron process boundaries and dependency rules    |
 
-## パッケージ作成（配布ビルド）
+## Packaging
 
-インストール前の展開済みアプリケーションは以下のコマンドで生成できます：
+To create an unpacked app before installation:
 
 ```bash
 pnpm run package:dir
 ```
 
-OS別のインストーラーや配布パッケージを作成する場合は、それぞれの対象OS上で以下のコマンドを実行してください：
+To create installers or distribution packages, run the command for the target operating system:
 
-| 対象OS      | コマンド              | 生成される形式         |
-| :---------- | :-------------------- | :--------------------- |
-| **Linux**   | `pnpm run dist:linux` | AppImage, deb          |
-| **macOS**   | `pnpm run dist:mac`   | dmg, zip               |
-| **Windows** | `pnpm run dist:win`   | NSIS（インストーラー） |
+| Target OS   | Command               | Output formats |
+| :---------- | :-------------------- | :------------- |
+| **Linux**   | `pnpm run dist:linux` | AppImage, deb  |
+| **macOS**   | `pnpm run dist:mac`   | dmg, zip       |
+| **Windows** | `pnpm run dist:win`   | NSIS installer |
 
-生成された成果物は `release/` ディレクトリに出力されます。
+Build artifacts are written to the `release/` directory.
 
-GitHub Actions では pull request、`main` への push、手動実行時に Linux・Windows 向けと、Intel（x64）・Apple Silicon（arm64）両方の macOS 向けパッケージを作成し、各 workflow run の成果物として30日間保存します。`v` で始まるタグを push すると、すべての対象パッケージを添付した GitHub Release を自動作成します。コード署名（macOSの公証を含む）は未設定です。
+GitHub Actions builds packages for Linux and Windows, and for both Intel (x64) and Apple Silicon (arm64) Macs, on pull requests, pushes to `main`, and manual runs. Each workflow run’s artifacts are retained for 30 days. Pushing a tag that starts with `v` automatically creates a GitHub Release with all target packages attached. Code signing, including macOS notarization, is not configured.
 
-## アーキテクチャ
+## Architecture
 
 ```text
-Renderer UI (画面描画)
-  ├─ 型付きIPC → Preload許可リスト → Electron Main → OS / ファイルシステム
-  ├─ Terminal UI → TerminalManager → node-pty → ローカルシェル
-  └─ Browser UI → 独立したwebviewセッション → Web
+Renderer UI
+  ├─ Typed IPC → Preload allowlist → Electron Main → OS / filesystem
+  ├─ Terminal UI → TerminalManager → node-pty → local shell
+  └─ Browser UI → isolated webview session → web
 ```
 
-- **`src/main`**: ウィンドウ管理、PTY（仮想端末）制御、ファイルアクセス検証、WebViewセキュリティなど
-- **`src/preload`**: Rendererに対して最小限かつ安全な型付きAPIのみを公開
-- **`src/renderer`**: React UI、タブ・ペインのレイアウト管理、各種設定の管理
-- **`src/shared`**: プロセス間（Main / Preload / Renderer）で共有される型定義と通信仕様
-- **`tests`**: UIコンポーネント、状態管理、URL処理、Electronスモークテスト
+- **`src/main`**: Window management, PTY control, file access validation, and WebView security
+- **`src/preload`**: Exposes a minimal, secure, typed API to the Renderer
+- **`src/renderer`**: React UI, tab and pane layouts, and settings
+- **`src/shared`**: Shared types and communication contracts for Main, Preload, and Renderer
+- **`tests`**: UI components, state management, URL handling, and Electron smoke tests
 
-プロセス境界や設計思想の詳細については [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) をご覧ください。
+For details about process boundaries and design principles, see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
-## セキュリティ
+## Security
 
-VINTAGEは安全にローカル環境で動作するよう、以下のセキュリティ対策を実施しています：
+VINTAGE is designed to run safely in a local environment:
 
-- **プロセスの完全分離**: RendererプロセスではNode.js統合を無効化し、Context Isolation（コンテキスト分離）とSandboxを有効にしています。
-- **安全なIPC通信**: レンダラーからOSへのアクセスは、Preloadのホワイトリストで明示的に許可された型付きIPCのみに限定されています。
-- **ワークスペースの制限**: 新しいProjectはフォルダー選択ダイアログから登録します。再起動時は保存済みProjectのパスを再検証してから登録し、未登録のパスをRendererから直接参照することはできません。
-- **安全なファイル読み取り**: パストラバーサル防止、シンボリックリンクによる意図しない外部参照の遮断、通常ファイル以外の読み取り拒否を徹底しています（ファイルプレビューの上限は1 MB）。
-- **PTYのライフサイクル管理**: 各仮想端末（PTY）は起動元のElectronウィンドウに紐付けられ、ウィンドウ終了時に確実に破棄されます。
-- **安全な組み込みブラウザー**: アクセス可能なURLスキームを `http:`、`https:`、`about:blank` に限定し、カメラや位置情報などの権限要求はすべて自動で拒否します。
-- **CLI認証情報の非保持**: VINTAGE自体は外部サービスやCLI（Codex等）のログイン資格情報を保持しません。認証や設定は各CLIツール側で完結して管理されます。
+- **Process isolation**: Node.js integration is disabled in the Renderer process. Context Isolation and the sandbox are enabled.
+- **Secure IPC**: Access from the Renderer to the operating system is limited to typed IPC calls explicitly allowed by the Preload allowlist.
+- **Workspace restrictions**: Add projects through the folder picker. On restart, saved project paths are revalidated before they are registered. The Renderer cannot access unregistered paths directly.
+- **Safe file reads**: Prevents path traversal, blocks unintended external access through symbolic links, and refuses to read non-regular files. File previews are limited to 1 MB.
+- **PTY lifecycle management**: Each pseudo-terminal (PTY) is tied to the Electron window that created it and is terminated when that window closes.
+- **Secure built-in browser**: Allows only the `http:`, `https:`, and `about:blank` URL schemes and automatically denies permission requests such as camera or location access.
+- **CLI credentials are not stored**: VINTAGE does not store login credentials for external services or CLIs such as `Codex`. Each CLI manages its own authentication and settings.
 
-## 現在の制限事項
+## Current limitations
 
-以下の機能は開発中または未対応です：
+The following features are in development or not yet supported:
 
-- ファイルプレビューペインでのコード編集（現在は読み取り専用です）
-- SSH接続先などのシェル連携（Shell Integration）が届かない環境での正確なイベント検知（PTYログからの簡易推測になります）
-- 組み込みブラウザーでのファイルのダウンロード、拡張機能、認証情報（ログイン情報）の保存
-- アプリの自動アップデート、利用状況テレメトリー、公式リリース用のコード署名
+- Editing code in the file preview pane (previews are read-only)
+- Accurate event detection in environments where shell integration is unavailable, such as remote SSH shells (VINTAGE uses a basic inference from PTY logs)
+- File downloads, extensions, and saved login credentials in the built-in browser
+- Automatic app updates, usage telemetry, and code signing for official releases
 
-## ライセンス
+## License
 
-本プロジェクトは **Apache License 2.0** のもとで公開されています。
-詳細は [LICENSE](./LICENSE) および [NOTICE.md](./NOTICE.md) をご参照ください。
+This project is available under the **Apache License 2.0**.
+
+See [LICENSE](./LICENSE) and [NOTICE.md](./NOTICE.md) for details.
