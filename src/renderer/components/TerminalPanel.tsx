@@ -447,6 +447,36 @@ export function TerminalPanel({
     terminal.loadAddon(fit);
     terminal.open(host);
     fit.fit();
+    terminal.attachCustomKeyEventHandler((event) => {
+      const pasteModifier = bridge.platform === "darwin" ? event.metaKey : event.ctrlKey;
+      if (
+        event.type !== "keydown" ||
+        event.key.toLowerCase() !== "v" ||
+        !pasteModifier ||
+        event.altKey
+      ) {
+        return true;
+      }
+
+      const sessionId = sessionIdRef.current;
+      if (!sessionId) return true;
+
+      event.preventDefault();
+      void bridge
+        .pasteTerminalClipboard(sessionId)
+        .then((result) => {
+          if (sessionIdRef.current !== sessionId || terminalRef.current !== terminal) return;
+          if (result.kind === "text") {
+            terminal.paste(result.text);
+          } else if (result.kind === "image") {
+            terminal.paste(`Please inspect this image: ${JSON.stringify(result.filePath)}`);
+          }
+        })
+        .catch(() => {
+          if (sessionIdRef.current === sessionId) setStatus("Clipboard paste failed");
+        });
+      return false;
+    });
     let selectionCopyTimer: ReturnType<typeof setTimeout> | null = null;
     const selectionCopy = terminal.onSelectionChange(() => {
       if (selectionCopyTimer !== null) clearTimeout(selectionCopyTimer);

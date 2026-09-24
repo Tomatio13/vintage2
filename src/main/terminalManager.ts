@@ -1,12 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
-import { basename } from "node:path";
+import { lstat, mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { basename, join, resolve } from "node:path";
 
-import { ipcMain, type IpcMainInvokeEvent, type WebContents } from "electron";
+import { app, clipboard, ipcMain, type IpcMainInvokeEvent, type WebContents } from "electron";
 import { spawn, type IPty } from "node-pty";
 
 import {
   DesktopChannels,
   type TerminalCreateOptions,
+  type TerminalClipboardPasteResult,
   type TerminalExitEvent,
   type TerminalResize,
   type TerminalSession,
@@ -19,6 +21,9 @@ import { prepareShellIntegration } from "./shellIntegration.js";
 
 const MAX_BUFFER_LENGTH = 64 * 1024;
 const MAX_WRITE_LENGTH = 1024 * 1024;
+const MAX_CLIPBOARD_IMAGE_BYTES = 25 * 1024 * 1024;
+const CLIPBOARD_IMAGE_RETENTION_MS = 24 * 60 * 60 * 1000;
+const MAX_CLIPBOARD_IMAGES_PER_WORKSPACE = 100;
 
 interface OwnedTerminal {
   id: string;
@@ -29,6 +34,7 @@ interface OwnedTerminal {
   buffer: string;
   attention: AttentionRouter;
   profileKey: string;
+  cwd: string;
   cleanup(): void;
   stopProcessMonitor(): void;
 }
@@ -73,6 +79,28 @@ export function registerTerminalIpc(
     terminal.attention.observeInput();
     terminal.process.write(rawData);
   });
+  ipcMain.handle(
+    DesktopChannels.terminalPasteClipboard,
+    async (event, rawId: unknown): Promise<TerminalClipboardPasteResult> => {
+      const terminal = requireOwnedSession(event, rawId);
+      const image = clipboard.readImage();
+      if (!image.isEmpty()) {
+        const buffer = image.toPNG();
+        if (buffer.byteLength > MAX_CLIPBOARD_IMAGE_BYTES) {
+          throw new Error("Clipboard image exceeds the 25 MiB limit");
+        }
+        if (buffer.byteLength > 0) {
+          const filePath = await saveClipboardImage(terminal.cwd, buffer);
+          return { kind: "image", filePath };
+        }
+      }
+      const text = clipboard.readText();
+      if (text.length > MAX_WRITE_LENGTH) {
+        throw new Error("Clipboard text exceeds the 1 MiB terminal input limit");
+      }
+      return text ? { kind: "text", text } : { kind: "empty" };
+    },
+  );
   ipcMain.handle(DesktopChannels.terminalResize, (event, rawId: unknown, rawSize: unknown) => {
     const size = parseSize(rawSize);
     requireOwnedSession(event, rawId).process.resize(size.cols, size.rows);
@@ -110,6 +138,7 @@ function createTerminal(
   observeOwner(event.sender);
   const command = prepareShellIntegration(resolveShell(options.shell), cleanEnvironment());
   const cwd = resolveWorkspace(options.workspaceId);
+  void cleanClipboardImages(clipboardImageDirectory(cwd)).catch(() => {});
   const profileKey = terminalProfileKey(cwd, options.tabTitle, options.paneTitle);
   const monitorMode = attentionSettings.getTerminalMode(profileKey);
   let process: IPty;
@@ -145,6 +174,7 @@ function createTerminal(
     buffer: "",
     attention,
     profileKey,
+    cwd,
     cleanup: command.cleanup,
     stopProcessMonitor: () => {},
   };
@@ -185,6 +215,71 @@ function createTerminal(
   });
 
   return { id: terminal.id, shell: basename(command.file), cwd, monitorMode };
+}
+
+async function saveClipboardImage(workspaceRoot: string, buffer: Buffer): Promise<string> {
+  const directory = clipboardImageDirectory(workspaceRoot);
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const directoryInfo = await lstat(directory);
+  if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink()) {
+    throw new Error("Clipboard image path must be a regular directory");
+  }
+
+  const filePath = join(directory, `image-${randomUUID()}.png`);
+  await writeFile(filePath, buffer, { flag: "wx", mode: 0o600 });
+  await cleanClipboardImages(directory, filePath);
+  return filePath;
+}
+
+function clipboardImageDirectory(workspaceRoot: string): string {
+  const workspaceKey = createHash("sha256")
+    .update(resolve(workspaceRoot))
+    .digest("hex")
+    .slice(0, 24);
+  return join(app.getPath("temp"), "vintage", "clipboard-images", workspaceKey);
+}
+
+async function cleanClipboardImages(directory: string, keepFilePath?: string): Promise<void> {
+  try {
+    const directoryInfo = await lstat(directory);
+    if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink()) return;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+  const entries = await readdir(directory, { withFileTypes: true }).catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  });
+  if (!entries) return;
+  const now = Date.now();
+  const images = (
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (!entry.isFile() || !/^image-[\da-f-]+\.png$/iu.test(entry.name)) return null;
+        const filePath = join(directory, entry.name);
+        try {
+          const info = await lstat(filePath);
+          return info.isFile() ? { filePath, modifiedAt: info.mtimeMs } : null;
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+          throw error;
+        }
+      }),
+    )
+  ).filter((entry): entry is { filePath: string; modifiedAt: number } => entry !== null);
+
+  const expired = images.filter((image) => now - image.modifiedAt > CLIPBOARD_IMAGE_RETENTION_MS);
+  await Promise.all(expired.map((image) => rm(image.filePath, { force: true })));
+  const active = images
+    .filter((image) => now - image.modifiedAt <= CLIPBOARD_IMAGE_RETENTION_MS)
+    .sort((left, right) => right.modifiedAt - left.modifiedAt);
+  const pinned = active.find((image) => image.filePath === keepFilePath);
+  const candidates = active.filter((image) => image.filePath !== keepFilePath);
+  const excess = candidates.slice(
+    Math.max(0, MAX_CLIPBOARD_IMAGES_PER_WORKSPACE - (pinned ? 1 : 0)),
+  );
+  await Promise.all(excess.map((image) => rm(image.filePath, { force: true })));
 }
 
 function terminalProfileKey(

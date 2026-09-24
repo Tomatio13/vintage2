@@ -26,6 +26,7 @@ export const DesktopChannels = {
   terminalCreate: "terminal:create",
   terminalReady: "terminal:ready",
   terminalWrite: "terminal:write",
+  terminalPasteClipboard: "terminal:paste-clipboard",
   terminalResize: "terminal:resize",
   terminalSetActive: "terminal:set-active",
   terminalSetMonitorMode: "terminal:set-monitor-mode",
@@ -200,6 +201,11 @@ export interface TerminalDataEvent {
   data: string;
 }
 
+export type TerminalClipboardPasteResult =
+  | { kind: "empty" }
+  | { kind: "text"; text: string }
+  | { kind: "image"; filePath: string };
+
 export interface TerminalExitEvent {
   sessionId: string;
   exitCode: number;
@@ -296,6 +302,7 @@ export interface DesktopBridge {
   createTerminal(options: TerminalCreateOptions): Promise<TerminalSession>;
   readyTerminal(sessionId: string): Promise<void>;
   writeTerminal(sessionId: string, data: string): Promise<void>;
+  pasteTerminalClipboard(sessionId: string): Promise<TerminalClipboardPasteResult>;
   resizeTerminal(sessionId: string, size: TerminalResize): Promise<void>;
   setTerminalActive(sessionId: string, active: boolean): Promise<void>;
   setTerminalMonitorMode(sessionId: string, mode: TerminalMonitorMode): Promise<void>;

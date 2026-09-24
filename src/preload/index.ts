@@ -9,6 +9,7 @@ import {
   type TerminalDataEvent,
   type TerminalExitEvent,
   type TerminalAttentionState,
+  type TerminalClipboardPasteResult,
   type TerminalMonitorMode,
   type WorkspaceGitReviewDiffRequest,
   type WorkspaceGitReviewSource,
@@ -61,6 +62,8 @@ const bridge: DesktopBridge = {
   readyTerminal: (sessionId) => ipcRenderer.invoke(DesktopChannels.terminalReady, sessionId),
   writeTerminal: (sessionId, data) =>
     ipcRenderer.invoke(DesktopChannels.terminalWrite, sessionId, data),
+  pasteTerminalClipboard: (sessionId): Promise<TerminalClipboardPasteResult> =>
+    ipcRenderer.invoke(DesktopChannels.terminalPasteClipboard, sessionId),
   resizeTerminal: (sessionId, size) =>
     ipcRenderer.invoke(DesktopChannels.terminalResize, sessionId, size),
   setTerminalActive: (sessionId, active) =>
