@@ -20,6 +20,7 @@ export const DesktopChannels = {
   workspaceLocate: "workspace:locate",
   workspaceListFiles: "workspace:list-files",
   workspaceReadFile: "workspace:read-file",
+  workspaceReadImage: "workspace:read-image",
   terminalCreate: "terminal:create",
   terminalReady: "terminal:ready",
   terminalWrite: "terminal:write",
@@ -244,6 +245,7 @@ export interface DesktopBridge {
   locateWorkspace(workspaceId: string): Promise<RegisteredWorkspace | null>;
   listWorkspaceFiles(workspaceId: string, directoryPath?: string): Promise<WorkspaceFileEntry[]>;
   readWorkspaceFile(workspaceId: string, path: string): Promise<WorkspaceFileContent>;
+  readWorkspaceImage(workspaceId: string, path: string): Promise<string>;
   createTerminal(options: TerminalCreateOptions): Promise<TerminalSession>;
   readyTerminal(sessionId: string): Promise<void>;
   writeTerminal(sessionId: string, data: string): Promise<void>;

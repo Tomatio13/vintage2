@@ -365,15 +365,11 @@ function PaneView({
           onRename={(title) => onRenamePane(pane.id, title)}
         />
       ) : (
-        <FileViewer
-          workspaceId={workspaceId}
-          path={pane.path}
-          onClose={() => onClosePane(pane.id)}
-        />
+        <FileViewer workspaceId={workspaceId} path={pane.path} />
       )}
       <button
         aria-label={`Close ${pane.title}`}
-        className="absolute right-2 top-1 z-20 grid size-7 place-items-center rounded-md text-foreground transition-colors hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+        className="absolute right-2 top-2.5 z-20 grid size-7 place-items-center rounded-md text-foreground transition-colors hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
         title={`Close ${pane.title}`}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => {

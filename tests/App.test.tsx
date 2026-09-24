@@ -472,6 +472,9 @@ describe("VINTAGE workspace shell", () => {
       expect(filePane!.style.top).toBe("0%");
       expect(filePane!.style.height).toBe("100%");
     });
+    expect(screen.getAllByRole("button", { name: "Close notes.md" })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Close notes.md" }));
+    await waitFor(() => expect(document.querySelector('[data-pane-kind="file"]')).toBeNull());
   });
 
   it("lists background attention and jumps to its terminal", async () => {

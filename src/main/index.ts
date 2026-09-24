@@ -1,8 +1,8 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Notification, shell } from "electron";
 import { randomUUID } from "node:crypto";
-import { lstat, readdir, readFile, realpath } from "node:fs/promises";
+import { lstat, readdir, readFile, realpath, stat } from "node:fs/promises";
 import { release as readPlatformRelease } from "node:os";
-import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
+import { basename, dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import appConfig from "../../app.config.mjs";
@@ -28,6 +28,18 @@ let _mainWindow: BrowserWindow | null = null;
 const workspaces = new Map<string, RegisteredWorkspace>();
 const homeWorkspaceId = "vintage:home";
 const maxFileBytes = 1_000_000;
+const maxWorkspaceImageBytes = 10_000_000;
+const workspaceImageMimeTypes: Record<string, string> = {
+  ".avif": "image/avif",
+  ".bmp": "image/bmp",
+  ".gif": "image/gif",
+  ".ico": "image/x-icon",
+  ".jpeg": "image/jpeg",
+  ".jpg": "image/jpeg",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".webp": "image/webp",
+};
 const ignoredWorkspaceEntries = new Set([".git", "node_modules", "dist", "build", "target"]);
 const notificationHistory: number[] = [];
 const lastNotificationByKey = new Map<string, number>();
@@ -417,6 +429,22 @@ function registerDesktopIpc(
         content: content.slice(0, maxFileBytes),
         truncated: Buffer.byteLength(content, "utf8") > maxFileBytes,
       };
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceReadImage,
+    async (_event, workspaceId: unknown, rawPath: unknown) => {
+      const file = await resolveWorkspaceFile(workspaceId, rawPath);
+      const mimeType = workspaceImageMimeTypes[extname(file).toLowerCase()];
+      if (typeof mimeType !== "string") throw new Error("Unsupported workspace image type");
+      if ((await stat(file)).size > maxWorkspaceImageBytes) {
+        throw new Error("Workspace image exceeds the size limit");
+      }
+      const image = await readFile(file);
+      if (image.byteLength > maxWorkspaceImageBytes) {
+        throw new Error("Workspace image exceeds the size limit");
+      }
+      return `data:${mimeType};base64,${image.toString("base64")}`;
     },
   );
 }

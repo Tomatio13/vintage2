@@ -49,6 +49,8 @@ const bridge: DesktopBridge = {
     ipcRenderer.invoke(DesktopChannels.workspaceListFiles, workspaceId, directoryPath),
   readWorkspaceFile: (workspaceId, path) =>
     ipcRenderer.invoke(DesktopChannels.workspaceReadFile, workspaceId, path),
+  readWorkspaceImage: (workspaceId, path) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceReadImage, workspaceId, path),
   createTerminal: (options) => ipcRenderer.invoke(DesktopChannels.terminalCreate, options),
   readyTerminal: (sessionId) => ipcRenderer.invoke(DesktopChannels.terminalReady, sessionId),
   writeTerminal: (sessionId, data) =>
