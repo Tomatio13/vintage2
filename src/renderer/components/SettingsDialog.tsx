@@ -982,7 +982,7 @@ export function SettingsDialog() {
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="text-ui-lg font-semibold">VINTAGE</h3>
-              <p className="mt-1 text-ui-sm text-foreground-subtle">Version 0.1.0</p>
+              <p className="mt-1 text-ui-sm text-foreground-subtle">Version 0.2.0</p>
             </div>
             <span className="rounded-full bg-hover px-2 py-1 text-ui-xs text-foreground-subtle">
               Electron edition
