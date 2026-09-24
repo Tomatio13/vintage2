@@ -5,6 +5,7 @@ import {
   type AttentionSettings,
   type DesktopBridge,
   type DesktopWindowState,
+  type DesktopUpdateStatus,
   type AttentionNotification,
   type TerminalDataEvent,
   type TerminalExitEvent,
@@ -17,6 +18,16 @@ import {
 
 const bridge: DesktopBridge = {
   platform: process.platform,
+  getUpdateStatus: () => ipcRenderer.invoke(DesktopChannels.updateGetStatus),
+  checkForUpdates: () => ipcRenderer.invoke(DesktopChannels.updateCheck),
+  downloadUpdate: () => ipcRenderer.invoke(DesktopChannels.updateDownload),
+  installUpdate: () => ipcRenderer.invoke(DesktopChannels.updateInstall),
+  onUpdateStatusChanged(listener) {
+    const wrapped = (_event: Electron.IpcRendererEvent, status: DesktopUpdateStatus) =>
+      listener(status);
+    ipcRenderer.on(DesktopChannels.updateStatusChanged, wrapped);
+    return () => ipcRenderer.removeListener(DesktopChannels.updateStatusChanged, wrapped);
+  },
   minimize: () => ipcRenderer.invoke(DesktopChannels.minimize),
   toggleMaximize: () => ipcRenderer.invoke(DesktopChannels.toggleMaximize),
   close: () => ipcRenderer.invoke(DesktopChannels.close),

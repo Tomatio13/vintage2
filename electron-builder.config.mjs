@@ -5,6 +5,14 @@ export default {
   appId: appConfig.appId,
   productName: appConfig.productName,
   executableName: appConfig.executableName,
+  publish: [
+    {
+      provider: "github",
+      owner: "Tomatio13",
+      repo: "vintage2",
+    },
+  ],
+  electronUpdaterCompatibility: ">= 2.16",
   directories: {
     output: "release",
     buildResources: "build",
@@ -28,7 +36,7 @@ export default {
     target: ["AppImage", "deb"],
     category: "Development",
     icon: "build/linux-icons",
-    maintainer: "Your Name <you.com>",
+    maintainer: "Tomatio13 <Tomatio13@users.noreply.github.com>",
     syncDesktopName: true,
     artifactName: "${productName}-${version}-${arch}.${ext}",
   },

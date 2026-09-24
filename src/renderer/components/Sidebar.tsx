@@ -5,13 +5,15 @@ import {
   Home,
   OctagonAlert,
   Plus,
+  RefreshCw,
   Settings,
   TriangleAlert,
   X,
 } from "lucide-react";
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import type {
+  DesktopUpdateStatus,
   TerminalAttentionReason,
   TerminalAttentionState,
   TerminalAttentionStatus,
@@ -141,6 +143,84 @@ export function Sidebar({
   onDismissAttention(item: SidebarAttentionItem): void;
   onOpenSettings(): void;
 }) {
+  const [updateStatus, setUpdateStatus] = useState<DesktopUpdateStatus | null>(null);
+  const [updateCheckBusy, setUpdateCheckBusy] = useState(false);
+  const [updateNotice, setUpdateNotice] = useState<string | null>(null);
+  const desktop = window.desktop;
+
+  useEffect(() => {
+    const bridge = window.desktop;
+    if (!bridge) return;
+    let cancelled = false;
+    const unsubscribe = bridge.onUpdateStatusChanged(setUpdateStatus);
+    void bridge
+      .getUpdateStatus()
+      .then((status) => {
+        if (!cancelled) setUpdateStatus(status);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    let message: string | null = null;
+    if (updateStatus?.status === "up-to-date") {
+      message = `VINTAGE ${updateStatus.currentVersion} is up to date.`;
+    } else if (updateStatus?.status === "available") {
+      message = `Version ${updateStatus.availableVersion} is available. Open Settings > Updates.`;
+    } else if (updateStatus?.status === "downloaded") {
+      message = `Version ${updateStatus.availableVersion} is ready. Open Settings > Updates to restart.`;
+    } else if (updateStatus?.status === "error") {
+      message = `Update check failed: ${updateStatus.message}`;
+    }
+
+    setUpdateNotice(message);
+    if (!message) return;
+    const timer = setTimeout(() => setUpdateNotice(null), 6_000);
+    return () => clearTimeout(timer);
+  }, [updateStatus]);
+
+  const checkForUpdates = async () => {
+    if (!desktop || updateCheckBusy || updateStatus?.status === "unsupported") return;
+    setUpdateCheckBusy(true);
+    try {
+      setUpdateStatus(await desktop.checkForUpdates());
+    } catch (error) {
+      setUpdateStatus({
+        status: "error",
+        currentVersion: updateStatus?.currentVersion ?? "unknown",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setUpdateCheckBusy(false);
+    }
+  };
+
+  const updateButtonTitle = (() => {
+    if (!desktop) return "Update checks are available in the Electron edition.";
+    if (updateCheckBusy || updateStatus?.status === "checking") return "Checking for updates…";
+    if (!updateStatus) return "Check for updates";
+    switch (updateStatus.status) {
+      case "idle":
+        return "Check for updates";
+      case "unsupported":
+        return updateStatus.message;
+      case "up-to-date":
+        return "VINTAGE is up to date.";
+      case "available":
+        return `Version ${updateStatus.availableVersion} is available. Open Settings > Updates to install.`;
+      case "downloading":
+        return `Downloading version ${updateStatus.availableVersion}… ${updateStatus.percent.toFixed(0)}%.`;
+      case "downloaded":
+        return `Version ${updateStatus.availableVersion} is ready. Open Settings > Updates to restart.`;
+      case "error":
+        return `Update check failed: ${updateStatus.message}`;
+    }
+  })();
+
   const attentionCountByWorkspace = new Map<string, number>();
   for (const item of attentionItems) {
     attentionCountByWorkspace.set(
@@ -227,7 +307,7 @@ export function Sidebar({
   const projectWorkspaces = workspaces.filter((workspace) => workspace.kind !== "home");
 
   return (
-    <aside className="flex h-full min-w-0 flex-col bg-sidebar">
+    <aside className="relative flex h-full min-w-0 flex-col bg-sidebar">
       <header className="window-drag flex h-12 shrink-0 items-center justify-between px-3">
         <span className="text-ui-sm font-semibold text-foreground-subtle">Workspace</span>
         <Button
@@ -383,20 +463,56 @@ export function Sidebar({
           projectWorkspaces.map(renderWorkspace)
         )}
       </div>
+      {updateNotice && (
+        <div
+          aria-live="polite"
+          className="pointer-events-none absolute bottom-[4.5rem] left-2 right-2 z-20 rounded-lg border border-border bg-panel px-3 py-2 text-ui-sm text-foreground shadow-lg"
+          role="status"
+        >
+          {updateNotice}
+        </div>
+      )}
       <footer className="flex h-16 shrink-0 items-center justify-between border-t border-border px-3 text-ui-sm text-foreground-subtle">
         <span className="flex items-center gap-2">
           <img alt="" aria-hidden="true" className="size-[18px]" src="./favicon.svg" />
           VINTAGE
         </span>
-        <Button
-          aria-label="Open settings"
-          className="size-7 rounded-lg px-0"
-          size="icon"
-          variant="ghost"
-          onClick={onOpenSettings}
-        >
-          <Settings aria-hidden="true" className="size-4 text-foreground" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            aria-label="Check for updates"
+            className="relative size-7 rounded-lg px-0"
+            disabled={
+              !desktop ||
+              updateCheckBusy ||
+              updateStatus?.status === "unsupported" ||
+              updateStatus?.status === "checking"
+            }
+            size="icon"
+            title={updateButtonTitle}
+            variant="ghost"
+            onClick={() => void checkForUpdates()}
+          >
+            <RefreshCw
+              aria-hidden="true"
+              className={`size-4 text-foreground ${updateCheckBusy || updateStatus?.status === "checking" ? "animate-spin" : ""}`}
+            />
+            {(updateStatus?.status === "available" || updateStatus?.status === "downloaded") && (
+              <span
+                aria-hidden="true"
+                className="absolute right-1 top-1 size-1.5 rounded-full bg-brand"
+              />
+            )}
+          </Button>
+          <Button
+            aria-label="Open settings"
+            className="size-7 rounded-lg px-0"
+            size="icon"
+            variant="ghost"
+            onClick={onOpenSettings}
+          >
+            <Settings aria-hidden="true" className="size-4 text-foreground" />
+          </Button>
+        </div>
       </footer>
     </aside>
   );

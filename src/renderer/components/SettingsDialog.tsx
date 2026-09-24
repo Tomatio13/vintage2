@@ -14,6 +14,7 @@ import {
   DEFAULT_ATTENTION_SETTINGS,
   type AttentionLevel,
   type AttentionSettings,
+  type DesktopUpdateStatus,
   type JevSettingsStatus,
 } from "../../shared/desktop.js";
 import { normalizeBrowserUrl } from "../lib/browserUrl.js";
@@ -263,6 +264,9 @@ export function SettingsDialog() {
   });
   const [attentionLoading, setAttentionLoading] = useState(false);
   const [attentionMessage, setAttentionMessage] = useState<string | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<DesktopUpdateStatus | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [updateActionError, setUpdateActionError] = useState<string | null>(null);
   const save = useCallback(
     async (closeAfterSave = true) => {
       if (attentionLoading) return;
@@ -327,6 +331,31 @@ export function SettingsDialog() {
       });
     return () => {
       cancelled = true;
+    };
+  }, [store.settingsOpen]);
+  useEffect(() => {
+    if (!store.settingsOpen) return;
+    const bridge = window.desktop;
+    if (!bridge) {
+      setUpdateStatus(null);
+      return;
+    }
+    let cancelled = false;
+    setUpdateActionError(null);
+    const unsubscribe = bridge.onUpdateStatusChanged(setUpdateStatus);
+    void bridge
+      .getUpdateStatus()
+      .then((status) => {
+        if (!cancelled) setUpdateStatus(status);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setUpdateActionError(error instanceof Error ? error.message : String(error));
+        }
+      });
+    return () => {
+      cancelled = true;
+      unsubscribe();
     };
   }, [store.settingsOpen]);
   useEffect(() => {
@@ -455,6 +484,72 @@ export function SettingsDialog() {
       setJevMessage(error instanceof Error ? error.message : String(error));
     } finally {
       setJevBusy(false);
+    }
+  };
+  const updateStatusMessage = (() => {
+    if (updateActionError) return updateActionError;
+    if (!updateStatus) return "Update status is unavailable.";
+    switch (updateStatus.status) {
+      case "idle":
+        return "Check GitHub Releases for a newer version of VINTAGE.";
+      case "unsupported":
+        return updateStatus.message;
+      case "checking":
+        return "Checking for updates…";
+      case "up-to-date":
+        return "You’re using the latest version.";
+      case "available":
+        return window.desktop?.platform === "darwin"
+          ? `Version ${updateStatus.availableVersion} is available. Download it from Releases and install the DMG manually; this macOS build is not code signed.`
+          : `Version ${updateStatus.availableVersion} is available.`;
+      case "downloading":
+        return `Downloading version ${updateStatus.availableVersion}… ${updateStatus.percent.toFixed(0)}%`;
+      case "downloaded":
+        return `Version ${updateStatus.availableVersion} is ready to install.`;
+      case "error":
+        return `Could not check for updates: ${updateStatus.message}`;
+    }
+  })();
+  const updateButtonLabel = (() => {
+    if (updateBusy || updateStatus?.status === "checking") return "Checking…";
+    if (updateStatus?.status === "available") {
+      return window.desktop?.platform === "darwin" ? "Open release" : "Download update";
+    }
+    if (updateStatus?.status === "downloading") {
+      return `Downloading ${updateStatus.percent.toFixed(0)}%`;
+    }
+    if (updateStatus?.status === "downloaded") return "Restart & update";
+    return "Check for updates";
+  })();
+  const updateDisabled =
+    !window.desktop ||
+    !updateStatus ||
+    updateBusy ||
+    updateStatus?.status === "unsupported" ||
+    updateStatus?.status === "checking" ||
+    updateStatus?.status === "downloading";
+  const runUpdateAction = async () => {
+    const bridge = window.desktop;
+    if (!bridge || !updateStatus) return;
+    setUpdateBusy(true);
+    setUpdateActionError(null);
+    try {
+      if (updateStatus.status === "available") {
+        if (bridge.platform === "darwin") {
+          const tag = updateStatus.availableVersion.replace(/^v/u, "");
+          await bridge.openExternal(`https://github.com/Tomatio13/vintage2/releases/tag/v${tag}`);
+        } else {
+          setUpdateStatus(await bridge.downloadUpdate());
+        }
+      } else if (updateStatus.status === "downloaded") {
+        await bridge.installUpdate();
+      } else {
+        setUpdateStatus(await bridge.checkForUpdates());
+      }
+    } catch (error) {
+      setUpdateActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setUpdateBusy(false);
     }
   };
 
@@ -982,7 +1077,9 @@ export function SettingsDialog() {
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="text-ui-lg font-semibold">VINTAGE</h3>
-              <p className="mt-1 text-ui-sm text-foreground-subtle">Version 0.2.0</p>
+              <p className="mt-1 text-ui-sm text-foreground-subtle">
+                Version {updateStatus?.currentVersion ?? "…"}
+              </p>
             </div>
             <span className="rounded-full bg-hover px-2 py-1 text-ui-xs text-foreground-subtle">
               Electron edition
@@ -990,11 +1087,18 @@ export function SettingsDialog() {
           </div>
           <div className="mt-5 border-t border-border pt-4">
             <h3 className="font-medium">You&apos;re using the Electron edition</h3>
-            <p className="mt-2 text-ui-sm text-foreground-subtle">
-              Automatic updates for this edition are not available yet.
+            <p aria-live="polite" className="mt-2 text-ui-sm text-foreground-subtle">
+              {updateStatusMessage}
             </p>
-            <Button className="mt-4" disabled size="compact" variant="ghost">
-              <CloudDownload /> Check for updates
+            <Button
+              className="mt-4"
+              disabled={updateDisabled}
+              onClick={() => void runUpdateAction()}
+              size="compact"
+              variant="ghost"
+            >
+              {updateStatus?.status === "downloaded" ? <RotateCcw /> : <CloudDownload />}
+              {updateButtonLabel}
             </Button>
           </div>
         </Card>

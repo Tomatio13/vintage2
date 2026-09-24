@@ -18,6 +18,7 @@ import {
 import { AttentionSettingsManager } from "./attentionSettings.js";
 import { JevCredentialStore, JevSettingsManager } from "./jevSettings.js";
 import { JevEvaluationQueue } from "./jevEvaluationQueue.js";
+import { UpdateManager } from "./updateManager.js";
 import { registerTerminalIpc } from "./terminalManager.js";
 import { getWorkspaceGitReview, getWorkspaceGitReviewDiff } from "./workspaceGitReview.js";
 import { restoreSavedProjects } from "./workspaceRestore.js";
@@ -245,6 +246,7 @@ function registerDesktopIpc(
   jevSettings: JevSettingsManager,
   attentionSettings: AttentionSettingsManager,
   workspaceState: WorkspaceStateManager,
+  updates: UpdateManager,
 ): void {
   ipcMain.handle(DesktopChannels.minimize, (event) => resolveSenderWindow(event).minimize());
   ipcMain.handle(DesktopChannels.toggleMaximize, (event) => {
@@ -314,6 +316,22 @@ function registerDesktopIpc(
   ipcMain.handle(DesktopChannels.attentionSettingsSet, (event, raw: unknown) => {
     resolveSenderWindow(event);
     return attentionSettings.setSettings(raw);
+  });
+  ipcMain.handle(DesktopChannels.updateGetStatus, (event) => {
+    resolveSenderWindow(event);
+    return updates.getStatus();
+  });
+  ipcMain.handle(DesktopChannels.updateCheck, (event) => {
+    resolveSenderWindow(event);
+    return updates.checkForUpdates();
+  });
+  ipcMain.handle(DesktopChannels.updateDownload, (event) => {
+    resolveSenderWindow(event);
+    return updates.downloadUpdate();
+  });
+  ipcMain.handle(DesktopChannels.updateInstall, (event) => {
+    resolveSenderWindow(event);
+    updates.installUpdate();
   });
   ipcMain.handle(DesktopChannels.workspaceHome, async (event) => {
     resolveSenderWindow(event);
@@ -530,7 +548,8 @@ app.whenReady().then(async () => {
   attentionSettings.initialize();
   workspaceState.initialize();
   await restoreWorkspaceState(workspaceState);
-  registerDesktopIpc(jevSettings, attentionSettings, workspaceState);
+  const updates = new UpdateManager();
+  registerDesktopIpc(jevSettings, attentionSettings, workspaceState, updates);
   registerTerminalIpc((id) => registeredWorkspace(id).path, evaluationQueue, attentionSettings);
   app.on("before-quit", () => workspaceState.flush());
   configureBrowserSession();

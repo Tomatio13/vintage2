@@ -35,6 +35,11 @@ export const DesktopChannels = {
   terminalData: "terminal:data",
   terminalExit: "terminal:exit",
   terminalAttention: "terminal:attention",
+  updateGetStatus: "update:get-status",
+  updateStatusChanged: "update:status-changed",
+  updateCheck: "update:check",
+  updateDownload: "update:download",
+  updateInstall: "update:install",
 } as const;
 
 export interface RegisteredWorkspace {
@@ -182,6 +187,19 @@ export interface AttentionSettings {
   notificationThreshold: AttentionLevel;
 }
 
+export type DesktopUpdateStatus =
+  | { status: "idle" | "checking" | "up-to-date"; currentVersion: string }
+  | { status: "unsupported"; currentVersion: string; message: string }
+  | { status: "available" | "downloaded"; currentVersion: string; availableVersion: string }
+  | {
+      status: "downloading";
+      currentVersion: string;
+      availableVersion: string;
+      percent: number;
+      bytesPerSecond: number;
+    }
+  | { status: "error"; currentVersion: string; message: string };
+
 export interface DesktopWindowState {
   isMaximized: boolean;
   isFullScreen: boolean;
@@ -269,6 +287,11 @@ export interface TerminalCreateOptions extends TerminalResize {
 
 export interface DesktopBridge {
   platform: NodeJS.Platform;
+  getUpdateStatus(): Promise<DesktopUpdateStatus>;
+  checkForUpdates(): Promise<DesktopUpdateStatus>;
+  downloadUpdate(): Promise<DesktopUpdateStatus>;
+  installUpdate(): Promise<void>;
+  onUpdateStatusChanged(listener: (status: DesktopUpdateStatus) => void): () => void;
   minimize(): Promise<void>;
   toggleMaximize(): Promise<DesktopWindowState>;
   close(): Promise<void>;
