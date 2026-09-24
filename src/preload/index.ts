@@ -65,6 +65,10 @@ const bridge: DesktopBridge = {
     ipcRenderer.invoke(DesktopChannels.workspaceReadFile, workspaceId, path),
   readWorkspaceImage: (workspaceId, path) =>
     ipcRenderer.invoke(DesktopChannels.workspaceReadImage, workspaceId, path),
+  getWorkspacePreviewUrl: (workspaceId, path) =>
+    ipcRenderer.invoke(DesktopChannels.workspacePreviewUrl, workspaceId, path),
+  openWorkspaceFile: (workspaceId, path) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceOpenFile, workspaceId, path),
   getWorkspaceGitReview: (workspaceId: string, source: WorkspaceGitReviewSource) =>
     ipcRenderer.invoke(DesktopChannels.workspaceGitReview, workspaceId, source),
   getWorkspaceGitReviewDiff: (workspaceId: string, request: WorkspaceGitReviewDiffRequest) =>

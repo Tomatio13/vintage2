@@ -32,7 +32,7 @@ Set a monitoring mode for each terminal, such as `Monitor`, `Ignore`, `Mute`, `A
 - **Flexible shells**: Launch zsh, bash, fish, or the operating system’s default shell in each workspace directory
 - **Spaces and split terminals**: Create multiple Spaces in a workspace, then arrange terminals side by side or vertically within each Space
 - **Tabs and panes**: Switch between, close, and rename Spaces and terminal panes
-- **File preview**: Read text files; switch Markdown between Preview and Source, with support for local images and tables
+- **File previews**: Preview images, HTML, PDF, audio, video, Markdown, JSON, CSV/TSV, and common source and text files in Files
 - **Git Review**: List unstaged changes, including untracked files, and inspect added and removed lines for each file
 - **Automatic text copy**: Select terminal output with the mouse to copy it to the clipboard
 - **Built-in browser**: Use a separate session from the terminal, with support for multiple tabs
@@ -47,11 +47,22 @@ Set a monitoring mode for each terminal, such as `Monitor`, `Ignore`, `Mute`, `A
 2. **Open a project**: Choose **Open folder** to add a workspace. The selected folder becomes the terminal’s working directory.
 3. **Add a Space**: Click **New space** in the sidebar or the `+` button to the right of the tabs. Each new Space starts with `Terminal 1`.
 4. **Split a terminal**: Use the split buttons at the top to split the active terminal to the right or below. The new panes are named `Terminal 2`, `Terminal 3`, and so on.
-5. **Preview a file**: Open **Files** in the right pane and double-click a file to open its preview beside the central pane. For Markdown, switch between **Preview** and **Source**, or reload the file.
+5. **Preview a file**: Open **Files** in the right pane and double-click a file to open its preview beside the central pane. See [File previews](#file-previews) for supported formats and controls.
 6. **Review Git changes**: Open **Review** in the right pane and select a changed file to see its diff. Use the refresh button to reload the Git status.
 7. **Return from Attention**: When a background terminal finishes or reports an error, it appears in the Attention list on the left. Click it to open the relevant pane.
 
 > **Tip:** Double-click a tab title or terminal pane title to rename it. Press `Enter` or move focus to save, or press `Escape` to cancel.
+
+### File previews
+
+- **Markdown** renders local workspace images and tables, with **Preview** and **Source** views.
+- **JSON** opens a formatted preview or raw source. **CSV/TSV** files open a searchable table or source view.
+- **HTML** opens in an isolated preview with scripts and external resources blocked; a source view is also available.
+- **Images** have zoom controls. **PDF** files open in a built-in viewer; audio and video files have playback controls.
+- Common source and text files open with syntax highlighting. Search, line wrapping, copy, and reload controls are available according to the file type and view.
+- Unsupported formats, including Office documents and ZIP archives, can be opened in the system app.
+
+Text previews are limited to 1 MB and the first 10,000 lines. Image previews are limited to 10 MB; HTML previews and their CSS resources are limited to 5 MB.
 
 ### Review Git changes
 
@@ -249,7 +260,7 @@ VINTAGE is designed to run safely in a local environment:
 - **Process isolation**: Node.js integration is disabled in the Renderer process. Context Isolation and the sandbox are enabled.
 - **Secure IPC**: Access from the Renderer to the operating system is limited to typed IPC calls explicitly allowed by the Preload allowlist.
 - **Workspace restrictions**: Add projects through the folder picker. On restart, saved project paths are revalidated before they are registered. The Renderer cannot access unregistered paths directly.
-- **Safe file reads**: Prevents path traversal, blocks unintended external access through symbolic links, and refuses to read non-regular files. File previews are limited to 1 MB.
+- **Safe file reads**: Prevents path traversal, blocks unintended external access through symbolic links, and refuses to read non-regular files. Text previews are limited to 1 MB, image previews to 10 MB, and HTML previews and their CSS resources to 5 MB.
 - **PTY lifecycle management**: Each pseudo-terminal (PTY) is tied to the Electron window that created it and is terminated when that window closes.
 - **Secure built-in browser**: Allows only the `http:`, `https:`, and `about:blank` URL schemes and automatically denies permission requests such as camera or location access.
 - **CLI credentials are not stored**: VINTAGE does not store login credentials for external services or CLIs such as `Codex`. Each CLI manages its own authentication and settings.

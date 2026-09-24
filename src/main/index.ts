@@ -1,9 +1,20 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Notification, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Notification,
+  protocol,
+  shell,
+} from "electron";
 import { randomUUID } from "node:crypto";
-import { lstat, readdir, readFile, realpath, stat } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { lstat, open, readdir, readFile, realpath, stat } from "node:fs/promises";
 import { release as readPlatformRelease } from "node:os";
-import { basename, dirname, extname, isAbsolute, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { Readable } from "node:stream";
+import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import appConfig from "../../app.config.mjs";
 import {
@@ -31,6 +42,8 @@ const workspaces = new Map<string, RegisteredWorkspace>();
 const homeWorkspaceId = "vintage:home";
 const maxFileBytes = 1_000_000;
 const maxWorkspaceImageBytes = 10_000_000;
+const maxWorkspaceHtmlBytes = 5_000_000;
+const workspacePreviewScheme = "vintage-preview";
 const workspaceImageMimeTypes: Record<string, string> = {
   ".avif": "image/avif",
   ".bmp": "image/bmp",
@@ -42,12 +55,48 @@ const workspaceImageMimeTypes: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".webp": "image/webp",
 };
+const workspacePreviewMimeTypes: Record<string, string> = {
+  ...workspaceImageMimeTypes,
+  ".aac": "audio/aac",
+  ".css": "text/css; charset=utf-8",
+  ".flac": "audio/flac",
+  ".htm": "text/html; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".m4a": "audio/mp4",
+  ".m4v": "video/mp4",
+  ".mkv": "video/x-matroska",
+  ".mov": "video/quicktime",
+  ".mp3": "audio/mpeg",
+  ".mp4": "video/mp4",
+  ".oga": "audio/ogg",
+  ".ogg": "audio/ogg",
+  ".ogv": "video/ogg",
+  ".opus": "audio/ogg",
+  ".svg": "image/svg+xml",
+  ".wav": "audio/wav",
+  ".webm": "video/webm",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+};
 const ignoredWorkspaceEntries = new Set([".git", "node_modules", "dist", "build", "target"]);
 const notificationHistory: number[] = [];
 const lastNotificationByKey = new Map<string, number>();
 const NOTIFICATION_DEDUPE_MS = 5_000;
 const NOTIFICATION_LIMIT_PER_SECOND = 2;
 const NOTIFICATION_LIMIT_PER_MINUTE = 30;
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: workspacePreviewScheme,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+    },
+  },
+]);
 
 function registeredWorkspace(rawId: unknown): RegisteredWorkspace {
   if (typeof rawId !== "string") throw new TypeError("Workspace id must be a string");
@@ -147,6 +196,92 @@ async function resolveWorkspaceFile(workspaceId: unknown, rawPath: unknown): Pro
   }
   if (!(await lstat(file)).isFile()) throw new Error("Workspace path is not a regular file");
   return file;
+}
+
+function workspacePreviewUrl(workspace: RegisteredWorkspace, file: string): string {
+  const relativePath = relative(workspace.path, file);
+  const pathSegments = relativePath.split(sep);
+  return `${workspacePreviewScheme}://local/${[workspace.id, ...pathSegments].map(encodeURIComponent).join("/")}`;
+}
+
+function registerWorkspacePreviewProtocol(): void {
+  protocol.handle(workspacePreviewScheme, async (request) => {
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+
+    try {
+      const url = new URL(request.url);
+      if (url.hostname !== "local") return new Response("Preview unavailable", { status: 404 });
+      const segments = url.pathname
+        .slice(1)
+        .split("/")
+        .map((segment) => decodeURIComponent(segment));
+      const workspaceId = segments.shift();
+      const rawPath = segments.join("/");
+      const file = await resolveWorkspaceFile(workspaceId, rawPath);
+      const extension = extname(file).toLowerCase();
+      const mimeType = workspacePreviewMimeTypes[extension];
+      if (!mimeType) return new Response("Preview unavailable", { status: 404 });
+
+      const fileStat = await stat(file);
+      if (
+        ([".html", ".htm", ".css"].includes(extension) && fileStat.size > maxWorkspaceHtmlBytes) ||
+        (workspaceImageMimeTypes[extension] && fileStat.size > maxWorkspaceImageBytes)
+      ) {
+        return new Response("Preview file exceeds the size limit", { status: 413 });
+      }
+      const headers = new Headers({
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "no-store",
+        "Content-Length": String(fileStat.size),
+        "Content-Type": mimeType,
+        "X-Content-Type-Options": "nosniff",
+      });
+      if ([".html", ".htm", ".svg"].includes(extension)) {
+        headers.set(
+          "Content-Security-Policy",
+          "default-src 'none'; img-src vintage-preview: data: blob:; style-src vintage-preview: 'unsafe-inline'; font-src vintage-preview: data:; media-src vintage-preview: data: blob:; script-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'",
+        );
+      }
+
+      let status = 200;
+      let start = 0;
+      let end = fileStat.size - 1;
+      const rangeHeader = request.headers.get("range");
+      if (rangeHeader && fileStat.size > 0) {
+        const match = /^bytes=(\d*)-(\d*)$/u.exec(rangeHeader);
+        if (!match || (!match[1] && !match[2])) {
+          headers.set("Content-Range", `bytes */${fileStat.size}`);
+          return new Response(null, { status: 416, headers });
+        }
+        if (!match[1]) {
+          const suffixLength = Number.parseInt(match[2] ?? "", 10);
+          start = Math.max(0, fileStat.size - suffixLength);
+        } else {
+          start = Number.parseInt(match[1], 10);
+        }
+        end = match[2] && match[1] ? Math.min(Number.parseInt(match[2], 10), end) : end;
+        if (start >= fileStat.size || start > end) {
+          headers.set("Content-Range", `bytes */${fileStat.size}`);
+          return new Response(null, { status: 416, headers });
+        }
+        status = 206;
+        headers.set("Content-Length", String(end - start + 1));
+        headers.set("Content-Range", `bytes ${start}-${end}/${fileStat.size}`);
+      }
+
+      if (request.method === "HEAD") return new Response(null, { status, headers });
+      if (fileStat.size === 0) return new Response(null, { status, headers });
+      const stream = createReadStream(file, { start, end });
+      return new Response(Readable.toWeb(stream) as ReadableStream<Uint8Array>, {
+        status,
+        headers,
+      });
+    } catch {
+      return new Response("Preview unavailable", { status: 404 });
+    }
+  });
 }
 
 const WINDOWS_11_FIRST_BUILD = 22000;
@@ -442,12 +577,19 @@ function registerDesktopIpc(
     DesktopChannels.workspaceReadFile,
     async (_event, workspaceId: unknown, rawPath: unknown) => {
       const file = await resolveWorkspaceFile(workspaceId, rawPath);
-      const content = await readFile(file, "utf8");
-      return {
-        path: rawPath as string,
-        content: content.slice(0, maxFileBytes),
-        truncated: Buffer.byteLength(content, "utf8") > maxFileBytes,
-      };
+      const fileHandle = await open(file, "r");
+      try {
+        const buffer = Buffer.alloc(maxFileBytes + 1);
+        const { bytesRead } = await fileHandle.read(buffer, 0, buffer.byteLength, 0);
+        const fileStat = await fileHandle.stat();
+        return {
+          path: rawPath as string,
+          content: buffer.toString("utf8", 0, Math.min(bytesRead, maxFileBytes)),
+          truncated: fileStat.size > maxFileBytes || bytesRead > maxFileBytes,
+        };
+      } finally {
+        await fileHandle.close();
+      }
     },
   );
   ipcMain.handle(
@@ -464,6 +606,27 @@ function registerDesktopIpc(
         throw new Error("Workspace image exceeds the size limit");
       }
       return `data:${mimeType};base64,${image.toString("base64")}`;
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspacePreviewUrl,
+    async (event, workspaceId: unknown, rawPath: unknown) => {
+      resolveSenderWindow(event);
+      const file = await resolveWorkspaceFile(workspaceId, rawPath);
+      if (extname(file).toLowerCase() === ".pdf") return pathToFileURL(file).toString();
+      if (!workspacePreviewMimeTypes[extname(file).toLowerCase()]) {
+        throw new Error("This file type cannot be previewed");
+      }
+      return workspacePreviewUrl(registeredWorkspace(workspaceId), file);
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceOpenFile,
+    async (event, workspaceId: unknown, rawPath: unknown) => {
+      resolveSenderWindow(event);
+      const file = await resolveWorkspaceFile(workspaceId, rawPath);
+      const error = await shell.openPath(file);
+      if (error) throw new Error(error);
     },
   );
   ipcMain.handle(
@@ -540,6 +703,7 @@ async function createMainWindow(): Promise<BrowserWindow> {
 
 app.setName(appConfig.productName);
 app.whenReady().then(async () => {
+  registerWorkspacePreviewProtocol();
   const jevSettings = new JevSettingsManager(new JevCredentialStore(app.getPath("userData")));
   const attentionSettings = new AttentionSettingsManager(app.getPath("userData"));
   const workspaceState = new WorkspaceStateManager(app.getPath("userData"));

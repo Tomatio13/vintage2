@@ -21,6 +21,8 @@ export const DesktopChannels = {
   workspaceListFiles: "workspace:list-files",
   workspaceReadFile: "workspace:read-file",
   workspaceReadImage: "workspace:read-image",
+  workspacePreviewUrl: "workspace:preview-url",
+  workspaceOpenFile: "workspace:open-file",
   workspaceGitReview: "workspace:git-review",
   workspaceGitReviewDiff: "workspace:git-review-diff",
   terminalCreate: "terminal:create",
@@ -314,6 +316,8 @@ export interface DesktopBridge {
   listWorkspaceFiles(workspaceId: string, directoryPath?: string): Promise<WorkspaceFileEntry[]>;
   readWorkspaceFile(workspaceId: string, path: string): Promise<WorkspaceFileContent>;
   readWorkspaceImage(workspaceId: string, path: string): Promise<string>;
+  getWorkspacePreviewUrl(workspaceId: string, path: string): Promise<string>;
+  openWorkspaceFile(workspaceId: string, path: string): Promise<void>;
   getWorkspaceGitReview(
     workspaceId: string,
     source: WorkspaceGitReviewSource,
