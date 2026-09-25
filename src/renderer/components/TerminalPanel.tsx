@@ -1,15 +1,19 @@
 import { FitAddon } from "@xterm/addon-fit";
+import { SearchAddon } from "@xterm/addon-search";
 import { Terminal } from "@xterm/xterm";
 import {
   Bell,
   BellOff,
   Check,
   ChevronDown,
+  ChevronUp,
   Eye,
   EyeOff,
+  Search,
   Sparkles,
   TriangleAlert,
   TerminalSquare,
+  X,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import {
@@ -389,10 +393,16 @@ export function TerminalPanel({
     useUiStore();
   const hostRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
+  const searchAddonRef = useRef<SearchAddon | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const searchOpenRef = useRef(false);
+  const selectionCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressSearchSelectionCopyRef = useRef(false);
   const [windowFocused, setWindowFocused] = useState(() => document.hasFocus());
   const activeRef = useRef(active && windowFocused);
   const desktopNotificationsRef = useRef(desktopNotifications);
+  const findShortcutLabel = window.desktop?.platform === "darwin" ? "⌘F" : "Ctrl+F";
   const titleRef = useRef(title);
   const tabTitleRef = useRef(tabTitle);
   const notifiedAttentionEventsRef = useRef(new Map<string, number>());
@@ -402,6 +412,9 @@ export function TerminalPanel({
   const [monitorMode, setMonitorMode] = useState<TerminalMonitorMode>(
     DEFAULT_TERMINAL_MONITOR_MODE,
   );
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchNoResults, setSearchNoResults] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
   const commitTitle = () => {
@@ -416,6 +429,47 @@ export function TerminalPanel({
   titleRef.current = title;
   tabTitleRef.current = tabTitle;
   onAttentionChangeRef.current = onAttentionChange;
+
+  const suppressSearchSelectionCopy = () => {
+    if (selectionCopyTimerRef.current !== null) {
+      clearTimeout(selectionCopyTimerRef.current);
+      selectionCopyTimerRef.current = null;
+    }
+    suppressSearchSelectionCopyRef.current = true;
+    queueMicrotask(() => {
+      suppressSearchSelectionCopyRef.current = false;
+    });
+  };
+
+  const searchTerminal = (
+    query: string,
+    direction: "next" | "previous" = "next",
+    incremental = false,
+  ) => {
+    const addon = searchAddonRef.current;
+    if (!query) {
+      suppressSearchSelectionCopy();
+      addon?.clearDecorations();
+      setSearchNoResults(false);
+      return;
+    }
+    if (!addon) return;
+
+    suppressSearchSelectionCopy();
+    const found =
+      direction === "previous"
+        ? addon.findPrevious(query)
+        : addon.findNext(query, incremental ? { incremental: true } : undefined);
+    setSearchNoResults(!found);
+  };
+
+  const closeTerminalSearch = () => {
+    searchOpenRef.current = false;
+    searchTerminal("");
+    setSearchQuery("");
+    setSearchOpen(false);
+    if (activeRef.current) terminalRef.current?.focus();
+  };
 
   useEffect(() => {
     const syncWindowFocus = () => setWindowFocused(document.hasFocus());
@@ -444,10 +498,32 @@ export function TerminalPanel({
     });
     terminalRef.current = terminal;
     const fit = new FitAddon();
+    const searchAddon = new SearchAddon();
     terminal.loadAddon(fit);
+    terminal.loadAddon(searchAddon);
+    searchAddonRef.current = searchAddon;
     terminal.open(host);
     fit.fit();
     terminal.attachCustomKeyEventHandler((event) => {
+      const findModifier = bridge.platform === "darwin" ? event.metaKey : event.ctrlKey;
+      if (
+        event.type === "keydown" &&
+        event.key.toLowerCase() === "f" &&
+        findModifier &&
+        !event.altKey &&
+        !event.shiftKey
+      ) {
+        event.preventDefault();
+        if (searchOpenRef.current) {
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+        } else {
+          searchOpenRef.current = true;
+          setSearchOpen(true);
+        }
+        return false;
+      }
+
       const pasteModifier = bridge.platform === "darwin" ? event.metaKey : event.ctrlKey;
       if (
         event.type !== "keydown" ||
@@ -477,14 +553,15 @@ export function TerminalPanel({
         });
       return false;
     });
-    let selectionCopyTimer: ReturnType<typeof setTimeout> | null = null;
     const selectionCopy = terminal.onSelectionChange(() => {
-      if (selectionCopyTimer !== null) clearTimeout(selectionCopyTimer);
-      selectionCopyTimer = null;
+      if (suppressSearchSelectionCopyRef.current) return;
+      if (selectionCopyTimerRef.current !== null) clearTimeout(selectionCopyTimerRef.current);
+      selectionCopyTimerRef.current = null;
       const selection = terminal.getSelection();
       if (!selection) return;
-      selectionCopyTimer = setTimeout(() => {
-        selectionCopyTimer = null;
+      selectionCopyTimerRef.current = setTimeout(() => {
+        selectionCopyTimerRef.current = null;
+        if (suppressSearchSelectionCopyRef.current) return;
         const currentSelection = terminal.getSelection();
         if (currentSelection) void bridge.writeClipboardText(currentSelection).catch(() => {});
       }, 80);
@@ -591,10 +668,15 @@ export function TerminalPanel({
       observer.disconnect();
       input.dispose();
       selectionCopy.dispose();
-      if (selectionCopyTimer !== null) clearTimeout(selectionCopyTimer);
       offData();
       offExit();
       offAttention();
+      if (selectionCopyTimerRef.current !== null) {
+        clearTimeout(selectionCopyTimerRef.current);
+        selectionCopyTimerRef.current = null;
+      }
+      searchOpenRef.current = false;
+      if (searchAddonRef.current === searchAddon) searchAddonRef.current = null;
       terminalRef.current = null;
       terminal.dispose();
       onAttentionChangeRef.current?.(paneId, null);
@@ -617,7 +699,10 @@ export function TerminalPanel({
   useEffect(() => {
     const sessionId = sessionIdRef.current;
     if (sessionId) void window.desktop?.setTerminalActive(sessionId, active && windowFocused);
-    if (active && windowFocused) terminalRef.current?.focus();
+    if (active && windowFocused) {
+      if (searchOpenRef.current) searchInputRef.current?.focus();
+      else terminalRef.current?.focus();
+    }
   }, [active, windowFocused]);
 
   useEffect(() => {
@@ -675,7 +760,7 @@ export function TerminalPanel({
                   : `${attentionLevelLabel(attention?.attentionLevel ?? 1)} attention: ${attentionText}`
               }
               aria-live="polite"
-              className={`min-w-0 max-w-[calc(100%-8.5rem)] flex-1 truncate rounded-full px-2 py-0.5 font-medium ${informationalAgentStatus ? "bg-foreground/5 text-foreground-subtle" : attentionLevelClass(attention?.attentionLevel ?? 1)}`}
+              className={`min-w-0 max-w-[calc(100%-10.75rem)] flex-1 truncate rounded-full px-2 py-0.5 font-medium ${informationalAgentStatus ? "bg-foreground/5 text-foreground-subtle" : attentionLevelClass(attention?.attentionLevel ?? 1)}`}
               data-attention-level={attention?.attentionLevel}
               role="status"
               title={attentionText}
@@ -692,8 +777,83 @@ export function TerminalPanel({
             title={title}
             onChange={changeMonitorMode}
           />
+          <button
+            aria-label="Find in terminal"
+            className="grid size-7 shrink-0 place-items-center rounded-md text-foreground-subtle transition-colors hover:bg-hover hover:text-foreground"
+            title={`Find in terminal (${findShortcutLabel})`}
+            type="button"
+            onClick={() => {
+              searchOpenRef.current = true;
+              setSearchOpen(true);
+              searchInputRef.current?.focus();
+            }}
+          >
+            <Search aria-hidden="true" className="size-4" />
+          </button>
         </div>
       </div>
+      {searchOpen && (
+        <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border bg-header px-2">
+          <input
+            ref={searchInputRef}
+            aria-label="Find in terminal"
+            autoFocus
+            className="h-7 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-ui-xs text-foreground outline-none placeholder:text-foreground-subtlest focus:border-brand"
+            placeholder="Find in terminal"
+            type="search"
+            value={searchQuery}
+            onChange={(event) => {
+              const query = event.currentTarget.value;
+              setSearchQuery(query);
+              searchTerminal(query, "next", true);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                closeTerminalSearch();
+              } else if (event.key === "Enter") {
+                event.preventDefault();
+                searchTerminal(searchQuery, event.shiftKey ? "previous" : "next");
+              }
+            }}
+          />
+          <span
+            aria-live="polite"
+            className="min-w-0 shrink truncate text-ui-xs text-foreground-subtle"
+          >
+            {searchNoResults ? "No results" : ""}
+          </span>
+          <button
+            aria-label="Previous match"
+            className="grid size-7 shrink-0 place-items-center rounded-md text-foreground-subtle transition-colors hover:bg-hover hover:text-foreground disabled:cursor-default disabled:opacity-40"
+            disabled={!searchQuery}
+            title="Previous match (Shift+Enter)"
+            type="button"
+            onClick={() => searchTerminal(searchQuery, "previous")}
+          >
+            <ChevronUp aria-hidden="true" className="size-4" />
+          </button>
+          <button
+            aria-label="Next match"
+            className="grid size-7 shrink-0 place-items-center rounded-md text-foreground-subtle transition-colors hover:bg-hover hover:text-foreground disabled:cursor-default disabled:opacity-40"
+            disabled={!searchQuery}
+            title="Next match (Enter)"
+            type="button"
+            onClick={() => searchTerminal(searchQuery, "next")}
+          >
+            <ChevronDown aria-hidden="true" className="size-4" />
+          </button>
+          <button
+            aria-label="Close search"
+            className="grid size-7 shrink-0 place-items-center rounded-md text-foreground-subtle transition-colors hover:bg-hover hover:text-foreground"
+            title="Close search (Escape)"
+            type="button"
+            onClick={closeTerminalSearch}
+          >
+            <X aria-hidden="true" className="size-4" />
+          </button>
+        </div>
+      )}
       <div
         ref={hostRef}
         aria-label={`${title} terminal`}
