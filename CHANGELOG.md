@@ -1,5 +1,14 @@
 # VINTAGE Changelog
 
+## [0.2.4] - 2026-09-25
+
+### Fixed
+
+- **Linux `.deb` updates:** Open the downloaded package with the system installer instead of invoking `pkexec` directly. If no package handler is available, show a `sudo apt install` command.
+- Report update installation errors as update failures instead of incorrectly labeling them as update check failures.
+
+**Full Changelog:** [v0.2.3...v0.2.4](https://github.com/Tomatio13/vintage2/compare/v0.2.3...v0.2.4)
+
 ## [0.2.3] - 2026-09-25
 
 ### Added

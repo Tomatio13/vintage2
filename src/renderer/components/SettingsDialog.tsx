@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Circle,
   CloudDownload,
+  FolderOpen,
   Minus,
   Plus,
   RotateCcw,
@@ -507,9 +508,11 @@ export function SettingsDialog() {
       case "downloading":
         return `Downloading version ${updateStatus.availableVersion}… ${updateStatus.percent.toFixed(0)}%`;
       case "downloaded":
-        return `Version ${updateStatus.availableVersion} is ready to install.`;
+        return updateStatus.installMethod === "system-installer"
+          ? `Version ${updateStatus.availableVersion} is ready. Open the .deb package installer, complete the installation, then restart VINTAGE.`
+          : `Version ${updateStatus.availableVersion} is ready to install.`;
       case "error":
-        return `Could not check for updates: ${updateStatus.message}`;
+        return `Update failed: ${updateStatus.message}`;
     }
   })();
   const updateButtonLabel = (() => {
@@ -520,7 +523,11 @@ export function SettingsDialog() {
     if (updateStatus?.status === "downloading") {
       return `Downloading ${updateStatus.percent.toFixed(0)}%`;
     }
-    if (updateStatus?.status === "downloaded") return "Restart & update";
+    if (updateStatus?.status === "downloaded") {
+      return updateStatus.installMethod === "system-installer"
+        ? "Open .deb installer"
+        : "Restart & update";
+    }
     return "Check for updates";
   })();
   const updateDisabled =
@@ -1099,7 +1106,15 @@ export function SettingsDialog() {
               size="compact"
               variant="ghost"
             >
-              {updateStatus?.status === "downloaded" ? <RotateCcw /> : <CloudDownload />}
+              {updateStatus?.status === "downloaded" ? (
+                updateStatus.installMethod === "system-installer" ? (
+                  <FolderOpen />
+                ) : (
+                  <RotateCcw />
+                )
+              ) : (
+                <CloudDownload />
+              )}
               {updateButtonLabel}
             </Button>
           </div>

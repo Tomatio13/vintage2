@@ -107,6 +107,8 @@ For classification logs, fully quit VINTAGE and run `VINTAGE_JEV_DEBUG=1 pnpm de
 
 Settings cover appearance and UI size, terminal font and scrollback, shell, browser, Attention, shortcuts, Jev integration, and updates. Four themes are available: System, Light, Dark, and Graphite.
 
+On Linux, VINTAGE applies AppImage updates directly. For `.deb` installs, it opens the downloaded package with the system package installer; complete the installation there and restart VINTAGE. If no package installer is available, Settings shows a `sudo apt install` command for the downloaded package.
+
 Attention thresholds, monitoring intervals, and per-terminal modes are stored in `attention-settings.json` in the operating system’s user data directory. A terminal’s monitoring mode is matched using a hash derived from its workspace path, Space title, and terminal title; project paths and logs are not stored there as plain text. Other interface preferences are stored separately.
 
 Workspace and Space details, pane layouts, and open file paths are stored separately in `workspace-state.json`. It contains project paths and relative file paths needed for restoration. If a project folder is missing, its Space information is retained so you can locate the folder again or remove the project. Terminal processes and output are not saved.

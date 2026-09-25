@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, shell } from "electron";
 import electronUpdater from "electron-updater";
 
 import { DesktopChannels, type DesktopUpdateStatus } from "../shared/desktop.js";
@@ -15,6 +15,7 @@ export class UpdateManager {
       };
   #checking = false;
   #downloading = false;
+  #downloadedFile: string | null = null;
 
   constructor() {
     autoUpdater.autoDownload = false;
@@ -45,10 +46,14 @@ export class UpdateManager {
       });
     });
     autoUpdater.on("update-downloaded", (info) => {
+      this.#downloadedFile = info.downloadedFile;
       this.#setStatus({
         status: "downloaded",
         currentVersion: app.getVersion(),
         availableVersion: info.version,
+        installMethod: info.downloadedFile.toLowerCase().endsWith(".deb")
+          ? "system-installer"
+          : "restart",
       });
     });
     autoUpdater.on("update-cancelled", (info) => {
@@ -121,8 +126,26 @@ export class UpdateManager {
     return this.getStatus();
   }
 
-  installUpdate(): void {
+  async installUpdate(): Promise<void> {
     if (this.#status.status !== "downloaded") return;
+
+    if (process.platform === "linux" && this.#downloadedFile?.toLowerCase().endsWith(".deb")) {
+      const downloadedFile = this.#downloadedFile;
+      try {
+        const openError = await shell.openPath(downloadedFile);
+        if (openError) throw new Error(openError);
+      } catch (error) {
+        const quotedPath = `'${downloadedFile.replaceAll("'", "'\\''")}'`;
+        const detail = error instanceof Error ? error.message : String(error);
+        this.#setStatus({
+          status: "error",
+          currentVersion: app.getVersion(),
+          message: `Could not open the downloaded .deb package (${detail}). Install it from a terminal with: sudo apt install -- ${quotedPath}. Then restart VINTAGE.`,
+        });
+      }
+      return;
+    }
+
     autoUpdater.quitAndInstall();
   }
 

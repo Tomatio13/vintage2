@@ -211,7 +211,13 @@ export interface AttentionSettings {
 export type DesktopUpdateStatus =
   | { status: "idle" | "checking" | "up-to-date"; currentVersion: string }
   | { status: "unsupported"; currentVersion: string; message: string }
-  | { status: "available" | "downloaded"; currentVersion: string; availableVersion: string }
+  | { status: "available"; currentVersion: string; availableVersion: string }
+  | {
+      status: "downloaded";
+      currentVersion: string;
+      availableVersion: string;
+      installMethod?: "restart" | "system-installer";
+    }
   | {
       status: "downloading";
       currentVersion: string;

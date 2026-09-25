@@ -470,7 +470,7 @@ function registerDesktopIpc(
   });
   ipcMain.handle(DesktopChannels.updateInstall, (event) => {
     resolveSenderWindow(event);
-    updates.installUpdate();
+    return updates.installUpdate();
   });
   ipcMain.handle(DesktopChannels.workspaceHome, async (event) => {
     resolveSenderWindow(event);
