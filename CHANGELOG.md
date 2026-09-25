@@ -1,5 +1,19 @@
 # VINTAGE Changelog
 
+## [0.2.3] - 2026-09-25
+
+### Added
+
+- **Terminal search:** Find text in terminal scrollback, move between matches, and highlight results with `Ctrl+F` (`⌘F` on macOS).
+- **Branch Diff:** Compare the current Git branch with a selected base branch in the read-only Git Review pane.
+- **Command palette:** Search actions, workspaces, Spaces, and terminals from one palette. The default shortcut is `Ctrl+Shift+P` and can be changed in Settings.
+
+### Improved
+
+- Add English and Japanese feature guides with interface screenshots, keeping the READMEs focused on the main features.
+
+**Full Changelog:** [v0.2.2...v0.2.3](https://github.com/Tomatio13/vintage2/compare/v0.2.2...v0.2.3)
+
 ## [0.2.2] - 2026-09-25
 
 ### Added
