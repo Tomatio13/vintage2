@@ -314,6 +314,76 @@ describe("AttentionRouter", () => {
     });
   });
 
+  it("returns to idle instead of running when input follows a misjudged waiting_input at the prompt", async () => {
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue({
+      status: "waiting_input",
+      attentionLevel: 3,
+      userActionRequired: true,
+      keepMonitoring: false,
+      confidence: 0.9,
+      semanticHash: "prompt-like-hash",
+      model: "jev-test",
+    });
+    const { router } = recorder({ evaluate });
+
+    router.observeOutput(OSC + "C\u0007ambiguous output\r\n");
+    router.observeOutput(OSC + "D;0\u0007" + OSC + "A\u0007");
+    await vi.waitFor(() => expect(router.snapshot().status).toBe("waiting_input"));
+
+    router.observeInput();
+    expect(router.snapshot()).toMatchObject({
+      status: "idle",
+      attentionLevel: 0,
+      userActionRequired: false,
+    });
+  });
+
+  it("clears a stale running status when the prompt returns without a command", async () => {
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue({
+      status: "waiting_input",
+      attentionLevel: 3,
+      userActionRequired: true,
+      keepMonitoring: false,
+      confidence: 0.9,
+      semanticHash: "prompt-like-hash",
+      model: "jev-test",
+    });
+    const { router } = recorder({ evaluate });
+
+    router.observeOutput(OSC + "C\u0007ambiguous output\r\n");
+    router.observeOutput(OSC + "D;0\u0007");
+    await vi.waitFor(() => expect(router.snapshot().status).toBe("waiting_input"));
+
+    router.observeInput();
+    expect(router.snapshot().status).toBe("running");
+
+    router.observeOutput(OSC + "A\u0007");
+    expect(router.snapshot()).toMatchObject({
+      status: "idle",
+      attentionLevel: 0,
+      source: "shell",
+    });
+    router.dispose();
+  });
+
+  it("marks only failed session exits as action required", () => {
+    const { router, states } = recorder();
+
+    router.observeSessionExit(0);
+    expect(states.at(-1)).toMatchObject({
+      status: "completed",
+      attentionLevel: 1,
+      userActionRequired: false,
+    });
+
+    router.observeSessionExit(3);
+    expect(states.at(-1)).toMatchObject({
+      status: "failed",
+      attentionLevel: 3,
+      userActionRequired: true,
+    });
+  });
+
   it("keeps an OSC marker at the start of a large PTY chunk", () => {
     const { router } = recorder();
 
@@ -392,8 +462,24 @@ describe("AttentionRouter", () => {
     expect(states.at(-1)).toMatchObject({
       status: "warning",
       attentionLevel: 2,
+      userActionRequired: false,
       reason: "warning_output",
       lastExitCode: 0,
+    });
+  });
+
+  it("leaves deprecation notices to Jev instead of raising them locally", () => {
+    vi.useFakeTimers();
+    const { router } = recorder();
+
+    router.observeOutput(`${OSC}C\u0007`);
+    router.observeOutput("npm warn deprecated inflight@1.0.6: Please upgrade\r\n");
+    vi.advanceTimersByTime(800);
+
+    expect(router.snapshot()).toMatchObject({
+      status: "running",
+      attentionLevel: 0,
+      userActionRequired: false,
     });
   });
 
@@ -620,8 +706,119 @@ describe("AttentionRouter", () => {
     });
 
     await vi.advanceTimersByTimeAsync(10_000);
+    expect(evaluate).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(evaluate).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(39_999);
+    expect(evaluate).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(evaluate).toHaveBeenCalledTimes(3);
+    router.dispose();
+  });
+
+  it("resets Agent Monitor backoff when the user interacts", async () => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue({
+      status: "thinking",
+      attentionLevel: 0,
+      userActionRequired: false,
+      keepMonitoring: false,
+      confidence: 0.92,
+      semanticHash: "quiet-agent-state",
+      model: "jev-test",
+    });
+    const { router } = recorder({ evaluate }, { monitorMode: "agent_monitor" });
+
+    router.observeOutput(`${OSC}C\u0007`);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(evaluate).toHaveBeenCalledTimes(1);
+
+    router.observeInput();
+    await vi.advanceTimersByTimeAsync(10_000);
     expect(evaluate).toHaveBeenCalledTimes(2);
     router.dispose();
+  });
+
+  it("pulls the backed-off Agent Monitor poll forward when output resumes", async () => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue(null);
+    const { router } = recorder({ evaluate }, { monitorMode: "agent_monitor" });
+
+    router.observeOutput(`${OSC}C\u0007initial work\n`);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(evaluate).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(evaluate).toHaveBeenCalledTimes(4);
+
+    router.observeOutput("work resumes\n");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(evaluate).toHaveBeenCalledTimes(5);
+    router.dispose();
+  });
+
+  it("keeps a completed Agent Monitor turn against later terminal output", async () => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: "thinking",
+        attentionLevel: 0,
+        userActionRequired: false,
+        keepMonitoring: false,
+        confidence: 0.92,
+        semanticHash: "working-hash",
+        model: "jev-test",
+      })
+      .mockResolvedValue({
+        status: "completed",
+        attentionLevel: 0,
+        userActionRequired: false,
+        keepMonitoring: false,
+        confidence: 0.92,
+        semanticHash: "turn-finished-hash",
+        model: "jev-test",
+      });
+    const { router } = recorder({ evaluate }, { monitorMode: "agent_monitor" });
+
+    router.observeOutput(`${OSC}C\u0007working on the answer\n`);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(router.snapshot()).toMatchObject({ status: "thinking", source: "jev" });
+
+    router.observeOutput("final answer rendered\n");
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(router.snapshot()).toMatchObject({ status: "completed", source: "jev" });
+
+    router.observeOutput("tui redraw noise\r\n");
+    expect(router.snapshot()).toMatchObject({ status: "completed", source: "jev" });
+
+    router.observeInput("\u001b[<35;4;9M");
+    router.observeInput("\u001b[I");
+    router.observeOutput("hover-triggered redraw\r\n");
+    expect(router.snapshot()).toMatchObject({ status: "completed", source: "jev" });
+
+    router.observeInput();
+    expect(router.snapshot()).toMatchObject({ status: "idle", attentionLevel: 0 });
+    router.observeOutput("next turn output\n");
+    expect(router.snapshot()).toMatchObject({ status: "thinking", source: "pty" });
+    router.dispose();
+  });
+
+  it("does not acknowledge attention from mouse or focus reports", () => {
+    const { router, states } = recorder();
+
+    router.observeOutput(OSC + "C\u0007");
+    router.observeOutput(OSC + "D;1\u0007");
+    expect(states.at(-1)).toMatchObject({ status: "failed", userActionRequired: true });
+
+    router.observeInput("\u001b[<35;10;5M");
+    router.observeInput("\u001b[I");
+    router.observeInput("\u001b[?65;1;9c");
+    router.observeInput("\u001b[>0;276;0c");
+    expect(states.at(-1)).toMatchObject({ status: "failed", userActionRequired: true });
+
+    router.observeInput("x");
+    expect(states.at(-1)).toMatchObject({ status: "idle", attentionLevel: 0 });
   });
 
   it("shows Thinking as soon as Agent Monitor output starts flowing", async () => {

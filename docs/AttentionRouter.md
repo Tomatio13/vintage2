@@ -24,7 +24,7 @@ PTY、Shell Integration、プロセス情報、終了コード、Terminal 出力
 
 ローカル側は、コマンド開始・終了・明示的な入力プロンプト・非ゼロ終了など、意味解釈を必要としない事実を優先する。ツールごとのAnalyzerは追加せず、曖昧な正常終了出力だけをTypeSafe/JevのSystem Oneへ送り、Choice（status）、Score（attention level）、Noul（action required / keep monitoring）を1リクエストで判定する。
 
-Jev連携はSettingsで暗号化保存したAPIキー、またはTYPESAFE_API_KEY環境変数がある場合に有効になる。保存済みキーを優先し、保存・置換直後に共有evaluatorへ反映する。Rendererへキーは返さない。送信前にANSI/OSCと秘密らしい値を除去し、出力は末尾40行・最大4,000文字、cwdはbasenameのみに制限する。10秒timeout、再試行なし、毎秒2件・毎分30件の上限、Semantic Hash cacheを適用する。低confidence、API失敗、古くなった非同期結果は採用しない。実行中はSettingsで指定したdebounce（既定800 ms）後に出力をローカル判定し、入力待ち・警告・エラーと確定できない曖昧な出力だけを評価する。連続出力はTerminalごとに最短5秒間隔とし、正規化後のSemantic Hashが同じ候補は再送しない。`keepMonitoring` は15秒後の安全な再確認予約へ反映するが、出力が変わらなければ再送しない。新コマンド、実入力、session終了、または追加出力で古い予約・応答を無効化する。
+Jev連携はSettingsで暗号化保存したAPIキー、またはTYPESAFE_API_KEY環境変数がある場合に有効になる。保存済みキーを優先し、保存・置換直後に共有evaluatorへ反映する。Rendererへキーは返さない。送信前にANSI/OSCと秘密らしい値を除去し、出力は末尾40行・最大4,000文字、cwdはbasenameのみに制限する。10秒timeout、再試行なし、毎秒2件・毎分30件の上限、Semantic Hash cacheを適用する。状態事実は確信度0.5未満で棄却し、attentionスコアの確信度が0.5未満の場合はスコアを状態の下限レベルに留める。API失敗や古くなった非同期結果は採用しない。Jevがturn完了を判定したAgent Monitorは、実入力または新しいJev判定があるまで出力だけではthinkingへ戻さない。実行中はSettingsで指定したdebounce（既定800 ms）後に出力をローカル判定し、入力待ち・警告・エラーと確定できない曖昧な出力だけを評価する。連続出力はTerminalごとに最短5秒間隔とし、正規化後のSemantic Hashが同じ候補は再送しない。Agent Monitorの定期判定は、出力が変化しない場合は間隔を2倍ずつ（上限6倍）拡大し、出力を検知した時点で次回判定を直近の基準間隔まで引き戻す（判定を後ろに延ばさない）。Semantic Hash cacheの重複判定には実行時間（duration）を含めない。`keepMonitoring` は15秒後の安全な再確認予約へ反映するが、出力が変わらなければ再送しない。新コマンド、実入力、session終了、または追加出力で古い予約・応答を無効化する。
 
 P1では、OSC 7の`file://` URIからcwdを更新し、OSC 133 A/BでPrompt復帰を実行中状態から分離する。PTY配下のプロセス情報は1秒ごとに共通コンテキストとしてベストエフォート取得する。対応外OS、`ps`失敗、権限不足時は情報を省略し、TerminalのI/O・Attention判定は継続する。
 
@@ -719,11 +719,30 @@ Attention状態は通知しただけでは解除しない。
 Terminalに入力
 ```
 
+ただしマウス報告（DECSET 1003/1006）・フォーカス報告（1004）・デバイス属性等のクエリ応答は、TUIアプリが有効化した追跡モードにより発生するプロトコル通信であり実入力として扱わない。acknowledge・turn完了ラッチの解除・Jev評価のキャンセルは実打鍵のみで行う。
+
 PaneのfocusやTabの選択だけでは解除しない。別作業中にカーソルが残っているTerminalも監視を継続する。
 
 ---
 
 # 19. UI
+
+## Agent Status Circle
+
+各Workspace(Space)とTerminalの実行状態は、色付きのサークルで常時表示する。SidebarのWorkspace行・Tab行と、Spaceタブに表示され、どの画面からでもAIエージェントの実行状況がわかる。色はテーマトークン(`--color-agent-*`)で定義し、ライト/ダーク両テーマに追従する。
+
+```text
+Thinking       青（点滅）
+Running        緑（点滅）
+Waiting        黄（中空）
+Input needed   黄（塗り・点滅）
+Completed      緑
+Warning        赤橙（中空）
+Failed         赤橙（塗り）
+Idle           表示なし
+```
+
+SpaceやSidebarの行に複数のPaneがある場合は、最も緊急度の高い状態を1つ表示する。優先度は waiting_input > failed > warning > thinking > waiting > running > completed で、attention levelとaction requiredで加算する。
 
 ## Tab
 

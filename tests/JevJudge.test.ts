@@ -55,6 +55,52 @@ describe("Jev evaluation preparation", () => {
     ]);
   });
 
+  it("redacts known token formats and suffixed credential variables", () => {
+    expect(
+      normalizeOutputForJev(
+        [
+          "export AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCY",
+          "AKIAIOSFODNN7EXAMPLE",
+          "ghp_0123456789abcdefghijklmnopqrstuvwxyz",
+          "sk-proj-0123456789abcdefghij",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      "export AWS_SECRET_ACCESS_KEY=<REDACTED>",
+      "<AWS_KEY_REDACTED>",
+      "<GITHUB_TOKEN_REDACTED>",
+      "<API_TOKEN_REDACTED>",
+    ]);
+  });
+
+  it("applies token format redaction to commands sent via buildJevState", () => {
+    const state = buildJevState({
+      background: false,
+      output: "",
+      statusHints: [],
+      command:
+        "deploy --asset AKIAIOSFODNN7EXAMPLE --blob https://user:secret@example.com --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghij' --oidc eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5ODc2NTQzMjEwIn0.zyxwvutsrqpo",
+    });
+
+    expect(state.command).toBe(
+      "deploy --asset <AWS_KEY_REDACTED> --blob https://<REDACTED>@example.com --header 'Authorization: Bearer <REDACTED>' --oidc <JWT_REDACTED>",
+    );
+  });
+
+  it("redacts opaque bearer tokens in commands", () => {
+    const state = buildJevState({
+      background: false,
+      output: "",
+      statusHints: [],
+      command:
+        "curl -sS -H 'Authorization: Bearer dqu9mZq7YcWk4rA2fP0x' https://api.example.com/v1/items",
+    });
+
+    expect(state.command).toBe(
+      "curl -sS -H 'Authorization: Bearer <REDACTED>' https://api.example.com/v1/items",
+    );
+  });
+
   it("produces the same semantic hash for equivalent volatile output", () => {
     const first = buildJevState(context);
     const second = buildJevState({
@@ -161,6 +207,7 @@ describe("JevEvaluationService", () => {
 
     const first = await service.evaluate(context);
     const second = await service.evaluate(context);
+    const third = await service.evaluate({ ...context, durationMs: 9_999 });
 
     expect(first).toMatchObject({
       status: "waiting_input",
@@ -171,7 +218,34 @@ describe("JevEvaluationService", () => {
       model: "jev-test",
     });
     expect(second).toEqual(first);
+    expect(third).toEqual(first);
     expect(client.systemOne).toHaveBeenCalledTimes(1);
+  });
+
+  it("clamps an unconfident attention score to the status floor", async () => {
+    const client = clientWith({
+      ...response,
+      answers: {
+        ...response.answers,
+        needsUserInput: { type: "noul", noul: 0.1 },
+        turnFinished: { type: "noul", noul: 0.9 },
+        attention: {
+          type: "score",
+          score: 3,
+          confidence: 0.2,
+          legend: {},
+          probabilities: { 3: 1 },
+        },
+        actionRequired: { type: "noul", noul: 0.1 },
+      },
+    });
+
+    await expect(new JevEvaluationService(client).evaluate(context)).resolves.toMatchObject({
+      status: "completed",
+      attentionLevel: 0,
+      userActionRequired: false,
+      confidence: 0.2,
+    });
   });
 
   it("resolves explicit warning facts before active processes", async () => {

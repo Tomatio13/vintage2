@@ -12,6 +12,7 @@ const MAX_REQUESTS_PER_SECOND = 2;
 const MAX_REQUESTS_PER_MINUTE = 30;
 const MAX_CACHE_ENTRIES = 256;
 const STATE_FACT_THRESHOLD = 0.5;
+const MIN_CONFIDENCE = 0.5;
 const JEV_DEBUG = process.env.VINTAGE_JEV_DEBUG === "1";
 
 const FAILED_QUESTION = noul(
@@ -145,8 +146,15 @@ function resolveStatusFacts(facts: StateFacts): {
   return { status: "unknown", confidence: 0 };
 }
 
+export interface JevEvaluationOptions {
+  signal?: AbortSignal;
+}
+
 export interface JevEvaluator {
-  evaluate(context: JevEvaluationContext): Promise<JevDecision | null>;
+  evaluate(
+    context: JevEvaluationContext,
+    options?: JevEvaluationOptions,
+  ): Promise<JevDecision | null>;
   isConfigured?(): boolean;
   getConfigurationRevision?(): number;
   onConfigurationChange?(listener: () => void): () => void;
@@ -183,8 +191,11 @@ export class JevEvaluatorController implements JevEvaluator {
     return () => this.configurationListeners.delete(listener);
   }
 
-  evaluate(context: JevEvaluationContext): Promise<JevDecision | null> {
-    return this.delegate?.evaluate(context) ?? Promise.resolve(null);
+  evaluate(
+    context: JevEvaluationContext,
+    options?: JevEvaluationOptions,
+  ): Promise<JevDecision | null> {
+    return this.delegate?.evaluate(context, options) ?? Promise.resolve(null);
   }
 }
 
@@ -194,15 +205,19 @@ export class JevEvaluationService implements JevEvaluator {
 
   constructor(private readonly client: TypeSafeClient) {}
 
-  async evaluate(context: JevEvaluationContext): Promise<JevDecision | null> {
+  async evaluate(
+    context: JevEvaluationContext,
+    options?: JevEvaluationOptions,
+  ): Promise<JevDecision | null> {
     const state = buildJevState(context);
     if (state.output_tail.length === 0 && !state.status_hints.includes("agent_monitor")) {
       logJevDebug("skipped", { reason: "empty_output" });
       return null;
     }
     const semanticHash = semanticHashForState(state);
+    const dedupeKey = semanticDedupeKeyForState(state);
     const diagnosticHash = semanticHash.slice(0, 12);
-    const cached = this.cache.get(semanticHash);
+    const cached = this.cache.get(dedupeKey);
     if (cached) {
       logJevDebug("cache_hit", { hash: diagnosticHash });
       return { ...cached };
@@ -221,7 +236,11 @@ export class JevEvaluationService implements JevEvaluator {
     try {
       const response = await this.client.systemOne(
         { state, questions: QUESTIONS },
-        { timeout: REQUEST_TIMEOUT_MS, retry: { maxRetries: 0 } },
+        {
+          ...(options?.signal === undefined ? {} : { signal: options.signal }),
+          timeout: REQUEST_TIMEOUT_MS,
+          retry: { maxRetries: 0 },
+        },
       );
       const attentionAnswer = response.answers.attention;
       const actionProbability = response.answers.actionRequired.noul;
@@ -270,8 +289,20 @@ export class JevEvaluationService implements JevEvaluator {
         status === "running" ||
         status === "waiting" ||
         (status === "completed" && scoredLevel < 2 && actionProbability < 0.65);
+      // Status facts already carry the 0.5 threshold, so an unconfident attention score
+      // only clamps the level to the status floor instead of discarding the classification.
+      const attentionConfident = attentionAnswer.confidence >= MIN_CONFIDENCE;
       const confidence = Math.min(resolved.confidence, attentionAnswer.confidence);
-      const attentionLevel = informationalStatus ? 0 : minimumLevelForStatus(status, scoredLevel);
+      const attentionLevel = informationalStatus
+        ? 0
+        : minimumLevelForStatus(status, attentionConfident ? scoredLevel : 0);
+      if (!attentionConfident) {
+        logJevDebug("attention_clamped", {
+          hash: diagnosticHash,
+          status,
+          attentionConfidence: attentionAnswer.confidence,
+        });
+      }
       const userActionRequired = informationalStatus
         ? false
         : actionProbability >= 0.65 || status === "failed" || status === "waiting_input";
@@ -284,7 +315,7 @@ export class JevEvaluationService implements JevEvaluator {
         semanticHash,
         model: response.model,
       };
-      this.cache.set(semanticHash, decision);
+      this.cache.set(dedupeKey, decision);
       while (this.cache.size > MAX_CACHE_ENTRIES) {
         const oldest = this.cache.keys().next().value as string | undefined;
         if (oldest === undefined) break;
@@ -360,29 +391,31 @@ export function buildJevState(context: JevEvaluationContext): JevEvaluationState
 }
 
 export function normalizeOutputForJev(output: string): string[] {
-  const normalized = output
-    // oxlint-disable-next-line no-control-regex -- terminal output contains ANSI sequences.
-    .replace(/\u001b\][^\u0007]*(?:\u0007|\u001b\\)/gu, "")
-    // oxlint-disable-next-line no-control-regex -- terminal output contains ANSI CSI sequences.
-    .replace(/\u001b\[[0-?]*[ -/]*[@-~]/gu, "")
+  const normalized = redactBearerTokens(
+    output
+      // oxlint-disable-next-line no-control-regex -- terminal output contains ANSI sequences.
+      .replace(/\u001b\][^\u0007]*(?:\u0007|\u001b\\)/gu, "")
+      // oxlint-disable-next-line no-control-regex -- terminal output contains ANSI CSI sequences.
+      .replace(/\u001b\[[0-?]*[ -/]*[@-~]/gu, "")
+      .replace(
+        /-----BEGIN [^-]+ PRIVATE KEY-----[\s\S]*?-----END [^-]+ PRIVATE KEY-----/giu,
+        "<PRIVATE_KEY_REDACTED>",
+      ),
+  )
     .replace(
-      /-----BEGIN [^-]+ PRIVATE KEY-----[\s\S]*?-----END [^-]+ PRIVATE KEY-----/giu,
-      "<PRIVATE_KEY_REDACTED>",
-    )
-    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/giu, "Bearer <REDACTED>")
-    .replace(
-      /\b(api[_-]?key|access[_-]?token|auth[_-]?token|password|passwd|secret)\s*[:=]\s*[^\s]+/giu,
+      /\b([A-Za-z0-9_-]*(?:secret|token|password|passwd|api[_-]?key|access[_-]?key)[a-z0-9_-]*)\s*[:=]\s*(?:"[^"]*"|'[^']*'|\S+)/giu,
       "$1=<REDACTED>",
     )
-    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/gu, "<JWT_REDACTED>")
+    .replace(/\r/gu, "");
+
+  const redacted = redactTokenFormats(normalized)
     .replace(/\b\d{4}-\d{2}-\d{2}[T ][0-9:.+-]+Z?\b/gu, "<TIMESTAMP>")
     .replace(/\[(?:\d{2}:){2}\d{2}\]/gu, "[<TIME>]")
     .replace(/\bPID\s*[:=]?\s*\d+\b/giu, "PID=<PID>")
     .replace(/\b\d+(?:\.\d+)?%/gu, "<PERCENT>")
-    .replace(/\b\d+(?:\.\d+)?\s*(?:KiB|MiB|GiB|KB|MB|GB)\/s\b/giu, "<TRANSFER_RATE>")
-    .replace(/\r/gu, "");
+    .replace(/\b\d+(?:\.\d+)?\s*(?:KiB|MiB|GiB|KB|MB|GB)\/s\b/giu, "<TRANSFER_RATE>");
 
-  const lines = normalized
+  const lines = redacted
     .split("\n")
     .map((line) => line.trimEnd())
     .filter((line) => line.trim().length > 0)
@@ -398,20 +431,43 @@ export function semanticHashForState(state: JevEvaluationState): string {
   return createHash("sha256").update(JSON.stringify(state)).digest("hex");
 }
 
+// duration_ms advances on every periodic Agent Monitor poll; freezing it lets the
+// decision cache absorb repeated polls of an unchanged terminal state.
+export function semanticDedupeKeyForState(state: JevEvaluationState): string {
+  return createHash("sha256")
+    .update(JSON.stringify({ ...state, duration_ms: null }))
+    .digest("hex");
+}
+
 function sanitizeProcessName(name: string): string {
   return basename(name)
     .replace(/[^A-Za-z0-9._+-]/gu, "")
     .slice(0, 120);
 }
 
+function redactBearerTokens(value: string): string {
+  return value.replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/giu, "Bearer <REDACTED>");
+}
+
+function redactTokenFormats(value: string): string {
+  return value
+    .replace(/\bAKIA[0-9A-Z]{16}\b/gu, "<AWS_KEY_REDACTED>")
+    .replace(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}\b/gu, "<GITHUB_TOKEN_REDACTED>")
+    .replace(/\bxox[baprs]-[A-Za-z0-9-]{10,}\b/gu, "<SLACK_TOKEN_REDACTED>")
+    .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/gu, "<API_TOKEN_REDACTED>")
+    .replace(/\bAIza[0-9A-Za-z_-]{35}\b/gu, "<GOOGLE_API_KEY_REDACTED>")
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/gu, "<JWT_REDACTED>");
+}
+
 function sanitizeCommand(command: string): string {
-  return command
-    .replace(
-      /(--)?\b(api[_-]?key|access[_-]?token|auth[_-]?token|password|passwd|secret)\b\s*(?:[:=]|\s)\s*(?:"[^"]*"|'[^']*'|\S+)/giu,
-      "$1$2=<REDACTED>",
-    )
-    .replace(/(https?:\/\/)[^/\s:@]+:[^/\s@]+@/giu, "$1<REDACTED>@")
-    .slice(0, 1_000);
+  return redactTokenFormats(
+    redactBearerTokens(command)
+      .replace(
+        /(--)?\b([A-Za-z0-9_-]*(?:secret|token|password|passwd|api[_-]?key|access[_-]?key)[a-z0-9_-]*)\s*(?:[:=]|\s)\s*(?:"[^"]*"|'[^']*'|\S+)/giu,
+        "$1$2=<REDACTED>",
+      )
+      .replace(/(https?:\/\/)[^/\s:@]+:[^/\s@]+@/giu, "$1<REDACTED>@"),
+  ).slice(0, 1_000);
 }
 
 function clampAttentionLevel(value: number): 0 | 1 | 2 | 3 | 4 {

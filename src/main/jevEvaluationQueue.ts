@@ -27,6 +27,7 @@ interface QueuedEvaluation {
   sequence: number;
   waiters: Array<(decision: JevDecision | null) => void>;
   settled: boolean;
+  controller?: AbortController;
 }
 
 const DEFAULT_MAX_PENDING = 64;
@@ -120,7 +121,10 @@ export class JevEvaluationQueue {
       this.resolveTask(queued, null);
     }
     const active = this.active.get(terminalId);
-    if (active) this.resolveTask(active, null);
+    if (active) {
+      active.controller?.abort();
+      this.resolveTask(active, null);
+    }
     if (queued || active) {
       logJevDebug("queue_terminal_cancelled", {
         terminalId,
@@ -167,7 +171,10 @@ export class JevEvaluationQueue {
     this.generation += 1;
     for (const task of this.pending.values()) this.resolveTask(task, null);
     this.pending.clear();
-    for (const task of this.active.values()) this.resolveTask(task, null);
+    for (const task of this.active.values()) {
+      task.controller?.abort();
+      this.resolveTask(task, null);
+    }
     logJevDebug("queue_invalidated", { reason, generation: this.generation });
     this.scheduleDrain();
   }
@@ -246,6 +253,8 @@ export class JevEvaluationQueue {
   }
 
   private start(task: QueuedEvaluation, startedAt: number): void {
+    const controller = new AbortController();
+    task.controller = controller;
     this.active.set(task.terminalId, task);
     this.lastRequestAt = startedAt;
     this.lastRequestAtByTerminal.set(task.terminalId, startedAt);
@@ -260,7 +269,7 @@ export class JevEvaluationQueue {
     });
 
     void this.evaluator
-      .evaluate(task.context)
+      .evaluate(task.context, { signal: controller.signal })
       .then((decision) => {
         const currentRevision = this.evaluator.getConfigurationRevision?.();
         if (
@@ -281,6 +290,7 @@ export class JevEvaluationQueue {
         this.resolveTask(task, null);
       })
       .finally(() => {
+        delete task.controller;
         this.active.delete(task.terminalId);
         this.scheduleDrain();
       });

@@ -114,7 +114,10 @@ describe("JevEvaluationQueue", () => {
     await expect(second).resolves.toEqual(decision);
 
     expect(evaluator.evaluate).toHaveBeenCalledTimes(1);
-    expect(evaluator.evaluate).toHaveBeenCalledWith(context("latest", ["input_candidate"]));
+    expect(evaluator.evaluate).toHaveBeenCalledWith(
+      context("latest", ["input_candidate"]),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     queue.dispose();
   });
 
@@ -262,6 +265,32 @@ describe("JevEvaluationQueue", () => {
     await flushMicrotasks();
     expect(evaluator.evaluate).toHaveBeenCalledTimes(31);
     await Promise.all(requests);
+    queue.dispose();
+  });
+
+  it("aborts an in-flight request when its terminal cancels", async () => {
+    const signals: AbortSignal[] = [];
+    const evaluator: JevEvaluator = {
+      evaluate: vi.fn(
+        (_evaluationContext: JevEvaluationContext, options?: { signal?: AbortSignal }) => {
+          if (options?.signal) signals.push(options.signal);
+          return new Promise<JevDecision | null>(() => {});
+        },
+      ),
+    };
+    const queue = new JevEvaluationQueue(evaluator, {
+      terminalCooldownMs: 0,
+      minRequestIntervalMs: 0,
+    });
+
+    const pending = queue.evaluateForTerminal("terminal-1", 4, context("log"));
+    await flushMicrotasks();
+    expect(signals).toHaveLength(1);
+    expect(signals[0]!.aborted).toBe(false);
+
+    queue.cancelTerminal("terminal-1");
+    await expect(pending).resolves.toBeNull();
+    expect(signals[0]!.aborted).toBe(true);
     queue.dispose();
   });
 });

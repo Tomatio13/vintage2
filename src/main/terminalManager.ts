@@ -15,7 +15,7 @@ import {
 } from "../shared/desktop.js";
 import { AttentionRouter } from "./attentionRouter.js";
 import { AttentionSettingsManager, isTerminalMonitorMode } from "./attentionSettings.js";
-import { inspectForegroundProcess } from "./processMonitor.js";
+import { createSharedProcessMonitor, type ForegroundProcessSnapshot } from "./processMonitor.js";
 import type { JevEvaluationQueue } from "./jevEvaluationQueue.js";
 import { prepareShellIntegration } from "./shellIntegration.js";
 
@@ -24,6 +24,7 @@ const MAX_WRITE_LENGTH = 1024 * 1024;
 const MAX_CLIPBOARD_IMAGE_BYTES = 25 * 1024 * 1024;
 const CLIPBOARD_IMAGE_RETENTION_MS = 24 * 60 * 60 * 1000;
 const MAX_CLIPBOARD_IMAGES_PER_WORKSPACE = 100;
+const sharedProcessMonitor = createSharedProcessMonitor();
 
 interface OwnedTerminal {
   id: string;
@@ -76,7 +77,7 @@ export function registerTerminalIpc(
       throw new TypeError("Terminal input must be a string no larger than 1 MiB");
     }
     const terminal = requireOwnedSession(event, rawId);
-    terminal.attention.observeInput();
+    terminal.attention.observeInput(rawData);
     terminal.process.write(rawData);
   });
   ipcMain.handle(
@@ -179,14 +180,10 @@ function createTerminal(
     stopProcessMonitor: () => {},
   };
   sessions.set(terminal.id, terminal);
-  const processMonitor = setInterval(() => {
-    void inspectForegroundProcess(process.pid).then((snapshot) => {
-      if (!sessions.has(terminal.id) || !snapshot) return;
-      terminal.attention.observeProcess(snapshot.process, snapshot.tree, snapshot.agentCli);
-    });
-  }, 1_000);
-  processMonitor.unref();
-  terminal.stopProcessMonitor = () => clearInterval(processMonitor);
+  sharedProcessMonitor.add(terminal.id, process.pid, (snapshot) =>
+    deliverProcessSnapshot(terminal, snapshot),
+  );
+  terminal.stopProcessMonitor = () => sharedProcessMonitor.remove(terminal.id);
 
   process.onData((data) => {
     terminal.attention.observeOutput(data);
@@ -280,6 +277,14 @@ async function cleanClipboardImages(directory: string, keepFilePath?: string): P
     Math.max(0, MAX_CLIPBOARD_IMAGES_PER_WORKSPACE - (pinned ? 1 : 0)),
   );
   await Promise.all(excess.map((image) => rm(image.filePath, { force: true })));
+}
+
+function deliverProcessSnapshot(
+  terminal: OwnedTerminal,
+  snapshot: ForegroundProcessSnapshot | null,
+): void {
+  if (!sessions.has(terminal.id) || !snapshot) return;
+  terminal.attention.observeProcess(snapshot.process, snapshot.tree, snapshot.agentCli);
 }
 
 function terminalProfileKey(
