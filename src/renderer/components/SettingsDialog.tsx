@@ -47,6 +47,7 @@ const shortcutGroups: Array<[string, ShortcutAction[]]> = [
   ["Spaces", ["previous-tab", "next-tab", "new-terminal"]],
   ["Panes", ["previous-pane", "next-pane", "split-right", "split-down", "close-pane"]],
   ["Workspaces", ["previous-workspace", "next-workspace", "toggle-sidebar"]],
+  ["Navigation", ["open-command-palette"]],
 ];
 const shortcutLabels: Record<ShortcutAction, string> = {
   "previous-tab": "Previous space",
@@ -55,6 +56,7 @@ const shortcutLabels: Record<ShortcutAction, string> = {
   "next-pane": "Next pane",
   "previous-workspace": "Previous workspace",
   "next-workspace": "Next workspace",
+  "open-command-palette": "Open command palette",
   "new-terminal": "New space",
   "split-right": "Split right",
   "split-down": "Split down",

@@ -11,6 +11,7 @@ import type {
 } from "../shared/desktop.js";
 import { Button } from "./components/Button.js";
 import { AttentionToast } from "./components/AttentionToast.js";
+import { CommandPalette, type CommandPaletteItem } from "./components/CommandPalette.js";
 import { FileViewer } from "./components/FileViewer.js";
 import { ResizeHandle } from "./components/ResizeHandle.js";
 import { SettingsDialog } from "./components/SettingsDialog.js";
@@ -22,7 +23,7 @@ import {
 } from "./components/Sidebar.js";
 import { TerminalPanel } from "./components/TerminalPanel.js";
 import { WindowFrame } from "./components/WindowFrame.js";
-import { type ShortcutAction, useUiStore } from "./store/uiStore.js";
+import { type ShortcutAction, type ShortcutBinding, useUiStore } from "./store/uiStore.js";
 
 type TerminalPane = Extract<WorkspacePaneSnapshot, { kind: "terminal" }>;
 type FilePane = Extract<WorkspacePaneSnapshot, { kind: "file" }>;
@@ -242,6 +243,17 @@ function resizePaneLayout(layout: PaneLayout, splitId: string, ratio: number): P
 }
 
 const PANE_RESIZE_HANDLE_SIZE = 10;
+
+function shortcutText(shortcuts: ShortcutBinding[], action: ShortcutAction): string | undefined {
+  const binding = shortcuts.find((item) => item.action === action);
+  if (!binding) return undefined;
+  const key =
+    ({ left: "←", right: "→", up: "↑", down: "↓" } as Record<string, string>)[binding.key] ??
+    binding.key.toUpperCase();
+  return [binding.ctrl && "Ctrl", binding.alt && "Alt", binding.shift && "Shift", key]
+    .filter(Boolean)
+    .join("+");
+}
 
 type PaneBounds = {
   leftPercent: number;
@@ -497,6 +509,7 @@ export function App() {
   );
   const [workspaceStateReady, setWorkspaceStateReady] = useState(false);
   const [workspaceActionError, setWorkspaceActionError] = useState<string | null>(null);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [tabTitleDraft, setTabTitleDraft] = useState("");
   const [attentionByPane, setAttentionByPane] = useState<Record<string, TerminalAttentionState>>(
@@ -878,6 +891,8 @@ export function App() {
         return moveWorkspace(-1);
       case "next-workspace":
         return moveWorkspace(1);
+      case "open-command-palette":
+        return setCommandPaletteOpen(true);
       case "new-terminal":
         return addSpace();
       case "split-right":
@@ -894,13 +909,8 @@ export function App() {
   };
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (ui.settingsOpen || event.defaultPrevented || event.metaKey) return;
+      if (ui.settingsOpen || commandPaletteOpen || event.defaultPrevented || event.metaKey) return;
       const element = event.target instanceof Element ? event.target : null;
-      if (
-        element?.closest("input, select, textarea, [contenteditable=true]") &&
-        !element.closest(".xterm")
-      )
-        return;
       const arrows: Record<string, string> = {
         ArrowLeft: "left",
         ArrowRight: "right",
@@ -916,13 +926,19 @@ export function App() {
           item.shift === event.shiftKey,
       );
       if (!binding) return;
+      if (
+        binding.action !== "open-command-palette" &&
+        element?.closest("input, select, textarea, [contenteditable=true]") &&
+        !element.closest(".xterm")
+      )
+        return;
       event.preventDefault();
       event.stopPropagation();
       runShortcut(binding.action);
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [ui.settingsOpen, ui.shortcuts, active, workspaces]);
+  }, [commandPaletteOpen, ui.settingsOpen, ui.shortcuts, active, workspaces]);
 
   const finishAttentionHistory = (id: string, outcome: SidebarAttentionHistoryItem["outcome"]) => {
     setAttentionHistory((items) =>
@@ -1061,6 +1077,7 @@ export function App() {
     )
       return;
     setActiveId(workspaceId);
+    userSelectedWorkspaceRef.current = true;
     setWorkspaces((items) =>
       items.map((workspace) =>
         workspace.id !== workspaceId
@@ -1075,6 +1092,229 @@ export function App() {
       ),
     );
   };
+
+  const newSpaceShortcut = shortcutText(ui.shortcuts, "new-terminal");
+  const previousSpaceShortcut = shortcutText(ui.shortcuts, "previous-tab");
+  const nextSpaceShortcut = shortcutText(ui.shortcuts, "next-tab");
+  const previousPaneShortcut = shortcutText(ui.shortcuts, "previous-pane");
+  const nextPaneShortcut = shortcutText(ui.shortcuts, "next-pane");
+  const previousWorkspaceShortcut = shortcutText(ui.shortcuts, "previous-workspace");
+  const nextWorkspaceShortcut = shortcutText(ui.shortcuts, "next-workspace");
+  const splitRightShortcut = shortcutText(ui.shortcuts, "split-right");
+  const splitDownShortcut = shortcutText(ui.shortcuts, "split-down");
+  const toggleSidebarShortcut = shortcutText(ui.shortcuts, "toggle-sidebar");
+  const closePaneShortcut = shortcutText(ui.shortcuts, "close-pane");
+  const paletteItems: CommandPaletteItem[] = commandPaletteOpen
+    ? [
+        {
+          id: "action:new-space",
+          kind: "action",
+          section: "suggested",
+          title: "New Space",
+          ...(active ? { description: active.name } : {}),
+          keywords: ["new", "space", "terminal", "tab"],
+          icon: "new",
+          ...(newSpaceShortcut ? { shortcut: newSpaceShortcut } : {}),
+          disabled: !active?.available,
+          onSelect: addSpace,
+        },
+        {
+          id: "action:open-workspace",
+          kind: "action",
+          section: "suggested",
+          title: "Open workspace",
+          keywords: ["open", "folder", "project", "workspace"],
+          icon: "workspace",
+          onSelect: openWorkspace,
+        },
+        {
+          id: "action:settings",
+          kind: "action",
+          section: "suggested",
+          title: "Settings",
+          keywords: ["preferences", "configure"],
+          icon: "settings",
+          onSelect: () => ui.setSettingsOpen(true),
+        },
+        {
+          id: "action:previous-space",
+          kind: "action",
+          section: "actions",
+          title: "Previous Space",
+          keywords: ["previous", "space", "tab"],
+          icon: "space",
+          ...(previousSpaceShortcut ? { shortcut: previousSpaceShortcut } : {}),
+          disabled: !active || active.tabs.length < 2,
+          onSelect: () => moveTab(-1),
+        },
+        {
+          id: "action:next-space",
+          kind: "action",
+          section: "actions",
+          title: "Next Space",
+          keywords: ["next", "space", "tab"],
+          icon: "space",
+          ...(nextSpaceShortcut ? { shortcut: nextSpaceShortcut } : {}),
+          disabled: !active || active.tabs.length < 2,
+          onSelect: () => moveTab(1),
+        },
+        {
+          id: "action:previous-pane",
+          kind: "action",
+          section: "actions",
+          title: "Previous Pane",
+          keywords: ["previous", "terminal", "file", "pane"],
+          icon: "terminal",
+          ...(previousPaneShortcut ? { shortcut: previousPaneShortcut } : {}),
+          disabled:
+            !active?.tabs.find((tab) => tab.id === active.activeTabId) ||
+            (active.tabs.find((tab) => tab.id === active.activeTabId)?.panes.length ?? 0) < 2,
+          onSelect: () => movePane(-1),
+        },
+        {
+          id: "action:next-pane",
+          kind: "action",
+          section: "actions",
+          title: "Next Pane",
+          keywords: ["next", "terminal", "file", "pane"],
+          icon: "terminal",
+          ...(nextPaneShortcut ? { shortcut: nextPaneShortcut } : {}),
+          disabled:
+            !active?.tabs.find((tab) => tab.id === active.activeTabId) ||
+            (active.tabs.find((tab) => tab.id === active.activeTabId)?.panes.length ?? 0) < 2,
+          onSelect: () => movePane(1),
+        },
+        {
+          id: "action:previous-workspace",
+          kind: "action",
+          section: "actions",
+          title: "Previous workspace",
+          keywords: ["previous", "project", "folder"],
+          icon: "workspace",
+          ...(previousWorkspaceShortcut ? { shortcut: previousWorkspaceShortcut } : {}),
+          disabled: workspaces.length < 2,
+          onSelect: () => moveWorkspace(-1),
+        },
+        {
+          id: "action:next-workspace",
+          kind: "action",
+          section: "actions",
+          title: "Next workspace",
+          keywords: ["next", "project", "folder"],
+          icon: "workspace",
+          ...(nextWorkspaceShortcut ? { shortcut: nextWorkspaceShortcut } : {}),
+          disabled: workspaces.length < 2,
+          onSelect: () => moveWorkspace(1),
+        },
+        {
+          id: "action:split-right",
+          kind: "action",
+          section: "actions",
+          title: "Split right",
+          keywords: ["split", "terminal", "pane", "horizontal"],
+          icon: "split-right",
+          ...(splitRightShortcut ? { shortcut: splitRightShortcut } : {}),
+          disabled: !active?.available,
+          onSelect: () => split("right"),
+        },
+        {
+          id: "action:split-down",
+          kind: "action",
+          section: "actions",
+          title: "Split down",
+          keywords: ["split", "terminal", "pane", "vertical"],
+          icon: "split-down",
+          ...(splitDownShortcut ? { shortcut: splitDownShortcut } : {}),
+          disabled: !active?.available,
+          onSelect: () => split("down"),
+        },
+        {
+          id: "action:toggle-sidebar",
+          kind: "action",
+          section: "actions",
+          title: "Toggle sidebar",
+          keywords: ["show", "hide", "workspace list"],
+          icon: "sidebar",
+          ...(toggleSidebarShortcut ? { shortcut: toggleSidebarShortcut } : {}),
+          onSelect: () => ui.toggleSidebar(),
+        },
+        {
+          id: "action:toggle-browser",
+          kind: "action",
+          section: "actions",
+          title: "Toggle browser pane",
+          keywords: ["show", "hide", "preview", "web"],
+          icon: "browser",
+          onSelect: () => ui.toggleSidePane(),
+        },
+        {
+          id: "action:close-pane",
+          kind: "action",
+          section: "actions",
+          title: "Close active pane",
+          keywords: ["close", "terminal", "file", "pane"],
+          icon: "file",
+          ...(closePaneShortcut ? { shortcut: closePaneShortcut } : {}),
+          disabled: !active?.tabs.find((tab) => tab.id === active.activeTabId)?.panes.length,
+          onSelect: () => {
+            const tab = active?.tabs.find((item) => item.id === active.activeTabId);
+            if (active && tab) closePane(active.id, tab.id, tab.activePaneId);
+          },
+        },
+        ...workspaces.flatMap((workspace) => {
+          const workspaceItem: CommandPaletteItem = {
+            id: `workspace:${workspace.id}`,
+            kind: "workspace",
+            section: "workspaces",
+            title: workspace.name,
+            description: workspace.available ? workspace.path : "Folder unavailable",
+            keywords: [workspace.path, workspace.kind],
+            icon: "workspace",
+            onSelect: () => {
+              userSelectedWorkspaceRef.current = true;
+              setActiveId(workspace.id);
+            },
+          };
+          const spaceItems = workspace.tabs.map(
+            (tab): CommandPaletteItem => ({
+              id: `space:${workspace.id}:${tab.id}`,
+              kind: "space",
+              section: "spaces",
+              title: tab.title,
+              description: workspace.name,
+              keywords: [workspace.name, workspace.path],
+              icon: "space",
+              onSelect: () => {
+                userSelectedWorkspaceRef.current = true;
+                setActiveId(workspace.id);
+                setWorkspaces((items) =>
+                  items.map((item) =>
+                    item.id === workspace.id ? { ...item, activeTabId: tab.id } : item,
+                  ),
+                );
+              },
+            }),
+          );
+          const paneItems = workspace.tabs.flatMap((tab) =>
+            tab.panes
+              .filter((pane) => pane.kind === "terminal")
+              .map(
+                (pane): CommandPaletteItem => ({
+                  id: `terminal:${workspace.id}:${tab.id}:${pane.id}`,
+                  kind: "terminal",
+                  section: "terminals",
+                  title: pane.title,
+                  description: `${workspace.name} · ${tab.title}`,
+                  keywords: [workspace.name, workspace.path, tab.title, pane.title],
+                  icon: "terminal",
+                  onSelect: () => selectLocation(workspace.id, tab.id, pane.id),
+                }),
+              ),
+          );
+          return [workspaceItem, ...spaceItems, ...paneItems];
+        }),
+      ]
+    : [];
 
   const selectAttention = (item: SidebarAttentionItem) =>
     selectLocation(item.workspaceId, item.tabId, item.paneId);
@@ -1263,6 +1503,11 @@ export function App() {
         </div>
         <SettingsDialog />
       </WindowFrame>
+      <CommandPalette
+        open={commandPaletteOpen}
+        items={paletteItems}
+        onOpenChange={setCommandPaletteOpen}
+      />
       <div
         aria-label="Attention notifications"
         className="pointer-events-none fixed right-5 top-16 z-[80] flex w-[min(24rem,calc(100vw-2.5rem))] flex-col gap-2"

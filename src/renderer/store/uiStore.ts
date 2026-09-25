@@ -21,6 +21,7 @@ export const shortcutActions = [
   "next-pane",
   "previous-workspace",
   "next-workspace",
+  "open-command-palette",
   "new-terminal",
   "split-right",
   "split-down",
@@ -42,6 +43,7 @@ export const defaultShortcuts: ShortcutBinding[] = [
   { action: "next-pane", key: "down", ctrl: true, alt: false, shift: true },
   { action: "previous-workspace", key: "left", ctrl: false, alt: true, shift: false },
   { action: "next-workspace", key: "right", ctrl: false, alt: true, shift: false },
+  { action: "open-command-palette", key: "p", ctrl: true, alt: false, shift: true },
   { action: "new-terminal", key: "n", ctrl: true, alt: false, shift: true },
   { action: "split-right", key: "d", ctrl: true, alt: false, shift: true },
   { action: "split-down", key: "t", ctrl: true, alt: false, shift: true },
@@ -146,6 +148,50 @@ export const useUiStore = create<UiState>()(
         sidePaneWidth,
         activityHeight,
       }),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<UiState>;
+        return {
+          ...currentState,
+          ...persisted,
+          shortcuts: mergeShortcutBindings(persisted.shortcuts),
+        };
+      },
     },
   ),
 );
+
+function mergeShortcutBindings(persisted: unknown): ShortcutBinding[] {
+  const actionSet = new Set<string>(shortcutActions);
+  const savedByAction = new Map<ShortcutAction, ShortcutBinding>();
+  if (Array.isArray(persisted)) {
+    for (const value of persisted) {
+      if (
+        !value ||
+        typeof value !== "object" ||
+        !actionSet.has((value as { action?: string }).action ?? "")
+      ) {
+        continue;
+      }
+
+      const binding = value as Partial<ShortcutBinding>;
+      if (
+        typeof binding.key === "string" &&
+        typeof binding.ctrl === "boolean" &&
+        typeof binding.alt === "boolean" &&
+        typeof binding.shift === "boolean"
+      ) {
+        savedByAction.set(binding.action as ShortcutAction, {
+          action: binding.action as ShortcutAction,
+          key: binding.key,
+          ctrl: binding.ctrl,
+          alt: binding.alt,
+          shift: binding.shift,
+        });
+      }
+    }
+  }
+
+  return defaultShortcuts.map((binding) => ({
+    ...(savedByAction.get(binding.action) ?? binding),
+  }));
+}
