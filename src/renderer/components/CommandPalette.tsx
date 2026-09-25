@@ -95,6 +95,14 @@ const paletteIcons: Record<CommandPaletteIcon, LucideIcon> = {
 
 const sectionLimit = 4;
 
+type PaletteRow =
+  | { kind: "item"; item: CommandPaletteItem }
+  | { kind: "more"; section: CommandPaletteSection; hiddenCount: number };
+
+function rowKey(row: PaletteRow): string {
+  return row.kind === "item" ? row.item.id : `more:${row.section}`;
+}
+
 function resolveScope(rawQuery: string): {
   query: string;
   scope: CommandPaletteScope;
@@ -167,33 +175,40 @@ export function CommandPalette({ open, items, onOpenChange }: CommandPaletteProp
     [filteredItems],
   );
 
-  const displayedItems = useMemo(
+  const rows = useMemo<PaletteRow[]>(
     () =>
-      itemsBySection.flatMap(({ section, items: sectionItems }) =>
-        expandedSections.has(section)
+      itemsBySection.flatMap(({ section, items: sectionItems }) => {
+        const visibleItems = expandedSections.has(section)
           ? sectionItems
-          : sectionItems.slice(0, hasSearchQuery ? 80 : sectionLimit),
-      ),
+          : sectionItems.slice(0, hasSearchQuery ? 80 : sectionLimit);
+        const itemRows: PaletteRow[] = visibleItems.map((item) => ({ kind: "item", item }));
+        if (!hasSearchQuery && sectionItems.length > visibleItems.length) {
+          itemRows.push({
+            kind: "more",
+            section,
+            hiddenCount: sectionItems.length - visibleItems.length,
+          });
+        }
+        return itemRows;
+      }),
     [expandedSections, hasSearchQuery, itemsBySection],
   );
 
-  const navigableItems = displayedItems.filter((item) => !item.disabled);
-  const activeItem = navigableItems.find((item) => item.id === activeItemId) ?? navigableItems[0];
-  const activeIndex = activeItem ? displayedItems.indexOf(activeItem) : -1;
-  const optionId = activeIndex >= 0 ? `${listId}-option-${activeIndex}` : undefined;
+  const navigableRows = rows.filter((row) => row.kind !== "item" || !row.item.disabled);
+  const activeRow = navigableRows.find((row) => rowKey(row) === activeItemId) ?? navigableRows[0];
+  const activeRowKey = activeRow ? rowKey(activeRow) : null;
+  const activeOptionId = activeRow ? `${listId}-option-${rows.indexOf(activeRow)}` : undefined;
 
   useEffect(() => {
-    if (!navigableItems.some((item) => item.id === activeItemId)) {
-      setActiveItemId(navigableItems[0]?.id ?? null);
+    if (!navigableRows.some((row) => rowKey(row) === activeItemId)) {
+      setActiveItemId(navigableRows[0] ? rowKey(navigableRows[0]) : null);
     }
-  }, [activeItemId, navigableItems]);
+  }, [activeItemId, navigableRows]);
 
   useEffect(() => {
-    if (activeIndex < 0) return;
-    document
-      .getElementById(`${listId}-option-${activeIndex}`)
-      ?.scrollIntoView?.({ block: "nearest" });
-  }, [activeIndex, listId]);
+    if (!activeOptionId) return;
+    document.getElementById(activeOptionId)?.scrollIntoView?.({ block: "nearest" });
+  }, [activeOptionId]);
 
   const closeDialog = () => {
     setQuery("");
@@ -217,6 +232,19 @@ export function CommandPalette({ open, items, onOpenChange }: CommandPaletteProp
     inputRef.current?.focus();
   };
 
+  const expandSection = (section: CommandPaletteSection) => {
+    setExpandedSections((current) => new Set(current).add(section));
+    const sectionItems = itemsBySection.find((entry) => entry.section === section)?.items ?? [];
+    const firstHidden = sectionItems.slice(sectionLimit).find((item) => !item.disabled);
+    if (firstHidden) setActiveItemId(firstHidden.id);
+  };
+
+  const cycleScope = (offset: number) => {
+    const currentIndex = scopeOptions.findIndex((option) => option.id === activeScope);
+    const next = scopeOptions[(currentIndex + offset + scopeOptions.length) % scopeOptions.length];
+    if (next) setScope(next.id);
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -224,21 +252,31 @@ export function CommandPalette({ open, items, onOpenChange }: CommandPaletteProp
       return;
     }
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      if (navigableItems.length === 0) return;
+      if (navigableRows.length === 0) return;
       event.preventDefault();
       const offset = event.key === "ArrowDown" ? 1 : -1;
-      const selectedIndex = navigableItems.findIndex((item) => item.id === activeItem?.id);
+      const selectedIndex = navigableRows.findIndex((row) => rowKey(row) === activeRowKey);
       const nextIndex =
         selectedIndex < 0
           ? 0
-          : (selectedIndex + offset + navigableItems.length) % navigableItems.length;
-      setActiveItemId(navigableItems[nextIndex]?.id ?? null);
+          : (selectedIndex + offset + navigableRows.length) % navigableRows.length;
+      const nextRow = navigableRows[nextIndex];
+      setActiveItemId(nextRow ? rowKey(nextRow) : null);
       inputRef.current?.focus();
       return;
     }
     if (event.key === "Enter") {
       event.preventDefault();
-      selectItem(activeItem);
+      if (activeRow?.kind === "more") {
+        expandSection(activeRow.section);
+        return;
+      }
+      selectItem(activeRow?.item);
+      return;
+    }
+    if (event.key === "Tab" && document.activeElement === inputRef.current) {
+      event.preventDefault();
+      cycleScope(event.shiftKey ? -1 : 1);
       return;
     }
     if (event.key !== "Tab") return;
@@ -282,7 +320,7 @@ export function CommandPalette({ open, items, onOpenChange }: CommandPaletteProp
             <Search aria-hidden="true" className="size-4 shrink-0 text-foreground-subtle" />
             <input
               ref={inputRef}
-              aria-activedescendant={optionId}
+              aria-activedescendant={activeOptionId}
               aria-autocomplete="list"
               aria-controls={listId}
               aria-expanded="true"
@@ -341,12 +379,11 @@ export function CommandPalette({ open, items, onOpenChange }: CommandPaletteProp
         >
           {itemsBySection.map(({ section, items: sectionItems }) => {
             if (sectionItems.length === 0) return null;
-            const visibleItems = expandedSections.has(section)
-              ? sectionItems
-              : sectionItems.slice(0, hasSearchQuery ? 80 : sectionLimit);
-            const firstVisibleIndex = displayedItems.findIndex(
-              (item) => item.id === visibleItems[0]?.id,
+            const sectionRows = rows.filter((row) =>
+              row.kind === "item" ? row.item.section === section : row.section === section,
             );
+            const firstRow = sectionRows[0];
+            const firstRowIndex = firstRow ? rows.indexOf(firstRow) : 0;
             return (
               <div
                 aria-label={sectionLabels[section]}
@@ -357,14 +394,37 @@ export function CommandPalette({ open, items, onOpenChange }: CommandPaletteProp
                 <h2 className="px-2.5 pb-1 pt-2 text-ui-sm font-medium text-foreground-subtle">
                   {sectionLabels[section]}
                 </h2>
-                {visibleItems.map((item, index) => {
+                {sectionRows.map((row, rowIndex) => {
+                  const optionIndex = firstRowIndex + rowIndex;
+                  const selected = activeRowKey === rowKey(row);
+                  if (row.kind === "more") {
+                    return (
+                      <button
+                        key={`more:${row.section}`}
+                        id={`${listId}-option-${optionIndex}`}
+                        aria-selected={selected}
+                        className={`w-full rounded-lg px-2.5 py-2 text-left text-ui-sm transition-colors ${
+                          selected
+                            ? "bg-hover text-foreground"
+                            : "text-foreground-subtle hover:bg-hover hover:text-foreground"
+                        }`}
+                        data-palette-active={selected || undefined}
+                        onClick={() => expandSection(row.section)}
+                        onMouseMove={() => setActiveItemId(rowKey(row))}
+                        role="option"
+                        tabIndex={-1}
+                        type="button"
+                      >
+                        Show {row.hiddenCount} more
+                      </button>
+                    );
+                  }
+                  const item = row.item;
                   const Icon = paletteIcons[item.icon];
-                  const itemIndex = firstVisibleIndex + index;
-                  const selected = displayedItems[itemIndex]?.id === activeItem?.id;
                   return (
                     <button
                       key={item.id}
-                      id={`${listId}-option-${itemIndex}`}
+                      id={`${listId}-option-${optionIndex}`}
                       aria-disabled={item.disabled || undefined}
                       aria-selected={selected}
                       className={`flex min-h-10 w-full items-center gap-2.5 rounded-lg px-2.5 text-left transition-colors ${
@@ -394,22 +454,10 @@ export function CommandPalette({ open, items, onOpenChange }: CommandPaletteProp
                     </button>
                   );
                 })}
-                {sectionItems.length > visibleItems.length ? (
-                  hasSearchQuery ? (
-                    <p className="px-2.5 py-2 text-ui-sm text-foreground-subtle">
-                      Showing the first 80 matches. Add more search terms to narrow the results.
-                    </p>
-                  ) : (
-                    <button
-                      className="w-full rounded-lg px-2.5 py-2 text-left text-ui-sm text-foreground-subtle hover:bg-hover hover:text-foreground"
-                      onClick={() =>
-                        setExpandedSections((current) => new Set(current).add(section))
-                      }
-                      type="button"
-                    >
-                      Show {sectionItems.length - visibleItems.length} more
-                    </button>
-                  )
+                {hasSearchQuery && sectionItems.length > sectionRows.length ? (
+                  <p className="px-2.5 py-2 text-ui-sm text-foreground-subtle">
+                    Showing the first 80 matches. Add more search terms to narrow the results.
+                  </p>
                 ) : null}
               </div>
             );
@@ -425,6 +473,9 @@ export function CommandPalette({ open, items, onOpenChange }: CommandPaletteProp
           <span>
             <kbd className="rounded bg-background px-1">↑</kbd>{" "}
             <kbd className="rounded bg-background px-1">↓</kbd> navigate
+          </span>
+          <span>
+            <kbd className="rounded bg-background px-1">Tab</kbd> scope
           </span>
           <span>
             <kbd className="rounded bg-background px-1">Enter</kbd> open

@@ -39,7 +39,7 @@ Space tabs and sidebar Workspace/Tab rows show a dot for the most urgent recogni
 
 ## Command palette and quick switcher
 
-Press `Ctrl+Shift+P` to open the palette. Search one input for actions, workspaces, Spaces, and terminal panes. The **All**, **Actions**, and **Locations** scopes narrow the results; use the arrow keys to move through the list, `Enter` to select, and `Escape` to close.
+Press `Ctrl+Shift+P` to open the palette. Search one input for actions, workspaces, Spaces, and terminal panes. The **All**, **Actions**, and **Locations** scopes narrow the results; use the arrow keys to move through the list (including each section's `Show N more` row, which `Enter` expands), `Tab` / `Shift+Tab` to switch scopes, `Enter` to select, and `Escape` to close.
 
 The shortcut can be reassigned in **Settings → Shortcuts**. The palette is intended as a single entry point for navigation and app actions, so you do not need to memorize a separate shortcut for every destination.
 
