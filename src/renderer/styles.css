@@ -63,6 +63,13 @@
   --color-syntax-type: #286782;
   --color-syntax-function: #795c30;
   --color-syntax-attribute: #8b5c2a;
+
+  --color-agent-thinking: #5b8bb8;
+  --color-agent-running: var(--color-success);
+  --color-agent-completed: var(--color-success);
+  --color-agent-waiting: #a97f24;
+  --color-agent-failed: var(--color-destructive);
+  --color-agent-warning: var(--color-warning);
 }
 
 .dark {
@@ -103,6 +110,8 @@
   --color-syntax-type: #83c6e5;
   --color-syntax-function: #e2c27d;
   --color-syntax-attribute: #e7a982;
+  --color-agent-thinking: #8ab6e0;
+  --color-agent-waiting: #d8ae4e;
 }
 
 .graphite {
@@ -143,6 +152,26 @@
   --color-syntax-type: #80c4e3;
   --color-syntax-function: #deb978;
   --color-syntax-attribute: #e4a47d;
+  --color-agent-thinking: #8ab6e0;
+  --color-agent-waiting: #d8ae4e;
+}
+
+/* Status dots must stay visible while pulsing; Tailwind's animate-pulse drops to 50%
+   opacity and makes small dots disappear on dark themes. */
+@keyframes agent-status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.15);
+  }
+}
+
+.agent-status-pulse {
+  animation: agent-status-pulse 1.6s ease-in-out infinite;
 }
 
 * {

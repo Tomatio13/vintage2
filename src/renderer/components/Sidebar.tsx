@@ -18,6 +18,8 @@ import type {
   TerminalAttentionState,
   TerminalAttentionStatus,
 } from "../../shared/desktop.js";
+import { AgentStatusDot } from "./AgentStatusDot.js";
+import { strongestAgentStatus } from "../lib/agentStatus.js";
 import { Button } from "./Button.js";
 
 export interface SidebarWorkspace {
@@ -116,6 +118,7 @@ export function Sidebar({
   workspaces,
   attentionItems,
   attentionHistory,
+  agentStatusByTabId,
   activeWorkspaceId,
   onOpenWorkspace,
   onNewSpace,
@@ -131,6 +134,7 @@ export function Sidebar({
   workspaces: SidebarWorkspace[];
   attentionItems: SidebarAttentionItem[];
   attentionHistory: SidebarAttentionHistoryItem[];
+  agentStatusByTabId?: Record<string, TerminalAttentionState>;
   activeWorkspaceId: string | null;
   onOpenWorkspace(): void;
   onNewSpace(): void;
@@ -237,6 +241,9 @@ export function Sidebar({
   const renderWorkspace = (workspace: SidebarWorkspace) => {
     const active = workspace.id === activeWorkspaceId;
     const attentionCount = attentionCountByWorkspace.get(workspace.id) ?? 0;
+    const workspaceAgentStatus = strongestAgentStatus(
+      workspace.tabs.map((tab) => agentStatusByTabId?.[tab.id]),
+    );
     return (
       <section className="mb-2" key={workspace.id}>
         <div className="flex items-center gap-1">
@@ -250,6 +257,7 @@ export function Sidebar({
             ) : (
               <FolderOpen className="size-4 shrink-0 text-foreground" />
             )}
+            <AgentStatusDot state={workspaceAgentStatus} />
             <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
             {workspace.available === false && (
               <span className="shrink-0 text-ui-xs text-warning">Missing</span>
@@ -289,6 +297,7 @@ export function Sidebar({
         <div className="ml-3 mt-1 border-l border-border pl-2">
           {workspace.tabs.map((tab) => {
             const selected = active && tab.id === workspace.activeTabId;
+            const tabAgentStatus = agentStatusByTabId?.[tab.id] ?? null;
             return (
               <button
                 aria-pressed={selected}
@@ -296,7 +305,11 @@ export function Sidebar({
                 key={tab.id}
                 onClick={() => onSelectTab(workspace.id, tab.id)}
               >
-                <span className="size-1.5 rounded-full bg-foreground" />
+                {tabAgentStatus ? (
+                  <AgentStatusDot state={tabAgentStatus} />
+                ) : (
+                  <span className="size-1.5 rounded-full bg-foreground" />
+                )}
                 <span className="min-w-0 flex-1 truncate">{tab.title}</span>
                 <span className="font-mono text-ui-xs text-foreground-subtlest">
                   {tab.panes.length}

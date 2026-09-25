@@ -10,12 +10,14 @@ import type {
   WorkspaceSpaceSnapshot,
 } from "../shared/desktop.js";
 import { Button } from "./components/Button.js";
+import { AgentStatusDot } from "./components/AgentStatusDot.js";
 import { AttentionToast } from "./components/AttentionToast.js";
 import { CommandPalette, type CommandPaletteItem } from "./components/CommandPalette.js";
 import { FileViewer } from "./components/FileViewer.js";
 import { ResizeHandle } from "./components/ResizeHandle.js";
 import { SettingsDialog } from "./components/SettingsDialog.js";
 import { SidePane } from "./components/SidePane.js";
+import { strongestAgentStatus } from "./lib/agentStatus.js";
 import {
   Sidebar,
   type SidebarAttentionHistoryItem,
@@ -525,6 +527,13 @@ export function App() {
   const userSelectedWorkspaceRef = useRef(false);
   const active = workspaces.find((workspace) => workspace.id === activeId) ?? null;
   const attentionItems = collectAttentionItems(workspaces, attentionByPane);
+  const agentStatusByTabId: Record<string, TerminalAttentionState> = {};
+  for (const workspace of workspaces) {
+    for (const tab of workspace.tabs) {
+      const state = strongestAgentStatus(tab.panes.map((pane) => attentionByPane[pane.id]));
+      if (state) agentStatusByTabId[tab.id] = state;
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -953,7 +962,9 @@ export function App() {
 
   const updateAttention = (paneId: string, state: TerminalAttentionState | null) => {
     setAttentionByPane((current) => {
-      if (state && state.attentionLevel > 0) return { ...current, [paneId]: state };
+      // Attention-level 0 states (Thinking/Waiting/Completed in Agent Monitor) are kept:
+      // the agent status dots need them even though they are not attention-worthy.
+      if (state) return { ...current, [paneId]: state };
       if (!(paneId in current)) return current;
       const next = { ...current };
       delete next[paneId];
@@ -1019,6 +1030,7 @@ export function App() {
           data-active={tab.id === active.activeTabId}
           key={tab.id}
         >
+          <AgentStatusDot state={agentStatusByTabId[tab.id] ?? null} />
           <TabAttentionBadge state={strongestAttention(tab, attentionByPane)} />
           {editingTabId === tab.id ? (
             <input
@@ -1354,6 +1366,7 @@ export function App() {
       workspaces={workspaces}
       attentionItems={attentionItems}
       attentionHistory={attentionHistory.filter((item) => item.outcome !== "active")}
+      agentStatusByTabId={agentStatusByTabId}
       activeWorkspaceId={activeId}
       onOpenWorkspace={() => void openWorkspace()}
       onNewSpace={addSpace}
