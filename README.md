@@ -13,6 +13,7 @@ VINTAGE keeps projects, Spaces, and terminals together, then brings you back whe
 - **Workspaces, Spaces, and terminals**: Organize projects, create multiple Spaces, and split terminals side by side or vertically.
 - **Command palette**: Press `Ctrl+Shift+P` to search actions and jump to a workspace, Space, or terminal.
 - **Attention monitoring**: See command completions, errors, and input requests from background terminals in one list.
+- **Agent status at a glance**: Color-coded dots in Space tabs and the sidebar surface agent activity, waits, and failures.
 - **Files and Git Review**: Preview common files and inspect unstaged Git changes, including untracked files.
 - **Flexible shells**: Choose zsh, bash, fish, or the operating system’s default shell.
 - **Automatic text copy**: Select terminal output with the mouse to copy it to the clipboard.

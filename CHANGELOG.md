@@ -1,5 +1,20 @@
 # VINTAGE Changelog
 
+## [0.2.5] - 2026-09-25
+
+### Added
+
+- **Agent status indicators:** Color-coded status dots in Space tabs and the sidebar show the most urgent terminal state across panes.
+
+### Improved
+
+- Keep completed agent turns stable through terminal redraws and avoid treating mouse, focus, or terminal protocol traffic as user input.
+- Reduce Jev requests with adaptive polling, semantic deduplication, cancellation of outdated requests, and shared process monitoring.
+- Return stale running or input-waiting states to idle when a shell prompt reappears, and distinguish warning output from errors more accurately.
+- Mask additional credential formats in terminal output and commands sent to Jev.
+
+**Full Changelog:** [v0.2.4...v0.2.5](https://github.com/Tomatio13/vintage2/compare/v0.2.4...v0.2.5)
+
 ## [0.2.4] - 2026-09-25
 
 ### Fixed
