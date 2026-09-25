@@ -375,7 +375,7 @@ const CodeSourceLine = memo(function CodeSourceLine({
       : highlightedPlainLine(line, search);
 
   return lineNumbers ? (
-    <span className="grid grid-cols-[3.5rem_minmax(0,1fr)]">
+    <span data-code-line={index + 1} className="grid grid-cols-[3.5rem_minmax(0,1fr)]">
       <span className="sticky left-0 select-none border-r border-border bg-terminal-surface px-2 text-right text-foreground-subtlest">
         {index + 1}
       </span>
@@ -383,7 +383,7 @@ const CodeSourceLine = memo(function CodeSourceLine({
     </span>
   ) : (
     <Fragment>
-      {value}
+      <span data-code-line={index + 1}>{value}</span>
       {hasNextLine ? "\n" : ""}
     </Fragment>
   );
@@ -395,12 +395,14 @@ export function CodeSourcePreview({
   wrap,
   search = "",
   lineNumbers = true,
+  targetLine,
 }: {
   content: string;
   path: string;
   wrap: boolean;
   search?: string;
   lineNumbers?: boolean;
+  targetLine?: number | undefined;
 }) {
   const { hasMoreLines, lines } = useMemo(() => {
     const splitLines = content.split("\n", maxDisplayedSourceLines + 1);
@@ -420,7 +422,10 @@ export function CodeSourcePreview({
     const query = search.toLowerCase();
     return lines.findIndex((line) => line.toLowerCase().includes(query));
   }, [lines, search]);
-  const lineCountToShow = Math.min(lines.length, Math.max(displayedLineCount, searchLineIndex + 1));
+  const lineCountToShow = Math.min(
+    lines.length,
+    Math.max(displayedLineCount, searchLineIndex + 1, targetLine ?? 0),
+  );
 
   useEffect(() => {
     setLineWindow({ content, count: initialCodePreviewLines });
@@ -433,6 +438,13 @@ export function CodeSourcePreview({
       ?.querySelector("[data-file-search-hit]")
       ?.scrollIntoView({ block: "center", inline: "nearest" });
   }, [search]);
+
+  useEffect(() => {
+    if (!targetLine) return;
+    containerRef.current
+      ?.querySelector(`[data-code-line="${targetLine}"]`)
+      ?.scrollIntoView({ block: "center", inline: "nearest" });
+  }, [content, lineCountToShow, targetLine]);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">

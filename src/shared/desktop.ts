@@ -24,6 +24,7 @@ export const DesktopChannels = {
   workspacePreviewUrl: "workspace:preview-url",
   workspaceOpenFile: "workspace:open-file",
   workspaceGitReview: "workspace:git-review",
+  workspaceGitReviewView: "workspace:git-review-view",
   workspaceGitReviewDiff: "workspace:git-review-diff",
   terminalCreate: "terminal:create",
   terminalReady: "terminal:ready",
@@ -53,7 +54,7 @@ export interface RegisteredWorkspace {
 
 export type WorkspacePaneSnapshot =
   | { id: string; title: string; kind: "terminal" }
-  | { id: string; title: string; kind: "file"; path: string };
+  | { id: string; title: string; kind: "file"; path: string; targetLine?: number | undefined };
 
 export type WorkspacePaneLayoutSnapshot =
   | { type: "pane"; paneId: string }
@@ -108,7 +109,9 @@ export interface WorkspaceFileContent {
   truncated: boolean;
 }
 
-export type WorkspaceGitReviewSource = "unstaged" | "staged";
+export type WorkspaceGitReviewWorkingSource = "unstaged" | "staged";
+export type WorkspaceGitReviewSource = WorkspaceGitReviewWorkingSource | "branch";
+export type WorkspaceGitReviewMode = "working" | "branch";
 
 export type WorkspaceGitReviewChangeKind =
   | "modified"
@@ -121,9 +124,24 @@ export type WorkspaceGitReviewChangeKind =
 export interface WorkspaceGitReviewChange {
   path: string;
   originalPath?: string;
+  source?: WorkspaceGitReviewSource;
   kind: WorkspaceGitReviewChangeKind;
   added: number | null;
   removed: number | null;
+}
+
+export interface WorkspaceGitReviewViewRequest {
+  mode: WorkspaceGitReviewMode;
+  baseRef?: string;
+}
+
+export interface WorkspaceGitReviewViewSnapshot {
+  status: "ready" | "not-repository" | "git-unavailable";
+  changes: WorkspaceGitReviewChange[];
+  currentBranch: string | null;
+  baseRef: string | null;
+  baseBranches: string[];
+  comparisonMessage: string | null;
 }
 
 export interface WorkspaceGitReviewSnapshot {
@@ -137,6 +155,7 @@ export interface WorkspaceGitReviewDiffRequest {
   originalPath?: string;
   kind: WorkspaceGitReviewChangeKind;
   contextLines?: number;
+  baseRef?: string;
 }
 
 export interface WorkspaceGitReviewDiff {
@@ -320,12 +339,16 @@ export interface DesktopBridge {
   openWorkspaceFile(workspaceId: string, path: string): Promise<void>;
   getWorkspaceGitReview(
     workspaceId: string,
-    source: WorkspaceGitReviewSource,
+    source: WorkspaceGitReviewWorkingSource,
   ): Promise<WorkspaceGitReviewSnapshot>;
   getWorkspaceGitReviewDiff(
     workspaceId: string,
     request: WorkspaceGitReviewDiffRequest,
   ): Promise<WorkspaceGitReviewDiff>;
+  getWorkspaceGitReviewView(
+    workspaceId: string,
+    request: WorkspaceGitReviewViewRequest,
+  ): Promise<WorkspaceGitReviewViewSnapshot>;
   createTerminal(options: TerminalCreateOptions): Promise<TerminalSession>;
   readyTerminal(sessionId: string): Promise<void>;
   writeTerminal(sessionId: string, data: string): Promise<void>;

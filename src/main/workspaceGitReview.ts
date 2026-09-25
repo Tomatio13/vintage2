@@ -9,8 +9,12 @@ import type {
   WorkspaceGitReviewChange,
   WorkspaceGitReviewDiff,
   WorkspaceGitReviewDiffRequest,
+  WorkspaceGitReviewMode,
   WorkspaceGitReviewSnapshot,
   WorkspaceGitReviewSource,
+  WorkspaceGitReviewViewRequest,
+  WorkspaceGitReviewViewSnapshot,
+  WorkspaceGitReviewWorkingSource,
 } from "../shared/desktop.js";
 
 const execFileAsync = promisify(execFile);
@@ -38,8 +42,18 @@ class UnsafeGitFilterError extends Error {
   }
 }
 
-function isWorkspaceGitReviewSource(value: unknown): value is WorkspaceGitReviewSource {
+function isWorkspaceGitReviewWorkingSource(
+  value: unknown,
+): value is WorkspaceGitReviewWorkingSource {
   return value === "unstaged" || value === "staged";
+}
+
+function isWorkspaceGitReviewSource(value: unknown): value is WorkspaceGitReviewSource {
+  return isWorkspaceGitReviewWorkingSource(value) || value === "branch";
+}
+
+function isWorkspaceGitReviewMode(value: unknown): value is WorkspaceGitReviewMode {
+  return value === "working" || value === "branch";
 }
 
 function commandError(error: unknown): GitCommandError {
@@ -153,7 +167,7 @@ function kindFromStatus(
 /** Parse Git's NUL-delimited porcelain v2 output without splitting paths on whitespace. */
 export function parseWorkspaceGitStatus(
   output: string,
-  source: WorkspaceGitReviewSource,
+  source: WorkspaceGitReviewWorkingSource,
 ): WorkspaceGitReviewChange[] {
   const changes: WorkspaceGitReviewChange[] = [];
   const records = output.split("\0");
@@ -260,21 +274,11 @@ async function gitFilterConfigOverrides(cwd: string, paths: string[]): Promise<s
   ]);
 }
 
-async function getWorkspaceChanges(
-  workspace: RegisteredWorkspace,
-  source: WorkspaceGitReviewSource,
-): Promise<{ context: GitContext; changes: WorkspaceGitReviewChange[] }> {
-  const context = await resolveGitContext(workspace);
-  const output = await runGit(context.workspaceRoot, [
-    "status",
-    "--porcelain=v2",
-    "-z",
-    "--untracked-files=all",
-    "--",
-    ".",
-  ]);
-  const changes = parseWorkspaceGitStatus(output, source);
-  const scopedChanges = changes.flatMap((change) => {
+function scopeChangesToWorkspace(
+  context: GitContext,
+  changes: WorkspaceGitReviewChange[],
+): WorkspaceGitReviewChange[] {
+  return changes.flatMap((change) => {
     if (!context.workspacePrefix) return [change];
     const prefix = `${context.workspacePrefix}/`;
     if (!change.path.startsWith(prefix)) return [];
@@ -288,6 +292,22 @@ async function getWorkspaceChanges(
       },
     ];
   });
+}
+
+async function getWorkspaceChanges(
+  workspace: RegisteredWorkspace,
+  source: WorkspaceGitReviewWorkingSource,
+): Promise<{ context: GitContext; changes: WorkspaceGitReviewChange[] }> {
+  const context = await resolveGitContext(workspace);
+  const output = await runGit(context.workspaceRoot, [
+    "status",
+    "--porcelain=v2",
+    "-z",
+    "--untracked-files=all",
+    "--",
+    ".",
+  ]);
+  const scopedChanges = scopeChangesToWorkspace(context, parseWorkspaceGitStatus(output, source));
   const numstatArgs = ["diff"];
   if (source === "staged") numstatArgs.push("--cached");
   numstatArgs.push("--numstat", "-z", "--", ".");
@@ -319,13 +339,206 @@ export async function getWorkspaceGitReview(
   workspace: RegisteredWorkspace,
   rawSource: unknown,
 ): Promise<WorkspaceGitReviewSnapshot> {
-  if (!isWorkspaceGitReviewSource(rawSource)) throw new TypeError("Invalid Git review source");
+  if (!isWorkspaceGitReviewWorkingSource(rawSource))
+    throw new TypeError("Invalid Git review source");
   try {
     const { changes } = await getWorkspaceChanges(workspace, rawSource);
     return { status: "ready", changes };
   } catch (error) {
     if (isGitUnavailable(error)) return { status: "git-unavailable", changes: [] };
     if (isNotRepository(error)) return { status: "not-repository", changes: [] };
+    throw error;
+  }
+}
+
+interface GitBranchRef {
+  name: string;
+  ref: string;
+}
+
+async function listGitBranches(repositoryRoot: string): Promise<GitBranchRef[]> {
+  const output = await runGit(repositoryRoot, [
+    "for-each-ref",
+    "--format=%(refname)",
+    "refs/heads",
+    "refs/remotes",
+  ]);
+  return output
+    .split("\n")
+    .map((ref) => ref.trim())
+    .filter((ref) => ref.startsWith("refs/heads/") || ref.startsWith("refs/remotes/"))
+    .filter((ref) => !ref.endsWith("/HEAD"))
+    .map((ref) => ({
+      ref,
+      name: ref.startsWith("refs/heads/")
+        ? ref.slice("refs/heads/".length)
+        : ref.slice("refs/remotes/".length),
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function defaultBaseBranch(branches: GitBranchRef[], currentBranch: string | null): string | null {
+  for (const preferred of ["main", "origin/main", "master", "origin/master"]) {
+    if (branches.some((branch) => branch.name === preferred)) return preferred;
+  }
+  return branches.find((branch) => branch.name !== currentBranch)?.name ?? null;
+}
+
+function parseNameStatus(output: string): WorkspaceGitReviewChange[] {
+  const changes: WorkspaceGitReviewChange[] = [];
+  const records = output.split("\0");
+  for (let index = 0; index < records.length; ) {
+    const status = records[index++] ?? "";
+    if (!status) continue;
+    const code = status[0] ?? "M";
+    if (code === "R" || code === "C") {
+      const originalPath = records[index++];
+      const path = records[index++];
+      if (!originalPath || !path) continue;
+      changes.push({ path, originalPath, kind: "renamed", added: null, removed: null });
+      continue;
+    }
+    const path = records[index++];
+    if (!path) continue;
+    changes.push({
+      path,
+      kind: code === "A" ? "added" : code === "D" ? "deleted" : "modified",
+      added: null,
+      removed: null,
+    });
+  }
+  return changes;
+}
+
+async function getBranchChanges(
+  context: GitContext,
+  baseRef: GitBranchRef | null,
+): Promise<{ changes: WorkspaceGitReviewChange[]; message: string | null }> {
+  if (!baseRef) {
+    return {
+      changes: [],
+      message: "No base branch is available. Create or fetch main to compare this branch.",
+    };
+  }
+  const head = await runGit(
+    context.repositoryRoot,
+    ["rev-parse", "--verify", "--quiet", "HEAD"],
+    [1],
+  );
+  if (!head.trim()) {
+    return { changes: [], message: "The current branch has no commits to compare yet." };
+  }
+  const mergeBase = await runGit(context.repositoryRoot, ["merge-base", baseRef.ref, "HEAD"], [1]);
+  if (!mergeBase.trim()) {
+    return { changes: [], message: `No common ancestor was found for ${baseRef.name} and HEAD.` };
+  }
+  const [nameStatus, numstat] = await Promise.all([
+    runGit(context.workspaceRoot, [
+      "diff",
+      "--name-status",
+      "-z",
+      "-M",
+      "--no-ext-diff",
+      "--no-textconv",
+      `${baseRef.ref}...HEAD`,
+      "--",
+      ".",
+    ]),
+    runGit(context.workspaceRoot, [
+      "diff",
+      "--numstat",
+      "-z",
+      "-M",
+      "--no-ext-diff",
+      "--no-textconv",
+      `${baseRef.ref}...HEAD`,
+      "--",
+      ".",
+    ]),
+  ]);
+  const stats = parseNumstat(numstat);
+  const changes = scopeChangesToWorkspace(context, parseNameStatus(nameStatus)).map((change) => {
+    const repositoryPath = context.workspacePrefix
+      ? `${context.workspacePrefix}/${change.path}`
+      : change.path;
+    const counts = stats.get(repositoryPath);
+    return {
+      ...change,
+      source: "branch" as const,
+      added: counts?.added ?? null,
+      removed: counts?.removed ?? null,
+    };
+  });
+  return { changes, message: null };
+}
+
+export async function getWorkspaceGitReviewView(
+  workspace: RegisteredWorkspace,
+  rawRequest: unknown,
+): Promise<WorkspaceGitReviewViewSnapshot> {
+  if (!rawRequest || typeof rawRequest !== "object")
+    throw new TypeError("Git review view is required");
+  const request = rawRequest as Partial<WorkspaceGitReviewViewRequest>;
+  if (!isWorkspaceGitReviewMode(request.mode)) throw new TypeError("Invalid Git review mode");
+  if (request.baseRef !== undefined && typeof request.baseRef !== "string") {
+    throw new TypeError("Invalid Git review base branch");
+  }
+
+  try {
+    const context = await resolveGitContext(workspace);
+    const [branchOutput, branches, staged, unstaged] = await Promise.all([
+      runGit(context.repositoryRoot, ["symbolic-ref", "--quiet", "--short", "HEAD"], [1]),
+      listGitBranches(context.repositoryRoot),
+      getWorkspaceChanges(workspace, "staged"),
+      getWorkspaceChanges(workspace, "unstaged"),
+    ]);
+    const currentBranch = branchOutput.trim() || null;
+    const selectedBase =
+      request.baseRef === undefined ? defaultBaseBranch(branches, currentBranch) : request.baseRef;
+    const baseBranch = selectedBase
+      ? (branches.find((branch) => branch.name === selectedBase) ?? null)
+      : null;
+    if (selectedBase && !baseBranch) throw new TypeError("Unknown Git review base branch");
+
+    const comparison =
+      request.mode === "branch"
+        ? await getBranchChanges(context, baseBranch)
+        : { changes: [], message: null };
+    return {
+      status: "ready",
+      currentBranch,
+      baseRef: selectedBase,
+      baseBranches: branches.map((branch) => branch.name),
+      comparisonMessage: comparison.message,
+      changes: [
+        ...comparison.changes,
+        ...staged.changes
+          .filter((change) => change.kind !== "conflicted")
+          .map((change) => ({ ...change, source: "staged" as const })),
+        ...unstaged.changes.map((change) => ({ ...change, source: "unstaged" as const })),
+      ],
+    };
+  } catch (error) {
+    if (isGitUnavailable(error)) {
+      return {
+        status: "git-unavailable",
+        changes: [],
+        currentBranch: null,
+        baseRef: null,
+        baseBranches: [],
+        comparisonMessage: null,
+      };
+    }
+    if (isNotRepository(error)) {
+      return {
+        status: "not-repository",
+        changes: [],
+        currentBranch: null,
+        baseRef: null,
+        baseBranches: [],
+        comparisonMessage: null,
+      };
+    }
     throw error;
   }
 }
@@ -417,6 +630,9 @@ export async function getWorkspaceGitReviewDiff(
     throw new TypeError("Git review request is required");
   const request = rawRequest as Partial<WorkspaceGitReviewDiffRequest>;
   if (!isWorkspaceGitReviewSource(request.source)) throw new TypeError("Invalid Git review source");
+  if (request.baseRef !== undefined && typeof request.baseRef !== "string") {
+    throw new TypeError("Invalid Git review base branch");
+  }
   const path = validateRelativePath(request.path);
   const originalPath =
     request.originalPath === undefined ? undefined : validateRelativePath(request.originalPath);
@@ -430,9 +646,90 @@ export async function getWorkspaceGitReviewDiff(
     path,
     ...(originalPath ? { originalPath } : {}),
     kind: request.kind as WorkspaceGitReviewDiffRequest["kind"],
+    ...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
   };
 
   try {
+    if (request.source === "branch") {
+      const context = await resolveGitContext(workspace);
+      const branches = await listGitBranches(context.repositoryRoot);
+      const baseName =
+        request.baseRef ??
+        defaultBaseBranch(
+          branches,
+          (
+            await runGit(
+              context.repositoryRoot,
+              ["symbolic-ref", "--quiet", "--short", "HEAD"],
+              [1],
+            )
+          ).trim() || null,
+        );
+      const baseBranch = baseName ? branches.find((branch) => branch.name === baseName) : null;
+      if (!baseBranch) {
+        return {
+          availability: "unavailable",
+          patch: null,
+          summary: "The selected base branch is no longer available.",
+        };
+      }
+      const snapshot = await getWorkspaceGitReviewView(workspace, {
+        mode: "branch",
+        baseRef: baseBranch.name,
+      });
+      if (
+        !snapshot.changes.some(
+          (change) => change.source === "branch" && isSameChange(change, normalizedRequest),
+        )
+      ) {
+        return {
+          availability: "unavailable",
+          patch: null,
+          summary: "This branch change is no longer available.",
+        };
+      }
+      const mergeBase = await runGit(
+        context.repositoryRoot,
+        ["merge-base", baseBranch.ref, "HEAD"],
+        [1],
+      );
+      if (!mergeBase.trim()) {
+        return {
+          availability: "unavailable",
+          patch: null,
+          summary: `No common ancestor was found for ${baseBranch.name} and HEAD.`,
+        };
+      }
+      const args = [
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--no-color",
+        `--unified=${contextLines}`,
+        `${baseBranch.ref}...HEAD`,
+        "--",
+        pathSpec(path),
+      ];
+      if (originalPath) args.push(pathSpec(originalPath));
+      const paths = originalPath ? [path, originalPath] : [path];
+      const patch = await runGit(
+        context.workspaceRoot,
+        args,
+        [0],
+        await gitFilterConfigOverrides(context.workspaceRoot, paths),
+      );
+      if (/^Binary files .* differ$/mu.test(patch) || patch.includes("GIT binary patch")) {
+        return {
+          availability: "binary",
+          patch: null,
+          summary: "Binary file changes cannot be shown as text.",
+        };
+      }
+      return patch
+        ? { availability: "patch", patch, summary: null }
+        : { availability: "unavailable", patch: null, summary: "No diff is available." };
+    }
+
     const { context, changes } = await getWorkspaceChanges(workspace, request.source);
     if (!changes.some((change) => isSameChange(change, normalizedRequest))) {
       return {

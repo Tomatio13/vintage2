@@ -40,7 +40,7 @@ export function SidePane({
 }: {
   workspaceId: string | null;
   workspaceName?: string | null;
-  onOpenFile(path: string): void;
+  onOpenFile(path: string, line?: number): void;
 }) {
   const [activeTabId, setActiveTabId] = useState("files");
   const [browserTabs, setBrowserTabs] = useState<BrowserTab[]>([firstBrowserTab]);
@@ -316,6 +316,7 @@ export function SidePane({
             active={activeTabId === "review"}
             refreshVersion={reviewRefreshVersion}
             workspaceId={workspaceId}
+            onOpenFile={onOpenFile}
             onRefresh={() => setReviewRefreshVersion((version) => version + 1)}
           />
         </div>

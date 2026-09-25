@@ -13,7 +13,8 @@ import {
   type TerminalClipboardPasteResult,
   type TerminalMonitorMode,
   type WorkspaceGitReviewDiffRequest,
-  type WorkspaceGitReviewSource,
+  type WorkspaceGitReviewViewRequest,
+  type WorkspaceGitReviewWorkingSource,
 } from "../shared/desktop.js";
 
 const bridge: DesktopBridge = {
@@ -69,10 +70,12 @@ const bridge: DesktopBridge = {
     ipcRenderer.invoke(DesktopChannels.workspacePreviewUrl, workspaceId, path),
   openWorkspaceFile: (workspaceId, path) =>
     ipcRenderer.invoke(DesktopChannels.workspaceOpenFile, workspaceId, path),
-  getWorkspaceGitReview: (workspaceId: string, source: WorkspaceGitReviewSource) =>
+  getWorkspaceGitReview: (workspaceId: string, source: WorkspaceGitReviewWorkingSource) =>
     ipcRenderer.invoke(DesktopChannels.workspaceGitReview, workspaceId, source),
   getWorkspaceGitReviewDiff: (workspaceId: string, request: WorkspaceGitReviewDiffRequest) =>
     ipcRenderer.invoke(DesktopChannels.workspaceGitReviewDiff, workspaceId, request),
+  getWorkspaceGitReviewView: (workspaceId: string, request: WorkspaceGitReviewViewRequest) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceGitReviewView, workspaceId, request),
   createTerminal: (options) => ipcRenderer.invoke(DesktopChannels.terminalCreate, options),
   readyTerminal: (sessionId) => ipcRenderer.invoke(DesktopChannels.terminalReady, sessionId),
   writeTerminal: (sessionId, data) =>

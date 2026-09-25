@@ -205,7 +205,15 @@ function MarkdownPreview({
   );
 }
 
-export function FileViewer({ workspaceId, path }: { workspaceId: string; path: string }) {
+export function FileViewer({
+  workspaceId,
+  path,
+  targetLine,
+}: {
+  workspaceId: string;
+  path: string;
+  targetLine?: number | undefined;
+}) {
   const [file, setFile] = useState<WorkspaceFileContent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -270,6 +278,12 @@ export function FileViewer({ workspaceId, path }: { workspaceId: string; path: s
     setSearch("");
     setSearchOpen(false);
   }, [workspaceId, path]);
+
+  useEffect(() => {
+    if (targetLine && ["markdown", "html", "json", "csv"].includes(kind)) {
+      setView("source");
+    }
+  }, [kind, path, targetLine]);
 
   const loading = (needsText && !file) || (needsPreviewUrl && !previewUrl);
   const name = path.split("/").at(-1) ?? path;
@@ -449,6 +463,7 @@ export function FileViewer({ workspaceId, path }: { workspaceId: string; path: s
                   content={file.content}
                   lineNumbers={false}
                   path={path}
+                  targetLine={targetLine}
                   wrap={wrap}
                   search={search}
                 />
@@ -463,7 +478,13 @@ export function FileViewer({ workspaceId, path }: { workspaceId: string; path: s
             ) : null}
             {kind === "html" ? (
               view === "source" && file ? (
-                <CodeSourcePreview content={file.content} path={path} wrap={wrap} search={search} />
+                <CodeSourcePreview
+                  content={file.content}
+                  path={path}
+                  targetLine={targetLine}
+                  wrap={wrap}
+                  search={search}
+                />
               ) : previewUrl ? (
                 <WorkspaceHtmlPreview url={previewUrl} />
               ) : null
@@ -476,18 +497,36 @@ export function FileViewer({ workspaceId, path }: { workspaceId: string; path: s
               view === "preview" ? (
                 <FormattedJsonPreview content={file.content} path={path} search={search} />
               ) : (
-                <CodeSourcePreview content={file.content} path={path} wrap={wrap} search={search} />
+                <CodeSourcePreview
+                  content={file.content}
+                  path={path}
+                  targetLine={targetLine}
+                  wrap={wrap}
+                  search={search}
+                />
               )
             ) : null}
             {kind === "csv" && file ? (
               view === "preview" ? (
                 <DelimitedPreview content={file.content} path={path} search={search} />
               ) : (
-                <CodeSourcePreview content={file.content} path={path} wrap={wrap} search={search} />
+                <CodeSourcePreview
+                  content={file.content}
+                  path={path}
+                  targetLine={targetLine}
+                  wrap={wrap}
+                  search={search}
+                />
               )
             ) : null}
             {kind === "code" && file ? (
-              <CodeSourcePreview content={file.content} path={path} wrap={wrap} search={search} />
+              <CodeSourcePreview
+                content={file.content}
+                path={path}
+                targetLine={targetLine}
+                wrap={wrap}
+                search={search}
+              />
             ) : null}
             {kind === "unsupported" ? (
               <div className="grid h-full place-items-center text-center text-ui-sm text-foreground-subtle">

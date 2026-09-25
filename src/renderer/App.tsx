@@ -40,6 +40,13 @@ const MAX_PANES = 64;
 const MAX_LAYOUT_DEPTH = 8;
 const id = () => crypto.randomUUID();
 
+function updateFilePaneTargetLine(pane: FilePane, targetLine: number | undefined): FilePane {
+  if (targetLine !== undefined) return { ...pane, targetLine };
+  const { targetLine: previousLine, ...filePane } = pane;
+  void previousLine;
+  return filePane;
+}
+
 function nextNumberedTitle(prefix: string, titles: string[]): string {
   const pattern = new RegExp(`^${prefix} (\\d+)$`);
   const highestNumber = titles.reduce((highest, title) => {
@@ -365,7 +372,7 @@ function PaneView({
           onRename={(title) => onRenamePane(pane.id, title)}
         />
       ) : (
-        <FileViewer workspaceId={workspaceId} path={pane.path} />
+        <FileViewer workspaceId={workspaceId} path={pane.path} targetLine={pane.targetLine} />
       )}
       <button
         aria-label={`Close ${pane.title}`}
@@ -787,7 +794,7 @@ export function App() {
         };
       }),
     );
-  const openFile = (path: string) =>
+  const openFile = (path: string, targetLine?: number) =>
     update((workspace) => {
       const tab = workspace.tabs.find((item) => item.id === workspace.activeTabId);
       if (!tab || tab.panes.length >= MAX_PANES) return workspace;
@@ -796,7 +803,17 @@ export function App() {
         return {
           ...workspace,
           tabs: workspace.tabs.map((item) =>
-            item.id === tab.id ? { ...item, activePaneId: existing.id } : item,
+            item.id === tab.id
+              ? {
+                  ...item,
+                  activePaneId: existing.id,
+                  panes: item.panes.map((pane) =>
+                    pane.id === existing.id && pane.kind === "file"
+                      ? updateFilePaneTargetLine(pane, targetLine)
+                      : pane,
+                  ),
+                }
+              : item,
           ),
         };
       }
@@ -805,6 +822,7 @@ export function App() {
         title: path.split("/").at(-1) ?? path,
         kind: "file",
         path,
+        ...(targetLine === undefined ? {} : { targetLine }),
       };
       const layout: PaneLayout = {
         type: "split",

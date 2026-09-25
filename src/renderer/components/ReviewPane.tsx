@@ -1,9 +1,12 @@
 import {
   Atom,
+  ArrowUpRight,
   Braces,
+  Check,
   ChevronDown,
   ChevronRight,
   CodeXml,
+  GitBranch,
   FileCode,
   FileDiff,
   FileImage,
@@ -14,13 +17,23 @@ import {
   Terminal,
   type LucideIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 
 import type {
   WorkspaceGitReviewChange,
   WorkspaceGitReviewDiff,
-  WorkspaceGitReviewSnapshot,
+  WorkspaceGitReviewMode,
+  WorkspaceGitReviewViewSnapshot,
 } from "../../shared/desktop.js";
 import { Button } from "./Button.js";
 
@@ -29,6 +42,247 @@ interface ReviewPaneProps {
   active: boolean;
   refreshVersion: number;
   onRefresh(): void;
+  onOpenFile(path: string, line?: number): void;
+}
+
+interface ReviewPickerOption {
+  value: string;
+  label: string;
+  description: string;
+  Icon: LucideIcon;
+}
+
+interface ReviewMenuPosition {
+  top: number;
+  left: number;
+}
+
+const reviewModeOptions: readonly ReviewPickerOption[] = [
+  {
+    value: "branch",
+    label: "Branch Diff",
+    description: "Compare this branch with its base and review local changes",
+    Icon: GitBranch,
+  },
+  {
+    value: "working",
+    label: "Local Changes",
+    description: "Show staged and unstaged changes in the working tree",
+    Icon: FileDiff,
+  },
+];
+
+function ReviewPicker({
+  title,
+  subtitle,
+  eyebrow,
+  value,
+  options,
+  active,
+  triggerClassName,
+  onChange,
+}: {
+  title: string;
+  subtitle: string;
+  eyebrow: string;
+  value: string;
+  options: readonly ReviewPickerOption[];
+  active: boolean;
+  triggerClassName?: string;
+  onChange(value: string): void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<ReviewMenuPosition | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = `review-picker-menu-${useId()}`;
+  const selectedOption = options.find((option) => option.value === value) ?? options[0];
+
+  useEffect(() => {
+    if (!active) setOpen(false);
+  }, [active]);
+
+  const updatePosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    const menu = menuRef.current;
+    if (!trigger || !menu) return;
+
+    const triggerRect = trigger.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const gutter = 8;
+    const maxLeft = Math.max(gutter, window.innerWidth - menuRect.width - gutter);
+    const left = Math.min(maxLeft, Math.max(gutter, triggerRect.right - menuRect.width));
+    const spaceBelow = window.innerHeight - triggerRect.bottom - gutter;
+    const spaceAbove = triggerRect.top - gutter;
+    const placeBelow = spaceBelow >= menuRect.height || spaceBelow >= spaceAbove;
+    const top = placeBelow
+      ? Math.min(triggerRect.bottom + 6, window.innerHeight - menuRect.height - gutter)
+      : Math.max(gutter, triggerRect.top - menuRect.height - 6);
+
+    setPosition((current) =>
+      current?.top === top && current.left === left ? current : { top, left },
+    );
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPosition(null);
+      return;
+    }
+
+    updatePosition();
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updatePosition);
+    if (observer && triggerRef.current) observer.observe(triggerRef.current);
+    if (observer && menuRef.current) observer.observe(menuRef.current);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    menuRef.current
+      ?.querySelector<HTMLButtonElement>('[role="menuitemradio"][aria-checked="true"]')
+      ?.focus();
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, updatePosition]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+
+    document.addEventListener("pointerdown", handleOutsidePointerDown);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  const closeAfterSelection = (nextValue: string) => {
+    onChange(nextValue);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const items = [
+      ...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ?? []),
+    ];
+    if (items.length === 0) return;
+
+    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowDown") nextIndex = (currentIndex + 1 + items.length) % items.length;
+    if (event.key === "ArrowUp") nextIndex = (currentIndex - 1 + items.length) % items.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = items.length - 1;
+    if (nextIndex !== null) {
+      event.preventDefault();
+      items[nextIndex]?.focus();
+    } else if (event.key === "Tab") {
+      setOpen(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        aria-controls={menuId}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={title}
+        className={`flex h-7 min-w-0 shrink-0 items-center justify-between gap-1.5 rounded-md bg-transparent px-2 text-ui-xs font-medium text-foreground-subtle transition-colors hover:bg-hover hover:text-foreground aria-expanded:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${triggerClassName ?? "w-36"}`}
+        title={selectedOption?.description}
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+          event.preventDefault();
+          setOpen(true);
+        }}
+      >
+        <span className="min-w-0 flex-1 truncate text-left">
+          {selectedOption?.label ?? "Select"}
+        </span>
+        <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-foreground-subtle" />
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            id={menuId}
+            aria-label={`${title} options`}
+            className="fixed z-[70] flex max-h-[calc(100vh-1rem)] w-60 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-lg border border-border bg-header p-1.5 text-foreground shadow-none"
+            role="menu"
+            style={{
+              left: position?.left ?? 0,
+              top: position?.top ?? 0,
+              visibility: position ? "visible" : "hidden",
+            }}
+            onKeyDown={handleMenuKeyDown}
+          >
+            <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+              <div className="min-w-0">
+                <p className="text-ui-sm font-semibold text-foreground">{title}</p>
+                <p className="truncate text-ui-xs text-foreground-subtlest">{subtitle}</p>
+              </div>
+              <span className="shrink-0 font-mono text-[9px] font-semibold tracking-[0.12em] text-foreground-subtlest">
+                {eyebrow}
+              </span>
+            </div>
+            <div aria-hidden="true" className="mx-2 my-1 h-px bg-border" />
+            <div className="flex flex-col gap-0.5">
+              {options.map(({ value: optionValue, label, description, Icon }) => {
+                const selected = optionValue === value;
+                return (
+                  <button
+                    key={optionValue}
+                    aria-checked={selected}
+                    aria-label={label}
+                    className={`flex min-h-11 w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-hover focus-visible:bg-hover focus-visible:outline-none ${selected ? "bg-selected/70" : ""}`}
+                    role="menuitemradio"
+                    tabIndex={-1}
+                    type="button"
+                    onClick={() => closeAfterSelection(optionValue)}
+                  >
+                    <span
+                      className={`grid size-7 shrink-0 place-items-center ${selected ? "text-foreground" : "text-foreground-subtlest"}`}
+                    >
+                      <Icon aria-hidden="true" className="size-3.5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-ui-sm font-medium text-foreground">
+                        {label}
+                      </span>
+                      <span className="block text-ui-xs leading-4 text-foreground-subtlest">
+                        {description}
+                      </span>
+                    </span>
+                    {selected ? <Check aria-hidden="true" className="size-4 shrink-0" /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
 }
 
 function changeLabel(kind: WorkspaceGitReviewChange["kind"]): string {
@@ -447,9 +701,18 @@ interface DiffFold {
   lines: DiffLine[] | null;
 }
 
-type DiffEntry = DiffLine | DiffFold;
+interface DiffHunkMarker {
+  kind: "hunk";
+  id: string;
+  header: string;
+  oldStart: number;
+  newStart: number;
+}
+
+type DiffEntry = DiffLine | DiffFold | DiffHunkMarker;
 
 interface ParsedHunk {
+  header: string;
   oldStart: number;
   oldCount: number;
   newStart: number;
@@ -523,6 +786,7 @@ function parseDiffPatch(patch: string): DiffEntry[] {
     const header = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/u.exec(line);
     if (header) {
       currentHunk = {
+        header: line,
         oldStart: Number(header[1]),
         oldCount: Number(header[2] ?? 1),
         newStart: Number(header[3]),
@@ -579,6 +843,13 @@ function parseDiffPatch(patch: string): DiffEntry[] {
         }
       }
     }
+    entries.push({
+      kind: "hunk",
+      id: `hunk-${hunk.oldStart}-${hunk.newStart}`,
+      header: hunk.header,
+      oldStart: hunk.oldStart,
+      newStart: hunk.newStart,
+    });
     entries.push(...hunk.lines);
   });
   return collapseContext(entries);
@@ -779,16 +1050,37 @@ function DiffPatch({
   path,
   expandedFolds,
   onToggleFold,
+  onOpenFile,
 }: {
   patch: string;
   path: string;
   expandedFolds: Set<string>;
   onToggleFold(fold: DiffFold): void;
+  onOpenFile(path: string, line: number): void;
 }) {
   const entries = parseDiffPatch(patch);
   return (
     <div className="max-h-[62vh] overflow-auto bg-terminal-surface py-1 font-mono text-ui-sm leading-5">
       {entries.map((entry) => {
+        if (entry.kind === "hunk")
+          return (
+            <div
+              key={entry.id}
+              className="flex min-w-max items-center justify-between gap-3 border-y border-border bg-background/40 px-2 py-1 text-ui-xs text-foreground-subtle"
+            >
+              <code>{entry.header}</code>
+              <button
+                aria-label={`Open ${path} at line ${entry.newStart || entry.oldStart}`}
+                className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 font-sans text-brand hover:bg-hover"
+                title="Open file preview at this hunk"
+                type="button"
+                onClick={() => onOpenFile(path, entry.newStart || entry.oldStart)}
+              >
+                <ArrowUpRight aria-hidden="true" className="size-3" />
+                Preview
+              </button>
+            </div>
+          );
         if (entry.kind !== "fold")
           return (
             <DiffLineRow
@@ -830,9 +1122,16 @@ function DiffPatch({
   );
 }
 
-export function ReviewPane({ workspaceId, active, refreshVersion, onRefresh }: ReviewPaneProps) {
-  const source = "unstaged";
-  const [snapshot, setSnapshot] = useState<WorkspaceGitReviewSnapshot | null>(null);
+export function ReviewPane({
+  workspaceId,
+  active,
+  refreshVersion,
+  onRefresh,
+  onOpenFile,
+}: ReviewPaneProps) {
+  const [mode, setMode] = useState<WorkspaceGitReviewMode>("branch");
+  const [baseRef, setBaseRef] = useState<string | null>(null);
+  const [snapshot, setSnapshot] = useState<WorkspaceGitReviewViewSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [expandedPath, setExpandedPath] = useState<string | null>(null);
@@ -856,7 +1155,7 @@ export function ReviewPane({ workspaceId, active, refreshVersion, onRefresh }: R
       setLoading(false);
       return;
     }
-    const getReview = window.desktop?.getWorkspaceGitReview;
+    const getReview = window.desktop?.getWorkspaceGitReviewView;
     if (!getReview) {
       setSnapshot(null);
       setError("Git review is unavailable in this application session.");
@@ -867,7 +1166,10 @@ export function ReviewPane({ workspaceId, active, refreshVersion, onRefresh }: R
     setSnapshot(null);
     setError(null);
     setLoading(true);
-    void getReview(workspaceId, source)
+    void getReview(workspaceId, {
+      mode,
+      ...(baseRef ? { baseRef } : {}),
+    })
       .then((result) => {
         if (!cancelled) setSnapshot(result);
       })
@@ -880,12 +1182,17 @@ export function ReviewPane({ workspaceId, active, refreshVersion, onRefresh }: R
     return () => {
       cancelled = true;
     };
-  }, [active, refreshVersion, source, workspaceId]);
+  }, [active, baseRef, mode, refreshVersion, workspaceId]);
 
   const changes = snapshot?.status === "ready" ? snapshot.changes : [];
+  const branchChanges = changes.filter((change) => change.source === "branch");
+  const stagedChanges = changes.filter((change) => change.source === "staged");
+  const unstagedChanges = changes.filter((change) => change.source === "unstaged");
+  const changeKey = (change: WorkspaceGitReviewChange) =>
+    `${change.source ?? "unstaged"}\0${change.path}\0${change.originalPath ?? ""}`;
 
   const toggleChange = (change: WorkspaceGitReviewChange) => {
-    const key = `${change.path}\0${change.originalPath ?? ""}`;
+    const key = changeKey(change);
     if (expandedPath === key) {
       diffRequestId.current += 1;
       setExpandedPath(null);
@@ -907,6 +1214,7 @@ export function ReviewPane({ workspaceId, active, refreshVersion, onRefresh }: R
       });
       return;
     }
+    const source = change.source ?? "unstaged";
     const requestId = ++diffRequestId.current;
     setDiffLoading(true);
     void getDiff(workspaceId, {
@@ -914,6 +1222,7 @@ export function ReviewPane({ workspaceId, active, refreshVersion, onRefresh }: R
       path: change.path,
       ...(change.originalPath ? { originalPath: change.originalPath } : {}),
       kind: change.kind,
+      ...(source === "branch" && snapshot?.baseRef ? { baseRef: snapshot.baseRef } : {}),
     })
       .then((result) => {
         if (requestId === diffRequestId.current) setDiff(result);
@@ -943,12 +1252,11 @@ export function ReviewPane({ workspaceId, active, refreshVersion, onRefresh }: R
       return;
     }
 
-    const change = changes.find(
-      (candidate) => `${candidate.path}\0${candidate.originalPath ?? ""}` === expandedPath,
-    );
+    const change = changes.find((candidate) => changeKey(candidate) === expandedPath);
     const getDiff = window.desktop?.getWorkspaceGitReviewDiff;
     const nextContextLines = Math.min(diffContextLines * 2, 10_000);
     if (!change || !workspaceId || !getDiff || nextContextLines === diffContextLines) return;
+    const source = change.source ?? "unstaged";
     const requestId = ++diffRequestId.current;
     setDiffLoading(true);
     void getDiff(workspaceId, {
@@ -957,6 +1265,7 @@ export function ReviewPane({ workspaceId, active, refreshVersion, onRefresh }: R
       ...(change.originalPath ? { originalPath: change.originalPath } : {}),
       kind: change.kind,
       contextLines: nextContextLines,
+      ...(source === "branch" && snapshot?.baseRef ? { baseRef: snapshot.baseRef } : {}),
     })
       .then((result) => {
         if (requestId !== diffRequestId.current) return;
@@ -980,56 +1289,29 @@ export function ReviewPane({ workspaceId, active, refreshVersion, onRefresh }: R
       });
   };
 
-  return (
-    <section aria-label="Git review" className="flex h-full min-h-0 flex-col">
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
-        <Button
-          aria-label="Refresh review"
-          className="ml-auto size-7 px-0"
-          disabled={loading || !workspaceId}
-          size="icon"
-          title="Refresh review"
-          type="button"
-          variant="ghost"
-          onClick={onRefresh}
-        >
-          <RefreshCw aria-hidden="true" className={`size-4${loading ? " animate-spin" : ""}`} />
-        </Button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
-        {!workspaceId ? (
-          <p className="p-2 text-ui-sm text-foreground-subtle">
-            Open a workspace to review Git changes.
-          </p>
-        ) : loading && !snapshot ? (
-          <p className="p-2 text-ui-sm text-foreground-subtle">Loading Git changes…</p>
-        ) : error ? (
-          <p role="alert" className="p-2 text-ui-sm text-destructive">
-            {error}
-          </p>
-        ) : snapshot?.status === "git-unavailable" ? (
-          <p className="p-2 text-ui-sm text-foreground-subtle">Git is not installed.</p>
-        ) : snapshot?.status === "not-repository" ? (
-          <p className="p-2 text-ui-sm text-foreground-subtle">
-            This workspace is not a Git repository.
-          </p>
-        ) : changes.length === 0 ? (
-          <p className="p-2 text-ui-sm text-foreground-subtle">
-            {loading ? "Refreshing Git changes…" : "No unstaged changes."}
-          </p>
-        ) : (
-          <div className="space-y-0.5">
-            {changes.map((change) => {
-              const key = `${change.path}\0${change.originalPath ?? ""}`;
-              const expanded = expandedPath === key;
-              return (
-                <div
-                  key={key}
-                  className="overflow-hidden rounded-xl border border-card-border bg-card"
-                >
+  const renderSection = (title: string, items: WorkspaceGitReviewChange[]) => {
+    if (items.length === 0) return null;
+    return (
+      <section className="space-y-1.5">
+        <div className="flex min-w-0 items-center gap-2 px-1 pt-2">
+          <h3 className="min-w-0 flex-1 truncate text-ui-xs font-semibold uppercase tracking-wide text-foreground-subtle">
+            {title}
+          </h3>
+          <span className="text-ui-xs text-foreground-subtlest">{items.length}</span>
+        </div>
+        <div className="space-y-1">
+          {items.map((change) => {
+            const key = changeKey(change);
+            const expanded = expandedPath === key;
+            return (
+              <div
+                key={key}
+                className="overflow-hidden rounded-xl border border-card-border bg-card"
+              >
+                <div className="flex min-w-0 items-stretch">
                   <button
                     aria-expanded={expanded}
-                    className="flex w-full min-w-0 items-center gap-2 px-2 py-2 text-left hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand"
+                    className="flex min-w-0 flex-1 items-center gap-2 px-2 py-2 text-left hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand"
                     type="button"
                     onClick={() => toggleChange(change)}
                   >
@@ -1071,25 +1353,120 @@ export function ReviewPane({ workspaceId, active, refreshVersion, onRefresh }: R
                       </span>
                     )}
                   </button>
-                  {expanded && (
-                    <div className="border-t border-border">
-                      {diffLoading ? (
-                        <p className="p-2 text-ui-xs text-foreground-subtlest">Loading diff…</p>
-                      ) : diff?.availability === "patch" && diff.patch ? (
-                        <DiffPatch
-                          expandedFolds={expandedFolds}
-                          patch={diff.patch}
-                          path={change.path}
-                          onToggleFold={toggleFold}
-                        />
-                      ) : diff?.summary ? (
-                        <p className="p-2 text-ui-xs text-foreground-subtle">{diff.summary}</p>
-                      ) : null}
-                    </div>
-                  )}
                 </div>
-              );
-            })}
+                {expanded && (
+                  <div className="border-t border-border">
+                    {diffLoading ? (
+                      <p className="p-2 text-ui-xs text-foreground-subtlest">Loading diff…</p>
+                    ) : diff?.availability === "patch" && diff.patch ? (
+                      <DiffPatch
+                        expandedFolds={expandedFolds}
+                        patch={diff.patch}
+                        path={change.path}
+                        onOpenFile={onOpenFile}
+                        onToggleFold={toggleFold}
+                      />
+                    ) : diff?.summary ? (
+                      <p className="p-2 text-ui-xs text-foreground-subtle">{diff.summary}</p>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  };
+
+  return (
+    <section aria-label="Git review" className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-10 shrink-0 items-center gap-2 border-b border-border px-2">
+        <ReviewPicker
+          title="Review scope"
+          subtitle="Choose Git changes to inspect"
+          eyebrow="REVIEW"
+          value={mode}
+          options={reviewModeOptions}
+          active={active}
+          triggerClassName="min-w-0 flex-1"
+          onChange={(value) => {
+            setMode(value as WorkspaceGitReviewMode);
+            setBaseRef(null);
+          }}
+        />
+        <Button
+          aria-label="Refresh review"
+          className="size-7 px-0"
+          disabled={loading || !workspaceId}
+          size="icon"
+          title="Refresh review"
+          type="button"
+          variant="ghost"
+          onClick={onRefresh}
+        >
+          <RefreshCw aria-hidden="true" className={`size-4${loading ? " animate-spin" : ""}`} />
+        </Button>
+      </div>
+      {mode === "branch" && snapshot?.status === "ready" && snapshot.baseBranches.length > 0 ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2 text-ui-xs text-foreground-subtle">
+          <GitBranch aria-hidden="true" className="size-3.5 shrink-0" />
+          <span className="shrink-0">{snapshot.currentBranch ?? "Detached HEAD"}</span>
+          <span aria-hidden="true">vs</span>
+          <ReviewPicker
+            title="Base branch"
+            subtitle={`${snapshot.currentBranch ?? "Current branch"} comparison`}
+            eyebrow="BASE"
+            value={snapshot.baseRef ?? snapshot.baseBranches[0] ?? ""}
+            options={snapshot.baseBranches.map((branch) => ({
+              value: branch,
+              label: branch,
+              description: branch.startsWith("origin/") ? "Remote tracking branch" : "Local branch",
+              Icon: GitBranch,
+            }))}
+            active={active && mode === "branch"}
+            triggerClassName="min-w-0 flex-1"
+            onChange={(value) => setBaseRef(value)}
+          />
+          <span className="shrink-0 font-mono">...HEAD</span>
+        </div>
+      ) : null}
+      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        {!workspaceId ? (
+          <p className="p-2 text-ui-sm text-foreground-subtle">
+            Open a workspace to review Git changes.
+          </p>
+        ) : loading && !snapshot ? (
+          <p className="p-2 text-ui-sm text-foreground-subtle">Loading Git changes…</p>
+        ) : error ? (
+          <p role="alert" className="p-2 text-ui-sm text-destructive">
+            {error}
+          </p>
+        ) : snapshot?.status === "git-unavailable" ? (
+          <p className="p-2 text-ui-sm text-foreground-subtle">Git is not installed.</p>
+        ) : snapshot?.status === "not-repository" ? (
+          <p className="p-2 text-ui-sm text-foreground-subtle">
+            This workspace is not a Git repository.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {snapshot?.comparisonMessage && mode === "branch" ? (
+              <p className="rounded-lg border border-border bg-background px-2.5 py-2 text-ui-xs text-foreground-subtle">
+                {snapshot.comparisonMessage}
+              </p>
+            ) : null}
+            {renderSection("Committed on branch", mode === "branch" ? branchChanges : [])}
+            {renderSection("Staged", stagedChanges)}
+            {renderSection("Unstaged", unstagedChanges)}
+            {!changes.length && !snapshot?.comparisonMessage ? (
+              <p className="p-2 text-ui-sm text-foreground-subtle">
+                {loading ? "Refreshing Git changes…" : "No branch or working tree changes."}
+              </p>
+            ) : null}
+            <p className="px-1 pb-1 pt-2 text-ui-xs text-foreground-subtlest">
+              <ArrowUpRight aria-hidden="true" className="mr-1 inline size-3" />
+              Hunk preview opens the file at the changed line.
+            </p>
           </div>
         )}
       </div>

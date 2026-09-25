@@ -31,7 +31,11 @@ import { JevCredentialStore, JevSettingsManager } from "./jevSettings.js";
 import { JevEvaluationQueue } from "./jevEvaluationQueue.js";
 import { UpdateManager } from "./updateManager.js";
 import { registerTerminalIpc } from "./terminalManager.js";
-import { getWorkspaceGitReview, getWorkspaceGitReviewDiff } from "./workspaceGitReview.js";
+import {
+  getWorkspaceGitReview,
+  getWorkspaceGitReviewDiff,
+  getWorkspaceGitReviewView,
+} from "./workspaceGitReview.js";
 import { restoreSavedProjects } from "./workspaceRestore.js";
 import { parseWorkspaceState, WorkspaceStateManager } from "./workspaceState.js";
 import { configureBrowserSession, configureWebviewSecurity } from "./webviewSecurity.js";
@@ -641,6 +645,13 @@ function registerDesktopIpc(
     async (event, workspaceId: unknown, request: unknown) => {
       resolveSenderWindow(event);
       return getWorkspaceGitReviewDiff(registeredWorkspace(workspaceId), request);
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceGitReviewView,
+    async (event, workspaceId: unknown, request: unknown) => {
+      resolveSenderWindow(event);
+      return getWorkspaceGitReviewView(registeredWorkspace(workspaceId), request);
     },
   );
 }
