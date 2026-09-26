@@ -2,12 +2,19 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SidePane } from "../src/renderer/components/SidePane.js";
-import { useUiStore } from "../src/renderer/store/uiStore.js";
+import { initialBrowserTabs, useUiStore } from "../src/renderer/store/uiStore.js";
 import type { DesktopBridge } from "../src/shared/desktop.js";
 
 afterEach(() => {
   delete window.desktop;
-  useUiStore.setState({ usagePanelEnabled: false, codexbarPath: "" });
+  useUiStore.setState({
+    usagePanelEnabled: false,
+    codexbarPath: "",
+    activeSidePaneTabId: "files",
+    browserTabs: [...initialBrowserTabs],
+    browserTabCounter: 2,
+    browserNavigateRequest: null,
+  });
 });
 
 describe("SidePane files", () => {

@@ -120,7 +120,15 @@ const ELEMENT_PICKER_SCRIPT = `(() => {
   });
 })()`;
 
-export function BrowserPane({ initialUrl }: { initialUrl: string }) {
+export function BrowserPane({
+  initialUrl,
+  navigateRequest,
+  onNavigateRequestHandled,
+}: {
+  initialUrl: string;
+  navigateRequest?: { url: string; nonce: number } | undefined;
+  onNavigateRequestHandled?: ((nonce: number) => void) | undefined;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const guestRef = useRef<EmbeddedWebviewElement | null>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -211,6 +219,24 @@ export function BrowserPane({ initialUrl }: { initialUrl: string }) {
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [moreMenuOpen]);
+
+  const navigateRequestUrl = navigateRequest?.url;
+  const navigateRequestNonce = navigateRequest?.nonce;
+  useEffect(() => {
+    if (navigateRequestNonce === undefined || !navigateRequestUrl) return;
+    const guest = guestRef.current;
+    if (!guest) return;
+    try {
+      const url = normalizeBrowserUrl(navigateRequestUrl);
+      setStatus("Loading…");
+      void guest.loadURL(url).catch((error: unknown) => {
+        setStatus(error instanceof Error ? error.message : String(error));
+      });
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    }
+    onNavigateRequestHandled?.(navigateRequestNonce);
+  }, [navigateRequestNonce, navigateRequestUrl, onNavigateRequestHandled]);
 
   const toggleElementPicker = () => {
     const guest = guestRef.current;

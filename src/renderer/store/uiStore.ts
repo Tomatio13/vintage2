@@ -1,9 +1,27 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import { normalizeBrowserUrl } from "../lib/browserUrl.js";
 import { TERMINAL_SHELLS, type TerminalShell } from "../../shared/desktop.js";
 
 export const DEFAULT_BROWSER_START_URL = "https://example.com/";
+
+export interface BrowserTabState {
+  id: string;
+  title: string;
+  initialUrl: string | null;
+  mounted: boolean;
+}
+
+export interface BrowserNavigateRequest {
+  tabId: string;
+  url: string;
+  nonce: number;
+}
+
+export const initialBrowserTabs: BrowserTabState[] = [
+  { id: "browser-1", title: "Browser", initialUrl: null, mounted: false },
+];
 
 export type Theme = "system" | "light" | "dark" | "graphite";
 export type SettingsSection =
@@ -77,6 +95,10 @@ interface UiState extends VintageSettings {
   sidebarWidth: number;
   sidePaneWidth: number;
   activityHeight: number;
+  activeSidePaneTabId: string;
+  browserTabs: BrowserTabState[];
+  browserTabCounter: number;
+  browserNavigateRequest: BrowserNavigateRequest | null;
   setTheme(theme: Theme): void;
   setUiFontSize(size: number): void;
   saveSettings(settings: VintageSettings): void;
@@ -88,7 +110,16 @@ interface UiState extends VintageSettings {
   setSidebarWidth(width: number): void;
   setSidePaneWidth(width: number): void;
   setActivityHeight(height: number): void;
+  activateSidePaneTab(tabId: string): void;
+  activateBrowserTab(tabId: string): void;
+  addBrowserTab(): void;
+  closeBrowserTab(tabId: string): void;
+  /** Normalizes the URL and shows it in the built-in browser; returns false for unsupported URLs. */
+  openInBrowserTab(url: string, options?: { newTab?: boolean }): boolean;
+  consumeBrowserNavigateRequest(nonce: number): void;
 }
+
+const BROWSER_TAB_PREFIX = "browser-";
 
 export const useUiStore = create<UiState>()(
   persist(
@@ -112,6 +143,10 @@ export const useUiStore = create<UiState>()(
       sidebarWidth: 264,
       sidePaneWidth: 400,
       activityHeight: 180,
+      activeSidePaneTabId: "files",
+      browserTabs: initialBrowserTabs,
+      browserTabCounter: 2,
+      browserNavigateRequest: null,
       setTheme: (theme) => set({ theme }),
       setUiFontSize: (uiFontSize) => set({ uiFontSize: Math.min(18, Math.max(12, uiFontSize)) }),
       saveSettings: (settings) => set(settings),
@@ -123,6 +158,122 @@ export const useUiStore = create<UiState>()(
       setSidebarWidth: (sidebarWidth) => set({ sidebarWidth }),
       setSidePaneWidth: (sidePaneWidth) => set({ sidePaneWidth }),
       setActivityHeight: (activityHeight) => set({ activityHeight }),
+      activateSidePaneTab: (activeSidePaneTabId) => set({ activeSidePaneTabId }),
+      activateBrowserTab: (tabId) =>
+        set((state) => ({
+          activeSidePaneTabId: tabId,
+          browserTabs: state.browserTabs.map((browserTab) =>
+            browserTab.id === tabId
+              ? {
+                  ...browserTab,
+                  initialUrl: browserTab.initialUrl ?? state.browserDefaultUrl,
+                  mounted: true,
+                }
+              : browserTab,
+          ),
+        })),
+      addBrowserTab: () =>
+        set((state) => {
+          const number = state.browserTabCounter;
+          const newTab: BrowserTabState = {
+            id: `${BROWSER_TAB_PREFIX}${number}`,
+            title: `Browser ${number}`,
+            initialUrl: state.browserDefaultUrl,
+            mounted: true,
+          };
+          return {
+            browserTabs: [...state.browserTabs, newTab],
+            browserTabCounter: number + 1,
+            activeSidePaneTabId: newTab.id,
+          };
+        }),
+      closeBrowserTab: (tabId) =>
+        set((state) => {
+          const tabIndex = state.browserTabs.findIndex((browserTab) => browserTab.id === tabId);
+          if (tabIndex < 0) return state;
+          const remainingTabs = state.browserTabs.filter((browserTab) => browserTab.id !== tabId);
+          const activeSidePaneTabId =
+            state.activeSidePaneTabId === tabId
+              ? (remainingTabs[Math.max(0, tabIndex - 1)]?.id ?? "files")
+              : state.activeSidePaneTabId;
+          return {
+            browserTabs: remainingTabs,
+            activeSidePaneTabId,
+            browserNavigateRequest:
+              state.browserNavigateRequest?.tabId === tabId ? null : state.browserNavigateRequest,
+          };
+        }),
+      openInBrowserTab: (url, options) => {
+        let normalizedUrl: string;
+        try {
+          normalizedUrl = normalizeBrowserUrl(url);
+        } catch {
+          return false;
+        }
+        set((state) => {
+          if (options?.newTab === true) {
+            const number = state.browserTabCounter;
+            const newTab: BrowserTabState = {
+              id: `${BROWSER_TAB_PREFIX}${number}`,
+              title: `Browser ${number}`,
+              initialUrl: normalizedUrl,
+              mounted: true,
+            };
+            return {
+              browserTabs: [...state.browserTabs, newTab],
+              browserTabCounter: number + 1,
+              activeSidePaneTabId: newTab.id,
+              sidePaneOpen: true,
+              browserNavigateRequest: null,
+            };
+          }
+          const activeIsBrowser = state.browserTabs.some(
+            (browserTab) => browserTab.id === state.activeSidePaneTabId,
+          );
+          const target =
+            (activeIsBrowser
+              ? state.browserTabs.find((browserTab) => browserTab.id === state.activeSidePaneTabId)
+              : undefined) ?? state.browserTabs[0];
+          if (!target) {
+            const number = state.browserTabCounter;
+            const newTab: BrowserTabState = {
+              id: `${BROWSER_TAB_PREFIX}${number}`,
+              title: `Browser ${number}`,
+              initialUrl: normalizedUrl,
+              mounted: true,
+            };
+            return {
+              browserTabs: [newTab],
+              browserTabCounter: number + 1,
+              activeSidePaneTabId: newTab.id,
+              sidePaneOpen: true,
+              browserNavigateRequest: null,
+            };
+          }
+          if (target.mounted) {
+            const nonce = (state.browserNavigateRequest?.nonce ?? 0) + 1;
+            return {
+              activeSidePaneTabId: target.id,
+              sidePaneOpen: true,
+              browserNavigateRequest: { tabId: target.id, url: normalizedUrl, nonce },
+            };
+          }
+          return {
+            browserTabs: state.browserTabs.map((browserTab) =>
+              browserTab.id === target.id
+                ? { ...browserTab, initialUrl: normalizedUrl, mounted: true }
+                : browserTab,
+            ),
+            activeSidePaneTabId: target.id,
+            sidePaneOpen: true,
+          };
+        });
+        return true;
+      },
+      consumeBrowserNavigateRequest: (nonce) =>
+        set((state) =>
+          state.browserNavigateRequest?.nonce === nonce ? { browserNavigateRequest: null } : state,
+        ),
     }),
     {
       name: "ai-workspace-starter-ui",

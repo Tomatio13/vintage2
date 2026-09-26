@@ -7,6 +7,7 @@ import { WorkspaceProvider } from "../src/renderer/runtime/WorkspaceProvider.js"
 import {
   DEFAULT_BROWSER_START_URL,
   defaultShortcuts,
+  initialBrowserTabs,
   useUiStore,
 } from "../src/renderer/store/uiStore.js";
 import type {
@@ -75,6 +76,10 @@ describe("VINTAGE workspace shell", () => {
       settingsOpen: false,
       browserDefaultUrl: DEFAULT_BROWSER_START_URL,
       shortcuts: defaultShortcuts.map((binding) => ({ ...binding })),
+      activeSidePaneTabId: "files",
+      browserTabs: [...initialBrowserTabs],
+      browserTabCounter: 2,
+      browserNavigateRequest: null,
     });
   });
   function renderApp() {

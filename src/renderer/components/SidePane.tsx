@@ -21,20 +21,6 @@ import { Button } from "./Button.js";
 import { LanguageIcon, ReviewPane } from "./ReviewPane.js";
 import { UsagePanel } from "./UsagePanel.js";
 
-interface BrowserTab {
-  id: string;
-  title: string;
-  initialUrl: string | null;
-  mounted: boolean;
-}
-
-const firstBrowserTab: BrowserTab = {
-  id: "browser-1",
-  title: "Browser",
-  initialUrl: null,
-  mounted: false,
-};
-
 export function SidePane({
   workspaceId,
   workspaceName,
@@ -44,10 +30,15 @@ export function SidePane({
   workspaceName?: string | null;
   onOpenFile(path: string, line?: number): void;
 }) {
-  const [activeTabId, setActiveTabId] = useState("files");
+  const activeTabId = useUiStore((state) => state.activeSidePaneTabId);
+  const activateSidePaneTab = useUiStore((state) => state.activateSidePaneTab);
+  const activateBrowserTab = useUiStore((state) => state.activateBrowserTab);
+  const addBrowserTab = useUiStore((state) => state.addBrowserTab);
+  const closeBrowserTab = useUiStore((state) => state.closeBrowserTab);
+  const browserTabs = useUiStore((state) => state.browserTabs);
+  const browserNavigateRequest = useUiStore((state) => state.browserNavigateRequest);
+  const consumeBrowserNavigateRequest = useUiStore((state) => state.consumeBrowserNavigateRequest);
   const usagePanelEnabled = useUiStore((state) => state.usagePanelEnabled);
-  const [browserTabs, setBrowserTabs] = useState<BrowserTab[]>([firstBrowserTab]);
-  const [nextBrowserTabNumber, setNextBrowserTabNumber] = useState(2);
   const browserTabElements = useRef(new Map<string, HTMLDivElement>());
   const [files, setFiles] = useState<WorkspaceFileEntry[]>([]);
   const [filesWorkspaceId, setFilesWorkspaceId] = useState<string | null>(null);
@@ -100,49 +91,9 @@ export function SidePane({
 
   useEffect(() => {
     if (!usagePanelEnabled && activeTabId === "usage") {
-      setActiveTabId("files");
+      activateSidePaneTab("files");
     }
-  }, [activeTabId, usagePanelEnabled]);
-
-  const activateBrowserTab = (tabId: string) => {
-    setActiveTabId(tabId);
-    setBrowserTabs((currentTabs) =>
-      currentTabs.map((browserTab) =>
-        browserTab.id === tabId
-          ? {
-              ...browserTab,
-              initialUrl: browserTab.initialUrl ?? useUiStore.getState().browserDefaultUrl,
-              mounted: true,
-            }
-          : browserTab,
-      ),
-    );
-  };
-
-  const addBrowserTab = () => {
-    const number = nextBrowserTabNumber;
-    const newTab: BrowserTab = {
-      id: `browser-${number}`,
-      title: `Browser ${number}`,
-      initialUrl: useUiStore.getState().browserDefaultUrl,
-      mounted: true,
-    };
-    setNextBrowserTabNumber(number + 1);
-    setBrowserTabs((currentTabs) => [...currentTabs, newTab]);
-    setActiveTabId(newTab.id);
-  };
-
-  const closeBrowserTab = (tabId: string) => {
-    const tabIndex = browserTabs.findIndex((browserTab) => browserTab.id === tabId);
-    if (tabIndex < 0) return;
-
-    const remainingTabs = browserTabs.filter((browserTab) => browserTab.id !== tabId);
-    setBrowserTabs(remainingTabs);
-    if (activeTabId === tabId) {
-      const nextTab = remainingTabs[Math.max(0, tabIndex - 1)] ?? remainingTabs[0];
-      setActiveTabId(nextTab?.id ?? "files");
-    }
-  };
+  }, [activeTabId, activateSidePaneTab, usagePanelEnabled]);
 
   const refreshFilesButton = (
     <Button
@@ -169,7 +120,7 @@ export function SidePane({
               ? "bg-selected text-foreground"
               : "text-foreground-subtle hover:bg-hover hover:text-foreground"
           }`}
-          onClick={() => setActiveTabId("files")}
+          onClick={() => activateSidePaneTab("files")}
           type="button"
         >
           <FolderOpen aria-hidden="true" className="size-3.5" />
@@ -182,7 +133,7 @@ export function SidePane({
               ? "bg-selected text-foreground"
               : "text-foreground-subtle hover:bg-hover hover:text-foreground"
           }`}
-          onClick={() => setActiveTabId("review")}
+          onClick={() => activateSidePaneTab("review")}
           type="button"
         >
           <GitBranch aria-hidden="true" className="size-3.5" />
@@ -196,7 +147,7 @@ export function SidePane({
                 ? "bg-selected text-foreground"
                 : "text-foreground-subtle hover:bg-hover hover:text-foreground"
             }`}
-            onClick={() => setActiveTabId("usage")}
+            onClick={() => activateSidePaneTab("usage")}
             type="button"
           >
             <Gauge aria-hidden="true" className="size-3.5" />
@@ -363,7 +314,15 @@ export function SidePane({
               hidden={!active}
             >
               {browserTab.mounted && browserTab.initialUrl && (
-                <BrowserPane initialUrl={browserTab.initialUrl} />
+                <BrowserPane
+                  initialUrl={browserTab.initialUrl}
+                  navigateRequest={
+                    browserNavigateRequest?.tabId === browserTab.id
+                      ? browserNavigateRequest
+                      : undefined
+                  }
+                  onNavigateRequestHandled={consumeBrowserNavigateRequest}
+                />
               )}
             </div>
           );
