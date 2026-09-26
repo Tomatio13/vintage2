@@ -1,10 +1,12 @@
 # VINTAGE Changelog
 
-## [Unreleased]
+## [0.2.7] - 2026-09-26
 
 ### Improved
 
 - **Automatic `.deb` updates:** Installing a downloaded update on Linux now asks for system authorization once (`pkexec`), applies the package directly, and offers a **Restart now** button. If system authorization is unavailable or fails, VINTAGE falls back to opening the `.deb` with the system package installer as before.
+
+**Full Changelog:** [v0.2.6...v0.2.7](https://github.com/Tomatio13/vintage2/compare/v0.2.6...v0.2.7)
 
 ## [0.2.6] - 2026-09-26
 
