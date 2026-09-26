@@ -1,14 +1,17 @@
 # VINTAGE Changelog
 
-## [Unreleased]
+## [0.2.6] - 2026-09-26
 
 ### Added
 
 - **Usage panel (CodexBar):** New right-pane **Usage** tab shows AI provider usage limits — remaining quota per window, reset times, credits, and recent cost — via the external [CodexBar CLI](https://github.com/steipete/codexbar) (optional; must be installed and configured separately). Which providers appear follows the enabled flags in `~/.config/codexbar/config.json`. The panel is toggled in **Settings → Usage** with a `codexbar` path setting and a configurable refresh interval, and a **Toggle usage panel** action is available in the command palette.
 
-### Changed
+### Improved
 
+- Make the command palette fully keyboard navigable: switch scopes with `Tab` / `Shift+Tab`, move through results including each section's `Show N more` row, and expand it with `Enter`.
 - **Configurable terminal search shortcut:** The terminal search shortcut (`Ctrl+F`, `⌘F` on macOS) is now listed as "Find in terminal" under **Settings → Shortcuts → Terminal** and can be rebound to any Ctrl/Alt combination, such as `Ctrl+Shift+F`. It still triggers only while a terminal has focus.
+
+**Full Changelog:** [v0.2.5...v0.2.6](https://github.com/Tomatio13/vintage2/compare/v0.2.5...v0.2.6)
 
 ## [0.2.5] - 2026-09-25
 
