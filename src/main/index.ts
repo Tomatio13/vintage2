@@ -489,6 +489,11 @@ function registerDesktopIpc(
     resolveSenderWindow(event);
     return updates.installUpdate();
   });
+  ipcMain.handle(DesktopChannels.appRestart, (event) => {
+    resolveSenderWindow(event);
+    app.relaunch();
+    app.quit();
+  });
   ipcMain.handle(DesktopChannels.workspaceHome, async (event) => {
     resolveSenderWindow(event);
     return registerHomeWorkspace();

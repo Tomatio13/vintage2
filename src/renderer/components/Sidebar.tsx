@@ -177,9 +177,11 @@ export function Sidebar({
       message = `Version ${updateStatus.availableVersion} is available. Open Settings > Updates.`;
     } else if (updateStatus?.status === "downloaded") {
       message =
-        updateStatus.installMethod === "system-installer"
-          ? `Version ${updateStatus.availableVersion} is ready. Open Settings > Updates to install it.`
-          : `Version ${updateStatus.availableVersion} is ready. Open Settings > Updates to restart.`;
+        updateStatus.installMethod === "installed"
+          ? `Version ${updateStatus.availableVersion} was installed. Restart VINTAGE to apply it.`
+          : updateStatus.installMethod === "system-installer"
+            ? `Version ${updateStatus.availableVersion} is ready. Open Settings > Updates to install it.`
+            : `Version ${updateStatus.availableVersion} is ready. Open Settings > Updates to restart.`;
     } else if (updateStatus?.status === "error") {
       message = `Update failed: ${updateStatus.message}`;
     }
@@ -222,6 +224,9 @@ export function Sidebar({
       case "downloading":
         return `Downloading version ${updateStatus.availableVersion}… ${updateStatus.percent.toFixed(0)}%.`;
       case "downloaded":
+        if (updateStatus.installMethod === "installed") {
+          return `Version ${updateStatus.availableVersion} was installed. Open Settings > Updates to restart.`;
+        }
         return updateStatus.installMethod === "system-installer"
           ? `Version ${updateStatus.availableVersion} is ready. Open Settings > Updates to install it.`
           : `Version ${updateStatus.availableVersion} is ready. Open Settings > Updates to restart.`;

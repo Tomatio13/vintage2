@@ -538,8 +538,13 @@ export function SettingsDialog() {
       case "downloading":
         return `Downloading version ${updateStatus.availableVersion}… ${updateStatus.percent.toFixed(0)}%`;
       case "downloaded":
+        if (updateStatus.installMethod === "installed") {
+          return `Version ${updateStatus.availableVersion} was installed. Restart VINTAGE to apply the update.`;
+        }
         return updateStatus.installMethod === "system-installer"
-          ? `Version ${updateStatus.availableVersion} is ready. Open the .deb package installer, complete the installation, then restart VINTAGE.`
+          ? updateStatus.message
+            ? `Automatic installation failed (${updateStatus.message}). Open the .deb package installer, complete the installation, then restart VINTAGE.`
+            : `Version ${updateStatus.availableVersion} is ready. Open the .deb package installer, complete the installation, then restart VINTAGE.`
           : `Version ${updateStatus.availableVersion} is ready to install.`;
       case "error":
         return `Update failed: ${updateStatus.message}`;
@@ -554,6 +559,7 @@ export function SettingsDialog() {
       return `Downloading ${updateStatus.percent.toFixed(0)}%`;
     }
     if (updateStatus?.status === "downloaded") {
+      if (updateStatus.installMethod === "installed") return "Restart now";
       return updateStatus.installMethod === "system-installer"
         ? "Open .deb installer"
         : "Restart & update";
@@ -581,7 +587,11 @@ export function SettingsDialog() {
           setUpdateStatus(await bridge.downloadUpdate());
         }
       } else if (updateStatus.status === "downloaded") {
-        await bridge.installUpdate();
+        if (updateStatus.installMethod === "installed") {
+          await bridge.restartApp();
+        } else {
+          await bridge.installUpdate();
+        }
       } else {
         setUpdateStatus(await bridge.checkForUpdates());
       }

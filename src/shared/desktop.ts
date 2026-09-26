@@ -46,6 +46,7 @@ export const DesktopChannels = {
   updateCheck: "update:check",
   updateDownload: "update:download",
   updateInstall: "update:install",
+  appRestart: "app:restart",
 } as const;
 
 export interface RegisteredWorkspace {
@@ -280,7 +281,8 @@ export type DesktopUpdateStatus =
       status: "downloaded";
       currentVersion: string;
       availableVersion: string;
-      installMethod?: "restart" | "system-installer";
+      installMethod?: "restart" | "system-installer" | "installed";
+      message?: string;
     }
   | {
       status: "downloading";
@@ -382,6 +384,7 @@ export interface DesktopBridge {
   checkForUpdates(): Promise<DesktopUpdateStatus>;
   downloadUpdate(): Promise<DesktopUpdateStatus>;
   installUpdate(): Promise<void>;
+  restartApp(): Promise<void>;
   onUpdateStatusChanged(listener: (status: DesktopUpdateStatus) => void): () => void;
   minimize(): Promise<void>;
   toggleMaximize(): Promise<DesktopWindowState>;

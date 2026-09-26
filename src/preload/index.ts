@@ -23,6 +23,7 @@ const bridge: DesktopBridge = {
   checkForUpdates: () => ipcRenderer.invoke(DesktopChannels.updateCheck),
   downloadUpdate: () => ipcRenderer.invoke(DesktopChannels.updateDownload),
   installUpdate: () => ipcRenderer.invoke(DesktopChannels.updateInstall),
+  restartApp: () => ipcRenderer.invoke(DesktopChannels.appRestart),
   onUpdateStatusChanged(listener) {
     const wrapped = (_event: Electron.IpcRendererEvent, status: DesktopUpdateStatus) =>
       listener(status);

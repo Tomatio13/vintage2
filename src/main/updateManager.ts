@@ -1,6 +1,9 @@
+import { spawn } from "node:child_process";
+
 import { app, BrowserWindow, shell } from "electron";
 import electronUpdater from "electron-updater";
 
+import { debInstallCommand, describeInstallFailure, type DebInstallOutcome } from "./debInstall.js";
 import { DesktopChannels, type DesktopUpdateStatus } from "../shared/desktop.js";
 
 const { autoUpdater } = electronUpdater;
@@ -15,6 +18,7 @@ export class UpdateManager {
       };
   #checking = false;
   #downloading = false;
+  #installing = false;
   #downloadedFile: string | null = null;
 
   constructor() {
@@ -127,26 +131,74 @@ export class UpdateManager {
   }
 
   async installUpdate(): Promise<void> {
-    if (this.#status.status !== "downloaded") return;
+    const current = this.#status;
+    if (current.status !== "downloaded" || this.#installing) return;
 
-    if (process.platform === "linux" && this.#downloadedFile?.toLowerCase().endsWith(".deb")) {
-      const downloadedFile = this.#downloadedFile;
+    const downloadedFile = this.#downloadedFile;
+    if (process.platform === "linux" && downloadedFile?.toLowerCase().endsWith(".deb")) {
+      this.#installing = true;
       try {
-        const openError = await shell.openPath(downloadedFile);
-        if (openError) throw new Error(openError);
-      } catch (error) {
-        const quotedPath = `'${downloadedFile.replaceAll("'", "'\\''")}'`;
-        const detail = error instanceof Error ? error.message : String(error);
-        this.#setStatus({
-          status: "error",
-          currentVersion: app.getVersion(),
-          message: `Could not open the downloaded .deb package (${detail}). Install it from a terminal with: sudo apt install -- ${quotedPath}. Then restart VINTAGE.`,
-        });
+        await this.#installDebUpdate(downloadedFile, current.availableVersion);
+      } finally {
+        this.#installing = false;
       }
       return;
     }
 
     autoUpdater.quitAndInstall();
+  }
+
+  async #installDebUpdate(downloadedFile: string, availableVersion: string): Promise<void> {
+    const outcome = await this.#runPrivilegedInstall(downloadedFile);
+    if (outcome.kind === "installed") {
+      this.#setStatus({
+        status: "downloaded",
+        currentVersion: app.getVersion(),
+        availableVersion,
+        installMethod: "installed",
+      });
+      return;
+    }
+
+    // Without system authorization, hand the package to the desktop installer.
+    const failureHint =
+      outcome.kind === "failed" ? `Automatic installation failed (${outcome.reason}). ` : "";
+    const openError = await shell.openPath(downloadedFile).catch((error) => String(error));
+    if (openError) {
+      const quotedPath = `'${downloadedFile.replaceAll("'", "'\\''")}'`;
+      this.#setStatus({
+        status: "error",
+        currentVersion: app.getVersion(),
+        message:
+          `${failureHint}Could not open the downloaded .deb package (${openError}). ` +
+          `Install it from a terminal with: sudo apt install -- ${quotedPath}. Then restart VINTAGE.`,
+      });
+      return;
+    }
+
+    this.#setStatus({
+      status: "downloaded",
+      currentVersion: app.getVersion(),
+      availableVersion,
+      installMethod: "system-installer",
+      ...(outcome.kind === "failed" ? { message: outcome.reason } : {}),
+    });
+  }
+
+  #runPrivilegedInstall(downloadedFile: string): Promise<DebInstallOutcome> {
+    const { command, args } = debInstallCommand(downloadedFile);
+    return new Promise((resolve) => {
+      let stderr = "";
+      const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"] });
+      child.on("error", () => resolve({ kind: "unavailable" }));
+      child.stderr?.on("data", (chunk: Buffer) => {
+        stderr = `${stderr}${chunk.toString()}`.slice(-2000);
+      });
+      child.on("close", (code) => {
+        if (code === 0) resolve({ kind: "installed" });
+        else resolve({ kind: "failed", reason: describeInstallFailure(stderr) });
+      });
+    });
   }
 
   #availableVersion(): string | null {
