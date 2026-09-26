@@ -70,15 +70,27 @@ describe("SidePane files", () => {
     expect(screen.getByRole("button", { name: "Files" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("opens Review, switches source, expands a diff, and refreshes the file list", async () => {
-    const getWorkspaceGitReview = vi.fn().mockResolvedValue({
+  it("opens Review, switches scope, expands a diff, and refreshes the review", async () => {
+    const getWorkspaceGitReviewView = vi.fn().mockResolvedValue({
       status: "ready",
+      currentBranch: "main",
+      baseRef: "origin/main",
+      baseBranches: ["origin/main", "main"],
+      comparisonMessage: null,
       changes: [
+        {
+          path: "src/branch.ts",
+          kind: "modified",
+          added: 2,
+          removed: null,
+          source: "branch",
+        },
         {
           path: "src/notes.ts",
           kind: "modified",
           added: 1,
           removed: 1,
+          source: "unstaged",
         },
       ],
     });
@@ -89,39 +101,47 @@ describe("SidePane files", () => {
     });
     window.desktop = {
       listWorkspaceFiles: vi.fn().mockResolvedValue([]),
-      getWorkspaceGitReview,
+      getWorkspaceGitReviewView,
       getWorkspaceGitReviewDiff,
     } as unknown as DesktopBridge;
     render(<SidePane workspaceId="workspace" onOpenFile={() => {}} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Review" }));
     await waitFor(() =>
-      expect(getWorkspaceGitReview).toHaveBeenCalledWith("workspace", "unstaged"),
+      expect(getWorkspaceGitReviewView).toHaveBeenCalledWith("workspace", { mode: "branch" }),
     );
+    expect(await screen.findByRole("button", { name: /src\/branch\.ts/ })).toBeInTheDocument();
+
     const change = await screen.findByRole("button", { name: /src\/notes\.ts/ });
     fireEvent.click(change);
-    expect(await screen.findByText("+after")).toBeInTheDocument();
+    expect(await screen.findByText("after")).toBeInTheDocument();
     expect(getWorkspaceGitReviewDiff).toHaveBeenCalledWith("workspace", {
       source: "unstaged",
       path: "src/notes.ts",
       kind: "modified",
     });
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Review source" }), {
-      target: { value: "staged" },
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Review scope" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Local Changes" }));
     await waitFor(() =>
-      expect(getWorkspaceGitReview).toHaveBeenLastCalledWith("workspace", "staged"),
+      expect(getWorkspaceGitReviewView).toHaveBeenLastCalledWith("workspace", { mode: "working" }),
     );
-    expect(await screen.findByText("1 file")).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Refresh review" }));
-    await waitFor(() => expect(getWorkspaceGitReview).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(getWorkspaceGitReviewView).toHaveBeenCalledTimes(3));
   });
 
   it("shows a clear message when the selected workspace is not a Git repository", async () => {
     window.desktop = {
       listWorkspaceFiles: vi.fn().mockResolvedValue([]),
-      getWorkspaceGitReview: vi.fn().mockResolvedValue({ status: "not-repository", changes: [] }),
+      getWorkspaceGitReviewView: vi.fn().mockResolvedValue({
+        status: "not-repository",
+        currentBranch: null,
+        baseRef: null,
+        baseBranches: [],
+        comparisonMessage: null,
+        changes: [],
+      }),
     } as unknown as DesktopBridge;
     render(<SidePane workspaceId="workspace" onOpenFile={() => {}} />);
 

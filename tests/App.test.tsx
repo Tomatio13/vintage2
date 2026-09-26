@@ -83,6 +83,21 @@ describe("VINTAGE workspace shell", () => {
     });
   });
   function renderApp() {
+    // Bridge methods added after these mocks were written; every test only
+    // needs the app to mount, so supply inert defaults unless overridden.
+    const bridge = window.desktop as Record<string, unknown> | undefined;
+    if (bridge) {
+      bridge.getUpdateStatus ??= vi
+        .fn()
+        .mockResolvedValue({ status: "idle", currentVersion: "0.0.0-test" });
+      bridge.checkForUpdates ??= vi
+        .fn()
+        .mockResolvedValue({ status: "idle", currentVersion: "0.0.0-test" });
+      bridge.downloadUpdate ??= vi
+        .fn()
+        .mockResolvedValue({ status: "idle", currentVersion: "0.0.0-test" });
+      bridge.onUpdateStatusChanged ??= vi.fn().mockReturnValue(() => {});
+    }
     return render(
       <WorkspaceProvider adapter={createMockWorkspaceAdapter({ delay: async () => {} })}>
         <App />
