@@ -18,6 +18,7 @@ import { ResizeHandle } from "./components/ResizeHandle.js";
 import { SettingsDialog } from "./components/SettingsDialog.js";
 import { SidePane } from "./components/SidePane.js";
 import { strongestAgentStatus } from "./lib/agentStatus.js";
+import { eventKey, shortcutBinding, shortcutLabel } from "./lib/shortcuts.js";
 import {
   Sidebar,
   type SidebarAttentionHistoryItem,
@@ -247,14 +248,8 @@ function resizePaneLayout(layout: PaneLayout, splitId: string, ratio: number): P
 const PANE_RESIZE_HANDLE_SIZE = 10;
 
 function shortcutText(shortcuts: ShortcutBinding[], action: ShortcutAction): string | undefined {
-  const binding = shortcuts.find((item) => item.action === action);
-  if (!binding) return undefined;
-  const key =
-    ({ left: "←", right: "→", up: "↑", down: "↓" } as Record<string, string>)[binding.key] ??
-    binding.key.toUpperCase();
-  return [binding.ctrl && "Ctrl", binding.alt && "Alt", binding.shift && "Shift", key]
-    .filter(Boolean)
-    .join("+");
+  const binding = shortcutBinding(shortcuts, action);
+  return binding ? shortcutLabel(binding) : undefined;
 }
 
 type PaneBounds = {
@@ -920,13 +915,7 @@ export function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (ui.settingsOpen || commandPaletteOpen || event.defaultPrevented || event.metaKey) return;
       const element = event.target instanceof Element ? event.target : null;
-      const arrows: Record<string, string> = {
-        ArrowLeft: "left",
-        ArrowRight: "right",
-        ArrowUp: "up",
-        ArrowDown: "down",
-      };
-      const key = arrows[event.key] ?? event.key.toLowerCase();
+      const key = eventKey(event);
       const binding = ui.shortcuts.find(
         (item) =>
           item.key === key &&
@@ -935,6 +924,8 @@ export function App() {
           item.shift === event.shiftKey,
       );
       if (!binding) return;
+      // Handled inside TerminalPanel so search opens only in the focused terminal.
+      if (binding.action === "find-in-terminal") return;
       if (
         binding.action !== "open-command-palette" &&
         element?.closest("input, select, textarea, [contenteditable=true]") &&

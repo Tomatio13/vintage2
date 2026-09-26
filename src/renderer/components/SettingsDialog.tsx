@@ -20,6 +20,7 @@ import {
   type JevSettingsStatus,
 } from "../../shared/desktop.js";
 import { normalizeBrowserUrl } from "../lib/browserUrl.js";
+import { eventKey, shortcutLabel } from "../lib/shortcuts.js";
 import { Button } from "./Button.js";
 import {
   defaultShortcuts,
@@ -51,6 +52,7 @@ const shortcutGroups: Array<[string, ShortcutAction[]]> = [
   ["Panes", ["previous-pane", "next-pane", "split-right", "split-down", "close-pane"]],
   ["Workspaces", ["previous-workspace", "next-workspace", "toggle-sidebar"]],
   ["Navigation", ["open-command-palette"]],
+  ["Terminal", ["find-in-terminal"]],
 ];
 const shortcutLabels: Record<ShortcutAction, string> = {
   "previous-tab": "Previous space",
@@ -60,34 +62,13 @@ const shortcutLabels: Record<ShortcutAction, string> = {
   "previous-workspace": "Previous workspace",
   "next-workspace": "Next workspace",
   "open-command-palette": "Open command palette",
+  "find-in-terminal": "Find in terminal",
   "new-terminal": "New space",
   "split-right": "Split right",
   "split-down": "Split down",
   "toggle-sidebar": "Toggle sidebar",
   "close-pane": "Close pane",
 };
-function eventKey(event: KeyboardEvent): string {
-  const arrows: Record<string, string> = {
-    ArrowLeft: "left",
-    ArrowRight: "right",
-    ArrowUp: "up",
-    ArrowDown: "down",
-  };
-  return arrows[event.key] ?? event.key.toLowerCase();
-}
-function shortcutLabel(binding: {
-  key: string;
-  ctrl: boolean;
-  alt: boolean;
-  shift: boolean;
-}): string {
-  const key =
-    ({ left: "←", right: "→", up: "↑", down: "↓" } as Record<string, string>)[binding.key] ??
-    binding.key.toUpperCase();
-  return [binding.ctrl && "Ctrl", binding.alt && "Alt", binding.shift && "Shift", key]
-    .filter(Boolean)
-    .join("+");
-}
 
 type PreviewTone = "light" | "dark" | "graphite";
 type PreviewPalette = { base: string; surface: string; line: string; accent: string };

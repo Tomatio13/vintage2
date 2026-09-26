@@ -32,6 +32,7 @@ import {
   type TerminalAttentionState,
   type TerminalMonitorMode,
 } from "../../shared/desktop.js";
+import { bindingMatchesEvent, shortcutBinding, shortcutLabel } from "../lib/shortcuts.js";
 import { useUiStore } from "../store/uiStore.js";
 
 function resolveTerminalTheme() {
@@ -389,8 +390,15 @@ export function TerminalPanel({
   onRename?: (title: string) => void;
   onAttentionChange?: (paneId: string, state: TerminalAttentionState | null) => void;
 }) {
-  const { desktopNotifications, terminalFontFamily, terminalFontSize, scrollback, shell, theme } =
-    useUiStore();
+  const {
+    desktopNotifications,
+    terminalFontFamily,
+    terminalFontSize,
+    scrollback,
+    shell,
+    shortcuts,
+    theme,
+  } = useUiStore();
   const hostRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
@@ -402,7 +410,12 @@ export function TerminalPanel({
   const [windowFocused, setWindowFocused] = useState(() => document.hasFocus());
   const activeRef = useRef(active && windowFocused);
   const desktopNotificationsRef = useRef(desktopNotifications);
-  const findShortcutLabel = window.desktop?.platform === "darwin" ? "⌘F" : "Ctrl+F";
+  const findBinding = shortcutBinding(shortcuts, "find-in-terminal");
+  const findShortcutLabel = findBinding
+    ? window.desktop?.platform === "darwin"
+      ? shortcutLabel(findBinding).replace(/^Ctrl\+/, "⌘")
+      : shortcutLabel(findBinding)
+    : "";
   const titleRef = useRef(title);
   const tabTitleRef = useRef(tabTitle);
   const notifiedAttentionEventsRef = useRef(new Map<string, number>());
@@ -505,13 +518,12 @@ export function TerminalPanel({
     terminal.open(host);
     fit.fit();
     terminal.attachCustomKeyEventHandler((event) => {
-      const findModifier = bridge.platform === "darwin" ? event.metaKey : event.ctrlKey;
+      // Read the binding from the store so rebinding applies without recreating the terminal.
+      const findBinding = shortcutBinding(useUiStore.getState().shortcuts, "find-in-terminal");
       if (
         event.type === "keydown" &&
-        event.key.toLowerCase() === "f" &&
-        findModifier &&
-        !event.altKey &&
-        !event.shiftKey
+        findBinding &&
+        bindingMatchesEvent(findBinding, event, bridge.platform)
       ) {
         event.preventDefault();
         if (searchOpenRef.current) {

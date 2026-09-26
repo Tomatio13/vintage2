@@ -602,6 +602,24 @@ describe("VINTAGE workspace shell", () => {
     terminal.remove();
   });
 
+  it("leaves the find-in-terminal shortcut for the terminal to handle", () => {
+    renderApp();
+    const terminal = document.createElement("div");
+    terminal.className = "xterm";
+    const input = document.createElement("textarea");
+    let seenByTerminal = 0;
+    input.addEventListener("keydown", () => {
+      seenByTerminal += 1;
+    });
+    terminal.append(input);
+    document.body.append(terminal);
+    fireEvent.keyDown(input, { key: "f", ctrlKey: true });
+    expect(seenByTerminal).toBe(1);
+    fireEvent.keyDown(input, { key: "b", ctrlKey: true });
+    expect(seenByTerminal).toBe(1);
+    terminal.remove();
+  });
+
   it("rebinds and executes a saved shortcut", () => {
     renderApp();
     fireEvent.click(screen.getAllByLabelText("Open settings")[0]!);

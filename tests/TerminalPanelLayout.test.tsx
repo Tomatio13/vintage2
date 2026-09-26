@@ -2,11 +2,13 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TerminalPanel } from "../src/renderer/components/TerminalPanel.js";
+import { defaultShortcuts, useUiStore } from "../src/renderer/store/uiStore.js";
 import type { DesktopBridge, TerminalAttentionState } from "../src/shared/desktop.js";
 
 const terminalTestState = vi.hoisted(() => ({
   selection: "",
   selectionListener: undefined as (() => void) | undefined,
+  keyHandler: undefined as ((event: KeyboardEvent) => boolean) | undefined,
 }));
 
 vi.mock("@xterm/xterm", () => ({
@@ -20,6 +22,9 @@ vi.mock("@xterm/xterm", () => ({
     focus() {}
     write() {}
     writeln() {}
+    attachCustomKeyEventHandler(handler: (event: KeyboardEvent) => boolean) {
+      terminalTestState.keyHandler = handler;
+    }
     onData() {
       return { dispose() {} };
     }
@@ -48,6 +53,7 @@ describe("TerminalPanel", () => {
   beforeEach(() => {
     terminalTestState.selection = "";
     terminalTestState.selectionListener = undefined;
+    terminalTestState.keyHandler = undefined;
   });
 
   afterEach(() => {
@@ -232,5 +238,75 @@ describe("TerminalPanel", () => {
     terminalTestState.selection = "";
     act(() => terminalTestState.selectionListener?.());
     expect(bridge.writeClipboardText).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the search bar with the configured find-in-terminal shortcut", async () => {
+    const bridge = {
+      createTerminal: vi.fn().mockResolvedValue({
+        id: "session-1",
+        shell: "zsh",
+        cwd: "/workspace",
+        monitorMode: "ignore_until_error",
+      }),
+      onTerminalData: vi.fn().mockReturnValue(() => {}),
+      onTerminalExit: vi.fn().mockReturnValue(() => {}),
+      onTerminalAttention: vi.fn().mockReturnValue(() => {}),
+      setTerminalActive: vi.fn().mockResolvedValue(undefined),
+      readyTerminal: vi.fn().mockResolvedValue(undefined),
+      closeTerminal: vi.fn().mockResolvedValue(undefined),
+    } as unknown as DesktopBridge;
+    window.desktop = bridge;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+
+    render(
+      <TerminalPanel
+        workspaceId="workspace-1"
+        tabTitle="Space 1"
+        paneId="pane-1"
+        title="Terminal 1"
+        active
+      />,
+    );
+
+    await waitFor(() => expect(terminalTestState.keyHandler).toBeTypeOf("function"));
+    const press = (init: KeyboardEventInit) =>
+      act(() => {
+        terminalTestState.keyHandler?.(new KeyboardEvent("keydown", init));
+      });
+
+    press({ key: "f", ctrlKey: true });
+    expect(screen.getByPlaceholderText("Find in terminal")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Find in terminal" })).toHaveAttribute(
+      "title",
+      "Find in terminal (Ctrl+F)",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close search" }));
+    expect(screen.queryByPlaceholderText("Find in terminal")).not.toBeInTheDocument();
+
+    press({ key: "f", ctrlKey: true, shiftKey: true });
+    expect(screen.queryByPlaceholderText("Find in terminal")).not.toBeInTheDocument();
+
+    act(() => {
+      useUiStore.setState({
+        shortcuts: defaultShortcuts.map((binding) =>
+          binding.action === "find-in-terminal" ? { ...binding, shift: true } : { ...binding },
+        ),
+      });
+    });
+    expect(screen.getByRole("button", { name: "Find in terminal" })).toHaveAttribute(
+      "title",
+      "Find in terminal (Ctrl+Shift+F)",
+    );
+
+    press({ key: "f", ctrlKey: true });
+    expect(screen.queryByPlaceholderText("Find in terminal")).not.toBeInTheDocument();
+    press({ key: "f", ctrlKey: true, shiftKey: true });
+    expect(screen.getByPlaceholderText("Find in terminal")).toBeInTheDocument();
   });
 });
