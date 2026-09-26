@@ -27,6 +27,7 @@ import {
   type WorkspaceStateSnapshot,
 } from "../shared/desktop.js";
 import { AttentionSettingsManager } from "./attentionSettings.js";
+import { fetchCodexbarUsage, probeCodexbarStatus } from "./codexbarClient.js";
 import { JevCredentialStore, JevSettingsManager } from "./jevSettings.js";
 import { JevEvaluationQueue } from "./jevEvaluationQueue.js";
 import { UpdateManager } from "./updateManager.js";
@@ -455,6 +456,22 @@ function registerDesktopIpc(
   ipcMain.handle(DesktopChannels.attentionSettingsSet, (event, raw: unknown) => {
     resolveSenderWindow(event);
     return attentionSettings.setSettings(raw);
+  });
+  ipcMain.handle(DesktopChannels.codexbarUsageGet, (event, rawPath: unknown) => {
+    resolveSenderWindow(event);
+    return fetchCodexbarUsage(typeof rawPath === "string" ? rawPath : "");
+  });
+  ipcMain.handle(DesktopChannels.codexbarStatusGet, (event, rawPath: unknown) => {
+    resolveSenderWindow(event);
+    return probeCodexbarStatus(typeof rawPath === "string" ? rawPath : "");
+  });
+  ipcMain.handle(DesktopChannels.codexbarPathChoose, async (event) => {
+    const result = await dialog.showOpenDialog(resolveSenderWindow(event), {
+      title: "Choose codexbar executable",
+      properties: ["openFile"],
+    });
+    if (result.canceled || !result.filePaths[0]) return null;
+    return result.filePaths[0];
   });
   ipcMain.handle(DesktopChannels.updateGetStatus, (event) => {
     resolveSenderWindow(event);

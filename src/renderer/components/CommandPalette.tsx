@@ -3,6 +3,7 @@ import {
   FileText,
   Folder,
   FolderOpen,
+  Gauge,
   LayoutGrid,
   List,
   MapPin,
@@ -35,7 +36,8 @@ export type CommandPaletteIcon =
   | "split-right"
   | "split-down"
   | "sidebar"
-  | "browser";
+  | "browser"
+  | "usage";
 
 export interface CommandPaletteItem {
   id: string;
@@ -91,6 +93,7 @@ const paletteIcons: Record<CommandPaletteIcon, LucideIcon> = {
   "split-down": SplitSquareVertical,
   sidebar: PanelLeft,
   browser: PanelRight,
+  usage: Gauge,
 };
 
 const sectionLimit = 4;

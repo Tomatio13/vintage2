@@ -2,10 +2,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SidePane } from "../src/renderer/components/SidePane.js";
+import { useUiStore } from "../src/renderer/store/uiStore.js";
 import type { DesktopBridge } from "../src/shared/desktop.js";
 
 afterEach(() => {
   delete window.desktop;
+  useUiStore.setState({ usagePanelEnabled: false, codexbarPath: "" });
 });
 
 describe("SidePane files", () => {
@@ -192,5 +194,45 @@ describe("SidePane files", () => {
     expect(onOpenFile).not.toHaveBeenCalled();
     fireEvent.doubleClick(file);
     await waitFor(() => expect(onOpenFile).toHaveBeenCalledWith("docs/notes.md"));
+  });
+
+  it("hides the Usage tab unless the usage panel is enabled", () => {
+    window.desktop = {
+      listWorkspaceFiles: vi.fn().mockResolvedValue([]),
+    } as unknown as DesktopBridge;
+    render(<SidePane workspaceId={null} onOpenFile={() => {}} />);
+
+    expect(screen.queryByRole("button", { name: "Usage" })).not.toBeInTheDocument();
+  });
+
+  it("shows the Usage tab and renders provider cards when enabled", async () => {
+    window.desktop = {
+      listWorkspaceFiles: vi.fn().mockResolvedValue([]),
+      getCodexbarUsage: vi.fn().mockResolvedValue({
+        ok: true,
+        snapshot: {
+          schemaVersion: 1,
+          generatedAt: new Date().toISOString(),
+          host: { codexBarVersion: "0.157.0" },
+          providers: [
+            {
+              id: "codex",
+              name: "Codex",
+              enabled: true,
+              source: "oauth",
+              windows: [
+                { kind: "session", label: "Session", usedPercent: 28, remainingPercent: 72 },
+              ],
+            },
+          ],
+        },
+      }),
+    } as unknown as DesktopBridge;
+    useUiStore.setState({ usagePanelEnabled: true });
+    render(<SidePane workspaceId={null} onOpenFile={() => {}} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Usage" }));
+    expect(await screen.findByText("Codex")).toBeInTheDocument();
+    expect(await screen.findByText("72% left")).toBeInTheDocument();
   });
 });

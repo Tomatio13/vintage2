@@ -13,6 +13,9 @@ export const DesktopChannels = {
   jevSettingsClear: "jev:settings-clear",
   attentionSettingsGet: "attention:settings-get",
   attentionSettingsSet: "attention:settings-set",
+  codexbarUsageGet: "codexbar:usage-get",
+  codexbarStatusGet: "codexbar:status-get",
+  codexbarPathChoose: "codexbar:path-choose",
   workspaceChoose: "workspace:choose",
   workspaceHome: "workspace:home",
   workspaceStateLoad: "workspace:state-load",
@@ -208,6 +211,67 @@ export interface AttentionSettings {
   notificationThreshold: AttentionLevel;
 }
 
+export interface CodexbarIdentity {
+  accountEmail?: string | null;
+  plan?: string | null;
+}
+
+export interface CodexbarWindow {
+  kind: string;
+  label?: string | null;
+  usedPercent?: number | null;
+  remainingPercent?: number | null;
+  resetAt?: string | null;
+  idle?: boolean;
+}
+
+export interface CodexbarAccount {
+  id: string;
+  label?: string | null;
+  active?: boolean;
+  identity?: CodexbarIdentity | null;
+  windows?: CodexbarWindow[] | null;
+  error?: unknown;
+  updatedAt?: string | null;
+}
+
+export interface CodexbarProviderRow {
+  id: string;
+  name: string;
+  enabled: boolean;
+  source?: string | null;
+  status?: { level?: string | null; label?: string | null } | null;
+  identity?: CodexbarIdentity | null;
+  windows?: CodexbarWindow[] | null;
+  credits?: { remaining?: number | null; unit?: string | null } | null;
+  cost?: { todayUSD?: number | null; last30DaysUSD?: number | null } | null;
+  display?: { accentColor?: string | null; sortKey?: number | null } | null;
+  error?: unknown;
+  updatedAt?: string | null;
+  accounts?: CodexbarAccount[] | null;
+}
+
+export interface CodexbarSnapshot {
+  schemaVersion: number;
+  generatedAt: string;
+  staleAfterSeconds?: number;
+  host?: { codexBarVersion?: string | null } | null;
+  providers: CodexbarProviderRow[];
+}
+
+export type CodexbarUsageResult =
+  | { ok: true; snapshot: CodexbarSnapshot }
+  | {
+      ok: false;
+      errorKind: "not-configured" | "not-found" | "timeout" | "exec-failed" | "parse-error";
+      message: string;
+      resolvedPath: string | null;
+    };
+
+export type CodexbarStatusResult =
+  | { found: true; resolvedPath: string; version: string | null }
+  | { found: false; message: string };
+
 export type DesktopUpdateStatus =
   | { status: "idle" | "checking" | "up-to-date"; currentVersion: string }
   | { status: "unsupported"; currentVersion: string; message: string }
@@ -333,6 +397,9 @@ export interface DesktopBridge {
   clearJevApiKey(): Promise<JevSettingsStatus>;
   getAttentionSettings(): Promise<AttentionSettings>;
   setAttentionSettings(settings: AttentionSettings): Promise<AttentionSettings>;
+  getCodexbarUsage(path: string): Promise<CodexbarUsageResult>;
+  getCodexbarStatus(path: string): Promise<CodexbarStatusResult>;
+  chooseCodexbarPath(): Promise<string | null>;
   getHomeWorkspace(): Promise<RegisteredWorkspace>;
   chooseWorkspace(): Promise<RegisteredWorkspace | null>;
   loadWorkspaceState(): Promise<RestoredWorkspaceState>;

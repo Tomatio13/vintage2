@@ -54,6 +54,9 @@ const bridge: DesktopBridge = {
   getAttentionSettings: () => ipcRenderer.invoke(DesktopChannels.attentionSettingsGet),
   setAttentionSettings: (settings: AttentionSettings) =>
     ipcRenderer.invoke(DesktopChannels.attentionSettingsSet, settings),
+  getCodexbarUsage: (path: string) => ipcRenderer.invoke(DesktopChannels.codexbarUsageGet, path),
+  getCodexbarStatus: (path: string) => ipcRenderer.invoke(DesktopChannels.codexbarStatusGet, path),
+  chooseCodexbarPath: () => ipcRenderer.invoke(DesktopChannels.codexbarPathChoose),
   getHomeWorkspace: () => ipcRenderer.invoke(DesktopChannels.workspaceHome),
   chooseWorkspace: () => ipcRenderer.invoke(DesktopChannels.workspaceChoose),
   loadWorkspaceState: () => ipcRenderer.invoke(DesktopChannels.workspaceStateLoad),

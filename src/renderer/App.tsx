@@ -1260,6 +1260,19 @@ export function App() {
           onSelect: () => ui.toggleSidePane(),
         },
         {
+          id: "action:toggle-usage",
+          kind: "action",
+          section: "actions",
+          title: "Toggle usage panel",
+          keywords: ["show", "hide", "usage", "quota", "limits", "codexbar"],
+          icon: "usage",
+          onSelect: () => {
+            const next = !ui.usagePanelEnabled;
+            ui.setUsagePanelEnabled(next);
+            if (next && !ui.sidePaneOpen) ui.toggleSidePane();
+          },
+        },
+        {
           id: "action:close-pane",
           kind: "action",
           section: "actions",

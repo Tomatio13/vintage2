@@ -13,6 +13,7 @@ export type SettingsSection =
   | "attention"
   | "shortcuts"
   | "integrations"
+  | "usage"
   | "updates";
 export const shortcutActions = [
   "previous-tab",
@@ -60,6 +61,9 @@ export interface VintageSettings {
   shell: TerminalShell;
   browserDefaultUrl: string;
   desktopNotifications: boolean;
+  usagePanelEnabled: boolean;
+  codexbarPath: string;
+  usageRefreshSeconds: number;
   shortcuts: ShortcutBinding[];
 }
 
@@ -74,6 +78,7 @@ interface UiState extends VintageSettings {
   setTheme(theme: Theme): void;
   setUiFontSize(size: number): void;
   saveSettings(settings: VintageSettings): void;
+  setUsagePanelEnabled(enabled: boolean): void;
   toggleSidebar(): void;
   toggleSidePane(): void;
   toggleActivity(): void;
@@ -94,6 +99,9 @@ export const useUiStore = create<UiState>()(
       shell: "system",
       browserDefaultUrl: DEFAULT_BROWSER_START_URL,
       desktopNotifications: true,
+      usagePanelEnabled: false,
+      codexbarPath: "",
+      usageRefreshSeconds: 120,
       shortcuts: defaultShortcuts,
       sidebarOpen: true,
       sidePaneOpen: true,
@@ -105,6 +113,7 @@ export const useUiStore = create<UiState>()(
       setTheme: (theme) => set({ theme }),
       setUiFontSize: (uiFontSize) => set({ uiFontSize: Math.min(18, Math.max(12, uiFontSize)) }),
       saveSettings: (settings) => set(settings),
+      setUsagePanelEnabled: (usagePanelEnabled) => set({ usagePanelEnabled }),
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
       toggleSidePane: () => set((state) => ({ sidePaneOpen: !state.sidePaneOpen })),
       toggleActivity: () => set((state) => ({ activityOpen: !state.activityOpen })),
@@ -124,6 +133,9 @@ export const useUiStore = create<UiState>()(
         shell,
         browserDefaultUrl,
         desktopNotifications,
+        usagePanelEnabled,
+        codexbarPath,
+        usageRefreshSeconds,
         shortcuts,
         sidebarOpen,
         sidePaneOpen,
@@ -140,6 +152,9 @@ export const useUiStore = create<UiState>()(
         shell,
         browserDefaultUrl,
         desktopNotifications,
+        usagePanelEnabled,
+        codexbarPath,
+        usageRefreshSeconds,
         shortcuts,
         sidebarOpen,
         sidePaneOpen,

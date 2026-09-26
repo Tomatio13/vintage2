@@ -5,6 +5,7 @@ import {
   EyeOff,
   Folder,
   FolderOpen,
+  Gauge,
   Globe2,
   GitBranch,
   Plus,
@@ -18,6 +19,7 @@ import { useUiStore } from "../store/uiStore.js";
 import { BrowserPane } from "./BrowserPane.js";
 import { Button } from "./Button.js";
 import { LanguageIcon, ReviewPane } from "./ReviewPane.js";
+import { UsagePanel } from "./UsagePanel.js";
 
 interface BrowserTab {
   id: string;
@@ -43,6 +45,7 @@ export function SidePane({
   onOpenFile(path: string, line?: number): void;
 }) {
   const [activeTabId, setActiveTabId] = useState("files");
+  const usagePanelEnabled = useUiStore((state) => state.usagePanelEnabled);
   const [browserTabs, setBrowserTabs] = useState<BrowserTab[]>([firstBrowserTab]);
   const [nextBrowserTabNumber, setNextBrowserTabNumber] = useState(2);
   const browserTabElements = useRef(new Map<string, HTMLDivElement>());
@@ -94,6 +97,12 @@ export function SidePane({
       inline: "nearest",
     });
   }, [activeTabId]);
+
+  useEffect(() => {
+    if (!usagePanelEnabled && activeTabId === "usage") {
+      setActiveTabId("files");
+    }
+  }, [activeTabId, usagePanelEnabled]);
 
   const activateBrowserTab = (tabId: string) => {
     setActiveTabId(tabId);
@@ -179,6 +188,21 @@ export function SidePane({
           <GitBranch aria-hidden="true" className="size-3.5" />
           <span>Review</span>
         </button>
+        {usagePanelEnabled && (
+          <button
+            aria-pressed={activeTabId === "usage"}
+            className={`flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${
+              activeTabId === "usage"
+                ? "bg-selected text-foreground"
+                : "text-foreground-subtle hover:bg-hover hover:text-foreground"
+            }`}
+            onClick={() => setActiveTabId("usage")}
+            type="button"
+          >
+            <Gauge aria-hidden="true" className="size-3.5" />
+            <span>Usage</span>
+          </button>
+        )}
         <div
           aria-label="Browser tabs"
           className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]"
@@ -320,6 +344,15 @@ export function SidePane({
             onRefresh={() => setReviewRefreshVersion((version) => version + 1)}
           />
         </div>
+        {usagePanelEnabled && (
+          <div
+            aria-hidden={activeTabId !== "usage"}
+            className="absolute inset-0"
+            hidden={activeTabId !== "usage"}
+          >
+            <UsagePanel active={activeTabId === "usage"} />
+          </div>
+        )}
         {browserTabs.map((browserTab) => {
           const active = activeTabId === browserTab.id;
           return (

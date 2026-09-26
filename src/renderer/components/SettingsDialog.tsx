@@ -15,6 +15,7 @@ import {
   DEFAULT_ATTENTION_SETTINGS,
   type AttentionLevel,
   type AttentionSettings,
+  type CodexbarStatusResult,
   type DesktopUpdateStatus,
   type JevSettingsStatus,
 } from "../../shared/desktop.js";
@@ -36,6 +37,7 @@ const sections: Array<{ id: SettingsSection; label: string }> = [
   { id: "attention", label: "Attention" },
   { id: "shortcuts", label: "Shortcuts" },
   { id: "integrations", label: "Integrations" },
+  { id: "usage", label: "Usage" },
   { id: "updates", label: "Updates" },
 ];
 const themes: Array<{ id: Theme; label: string; description: string }> = [
@@ -236,6 +238,9 @@ export function SettingsDialog() {
       shell: store.shell,
       browserDefaultUrl: store.browserDefaultUrl,
       desktopNotifications: store.desktopNotifications,
+      usagePanelEnabled: store.usagePanelEnabled,
+      codexbarPath: store.codexbarPath,
+      usageRefreshSeconds: store.usageRefreshSeconds,
       shortcuts: store.shortcuts,
     }),
     [
@@ -247,6 +252,9 @@ export function SettingsDialog() {
       store.shell,
       store.browserDefaultUrl,
       store.desktopNotifications,
+      store.usagePanelEnabled,
+      store.codexbarPath,
+      store.usageRefreshSeconds,
       store.shortcuts,
     ],
   );
@@ -259,6 +267,8 @@ export function SettingsDialog() {
   const [jevStatus, setJevStatus] = useState<JevSettingsStatus | null>(null);
   const [jevBusy, setJevBusy] = useState(false);
   const [jevMessage, setJevMessage] = useState<string | null>(null);
+  const [codexbarStatus, setCodexbarStatus] = useState<CodexbarStatusResult | null>(null);
+  const [codexbarProbing, setCodexbarProbing] = useState(false);
   const [attentionDraft, setAttentionDraft] = useState<AttentionSettings>({
     ...DEFAULT_ATTENTION_SETTINGS,
   });
@@ -386,6 +396,35 @@ export function SettingsDialog() {
     };
   }, [store.settingsOpen]);
   useEffect(() => {
+    if (!store.settingsOpen) return;
+    const bridge = window.desktop;
+    if (!bridge) {
+      setCodexbarStatus(null);
+      return;
+    }
+    let cancelled = false;
+    setCodexbarProbing(true);
+    const probeTimer = window.setTimeout(() => {
+      void bridge
+        .getCodexbarStatus(draft.codexbarPath)
+        .then((status) => {
+          if (!cancelled) setCodexbarStatus(status);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setCodexbarStatus({ found: false, message: "codexbar could not be checked." });
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setCodexbarProbing(false);
+        });
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(probeTimer);
+    };
+  }, [store.settingsOpen, draft.codexbarPath]);
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!store.settingsOpen) return;
       if (recording) {
@@ -452,6 +491,16 @@ export function SettingsDialog() {
     setBrowserUrlError(null);
     setAttentionMessage(null);
     store.setSettingsOpen(false);
+  };
+  const chooseCodexbarExecutable = async () => {
+    const bridge = window.desktop;
+    if (!bridge) return;
+    try {
+      const chosen = await bridge.chooseCodexbarPath();
+      if (chosen) change({ codexbarPath: chosen });
+    } catch {
+      // Selection canceled; keep the current path.
+    }
   };
   const saveJevApiKey = async () => {
     const bridge = window.desktop;
@@ -1068,6 +1117,91 @@ export function SettingsDialog() {
           <p className="text-ui-sm text-foreground-subtle">
             Sidebar and pane badges remain available regardless of this setting. Agent-specific
             hooks are not used.
+          </p>
+        </>
+      );
+    if (section === "usage")
+      return (
+        <>
+          <div>
+            <h2 className="text-2xl font-semibold">Usage</h2>
+            <p className="mt-1 text-ui-base text-foreground-subtle">
+              Show AI provider usage limits from the codexbar CLI in the side pane.
+            </p>
+          </div>
+          <Card>
+            <Field
+              label="Show usage panel"
+              description="Add a Usage tab to the side pane listing each provider's remaining quota."
+            >
+              <div className="flex gap-2">
+                <Choice
+                  active={draft.usagePanelEnabled}
+                  onClick={() => change({ usagePanelEnabled: true })}
+                >
+                  On
+                </Choice>
+                <Choice
+                  active={!draft.usagePanelEnabled}
+                  onClick={() => change({ usagePanelEnabled: false })}
+                >
+                  Off
+                </Choice>
+              </div>
+            </Field>
+          </Card>
+          <Card>
+            <Field
+              label="codexbar path"
+              description="Leave empty to detect codexbar on PATH or in known install locations."
+            >
+              <div className="flex w-full items-center justify-end gap-2">
+                <input
+                  aria-label="codexbar path"
+                  autoComplete="off"
+                  className="h-9 min-w-0 flex-1 rounded-md border border-input-border bg-background px-3 font-mono text-ui-sm outline-none focus:border-brand"
+                  placeholder="Auto-detect (PATH)"
+                  spellCheck={false}
+                  type="text"
+                  value={draft.codexbarPath}
+                  onChange={(event) => change({ codexbarPath: event.target.value })}
+                />
+                <Button
+                  disabled={codexbarProbing}
+                  size="compact"
+                  variant="ghost"
+                  onClick={() => void chooseCodexbarExecutable()}
+                >
+                  <FolderOpen /> Browse…
+                </Button>
+              </div>
+            </Field>
+            <p aria-live="polite" className="mt-2 text-ui-xs text-foreground-subtle">
+              {codexbarProbing
+                ? "Checking for codexbar…"
+                : codexbarStatus?.found
+                  ? `Detected ${codexbarStatus.version ?? "codexbar"} at ${codexbarStatus.resolvedPath}`
+                  : (codexbarStatus?.message ?? "")}
+            </p>
+          </Card>
+          <Card>
+            <Field
+              label="Auto refresh interval"
+              description="Run codexbar again at this interval while the Usage tab is visible."
+            >
+              <Stepper
+                max={600}
+                min={60}
+                step={10}
+                suffix="s"
+                value={draft.usageRefreshSeconds}
+                onChange={(value) => change({ usageRefreshSeconds: value })}
+              />
+            </Field>
+          </Card>
+          <p className="text-ui-sm text-foreground-subtle">
+            Which providers appear follows the enabled flags in ~/.config/codexbar/config.json. To
+            add Claude Code, run `codexbar config enable --provider claude`.
           </p>
         </>
       );
