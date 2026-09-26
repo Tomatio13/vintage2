@@ -50,7 +50,7 @@ The shortcut can be reassigned in **Settings → Shortcuts**. The palette is int
 
 Open **Files** to browse the selected workspace. Double-click a file to open its preview beside the terminal area.
 
-- **Markdown** supports workspace images and tables, with **Preview** and **Source** views.
+- **Markdown** supports workspace images and tables, with **Preview** and **Source** views. Links work in the preview: relative paths open another workspace file in the viewer, `#heading` anchors scroll within the document, and HTTP(S) links open in the built-in Browser (`Ctrl+Click` / `⌘+Click` opens a new Browser tab). `mailto:` links open the system email app.
 - **JSON** supports formatted preview and raw source. **CSV/TSV** supports a searchable table and source view.
 - **HTML** is shown in an isolated preview that blocks scripts and external resources; source view is also available.
 - **Images** have zoom controls. **PDF** uses a built-in viewer, and audio and video have playback controls.

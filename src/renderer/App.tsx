@@ -351,6 +351,7 @@ function PaneView({
   onActivatePane,
   onRenamePane,
   onAttentionChange,
+  onOpenFile,
 }: {
   workspaceId: string;
   tab: Tab;
@@ -361,6 +362,7 @@ function PaneView({
   onActivatePane(paneId: string): void;
   onRenamePane(paneId: string, title: string): void;
   onAttentionChange(paneId: string, state: TerminalAttentionState | null): void;
+  onOpenFile(path: string, line?: number): void;
 }) {
   const active = pane.id === tab.activePaneId;
   return (
@@ -381,7 +383,12 @@ function PaneView({
           onRename={(title) => onRenamePane(pane.id, title)}
         />
       ) : (
-        <FileViewer workspaceId={workspaceId} path={pane.path} targetLine={pane.targetLine} />
+        <FileViewer
+          workspaceId={workspaceId}
+          path={pane.path}
+          targetLine={pane.targetLine}
+          onOpenFile={onOpenFile}
+        />
       )}
       <button
         aria-label={`Close ${pane.title}`}
@@ -410,6 +417,7 @@ function TabSurface({
   onRenamePane,
   onAttentionChange,
   onResizeSplit,
+  onOpenFile,
 }: {
   workspaceId: string;
   tab: Tab;
@@ -419,6 +427,7 @@ function TabSurface({
   onRenamePane(paneId: string, title: string): void;
   onAttentionChange(paneId: string, state: TerminalAttentionState | null): void;
   onResizeSplit(tabId: string, splitId: string, ratio: number): void;
+  onOpenFile(path: string, line?: number): void;
 }) {
   const positions = positionedLayout(tab.layout);
   const boundsByPane = new Map(positions.panes.map(({ paneId, bounds }) => [paneId, bounds]));
@@ -449,6 +458,7 @@ function TabSurface({
               onActivatePane={onActivatePane}
               onRenamePane={onRenamePane}
               onAttentionChange={onAttentionChange}
+              onOpenFile={onOpenFile}
             />
           );
         })}
@@ -1484,6 +1494,7 @@ export function App() {
                         onResizeSplit={(tabId, splitId, ratio) =>
                           resizeSplit(tabId, splitId, ratio)
                         }
+                        onOpenFile={openFile}
                       />
                     )),
               )

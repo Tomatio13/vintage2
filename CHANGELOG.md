@@ -1,5 +1,15 @@
 # VINTAGE Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Markdown links:** Links in the Markdown preview now work. Relative paths open the target file in the file viewer, `#heading` anchors scroll within the document (headings now carry stable ids), and HTTP(S) links open in the built-in Browser — `Ctrl+Click` / `⌘+Click` opens a new Browser tab. `mailto:` links open the system email app, and unsupported schemes such as `javascript:` are ignored. Clicking a link never navigates the app window: the main window now blocks top-level navigation away from its own origin, and `window.open` popups are handed to the OS only for HTTP(S) and `mailto:` URLs.
+
+### Fixed
+
+- **Markdown re-render churn:** The Markdown preview rebuilt its entire DOM on every app render because the renderer components passed to react-markdown were recreated each time. This swallowed real mouse clicks on links (the click event was lost when the mousedown target was swapped between mousedown and mouseup) and re-fetched preview images unnecessarily. The renderer components are now stable at module level and the preview is memoized, so the rendered DOM persists across renders.
+
 ## [0.2.8] - 2026-09-26
 
 ### Fixed
