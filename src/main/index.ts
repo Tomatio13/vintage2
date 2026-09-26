@@ -32,6 +32,7 @@ import { JevCredentialStore, JevSettingsManager } from "./jevSettings.js";
 import { JevEvaluationQueue } from "./jevEvaluationQueue.js";
 import { UpdateManager } from "./updateManager.js";
 import { registerTerminalIpc } from "./terminalManager.js";
+import { createRendererNavigationGuard } from "./windowNavigation.js";
 import {
   getWorkspaceGitReview,
   getWorkspaceGitReviewDiff,
@@ -725,10 +726,27 @@ async function createMainWindow(): Promise<BrowserWindow> {
   window.on("leave-full-screen", () => publishWindowState(window));
   window.once("ready-to-show", () => window.show());
   window.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    try {
+      const parsed = new URL(url);
+      if (["https:", "http:", "mailto:"].includes(parsed.protocol)) {
+        void shell.openExternal(parsed.toString());
+      }
+    } catch {
+      // Malformed URLs are dropped instead of handed to the OS.
+    }
     return { action: "deny" };
   });
+  // The renderer is a single-page app: block top-level navigation attempts
+  // (for example an unhandled link click) away from the app's own origin.
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  const rendererFileUrl = pathToFileURL(resolve(currentDir, "../renderer/index.html")).toString();
+  const isAllowedRendererNavigation = createRendererNavigationGuard({
+    rendererFileUrl,
+    devServerUrl,
+  });
+  window.webContents.on("will-navigate", (event, url) => {
+    if (!isAllowedRendererNavigation(url)) event.preventDefault();
+  });
   if (devServerUrl) await window.loadURL(devServerUrl);
   else await window.loadFile(resolve(currentDir, "../renderer/index.html"));
   return window;
