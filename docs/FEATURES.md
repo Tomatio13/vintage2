@@ -31,6 +31,7 @@ _Sample workspace after navigating to the terminal that needs attention._
 - Create multiple Spaces per workspace and switch between them using tabs or keyboard shortcuts. A new Space starts with `Terminal 1`.
 - Split the active terminal to the right or below. Close Spaces and panes with their close controls. Double-click a Space or terminal title to rename it; press `Enter` or move focus to save, or `Escape` to cancel.
 - Choose zsh, bash, fish, or the operating system’s default shell. Selecting terminal output with the mouse copies it to the clipboard.
+- Press the find shortcut (`Ctrl+F` by default, `⌘F` on macOS) to search terminal scrollback; `Enter` and `Shift+Enter` move between matches. The shortcut can be reassigned in **Settings → Shortcuts → Terminal** and only triggers while a terminal has focus.
 - Terminal sessions and their output are not restored after the app closes. Workspace and pane layout information is saved separately.
 
 ## Agent status at a glance
