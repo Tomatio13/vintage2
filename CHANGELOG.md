@@ -1,5 +1,17 @@
 # VINTAGE Changelog
 
+## [0.2.8] - 2026-09-26
+
+### Fixed
+
+- **Terminal shell setting:** The "System default" entry in **Settings → Terminal → Default shell** was saved as the literal text `System default`, which made every new terminal fail with `Unsupported terminal shell` once the setting was re-saved. The entry now carries a proper value, and a stored invalid value falls back to the system default on startup, repairing affected installations without any action.
+
+### Added
+
+- **Windows shells:** New terminals on Windows can now use Command Prompt, Windows PowerShell, PowerShell 7 (`pwsh`), or Git Bash, selectable in **Settings → Terminal → Default shell**. PowerShell 7 and Git Bash are located from their default install locations and `PATH`; VINTAGE shows a clear message when they are not installed.
+
+**Full Changelog:** [v0.2.7...v0.2.8](https://github.com/Tomatio13/vintage2/compare/v0.2.7...v0.2.8)
+
 ## [0.2.7] - 2026-09-26
 
 ### Improved
