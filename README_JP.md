@@ -15,6 +15,7 @@ VINTAGEは、プロジェクト、Space、ターミナルをまとめて管理�
 - **Attention監視**: バックグラウンドのターミナルで起きたコマンド完了、エラー、入力待ちを一覧で確認できます。
 - **エージェント状態の表示**: Spaceタブとサイドバーの色付きドットで、作業中・待機中・失敗などの状態を確認できます。
 - **FilesとGit Review**: よく使われるファイルをプレビューし、未追跡ファイルを含む未ステージのGit変更を確認できます。
+- **AI使用制限の表示**: CodexやClaude CodeなどのAI CLIの残りクォータ、リセット時刻、クレジットを右ペインで確認できます。任意の [CodexBar CLI](https://github.com/steipete/codexbar) が必要です。
 - **複数のシェルに対応**: zsh、bash、fish、またはOSの既定シェルを選べます。
 - **テキストの自動コピー**: ターミナル出力をマウスで選択するとクリップボードへコピーします。
 - **組み込みブラウザー**: ターミナルとは別のセッションでWebを表示でき、複数タブに対応しています。
@@ -72,6 +73,12 @@ pnpm start
 ## Jevによる意味判定（任意）
 
 ローカルルールだけでは判別しづらいターミナル出力を、[Jev](https://docs.typesafe.ai/sdk/javascript) で分類できます。連携は **Settings → Integrations** から設定します。判定される状態、プライバシー、APIキーの設定方法は[機能と画面のガイド](docs/FEATURES_JP.md)をご覧ください。
+
+## CodexBarによるUsageパネル（任意）
+
+右ペインの **Usage** タブに、Codex、Claude Code、OpenCode Go、GrokなどのAIプロバイダーの使用制限（ウィンドウごとの残りクォータ、リセット時刻、クレジット、取得できる場合は直近のコスト）を表示できます。この任意機能には [CodexBar CLI](https://github.com/steipete/codexbar) のインストールと設定が必要です。ターミナルで `codexbar` コマンドが実行できる状態にしてください。
+
+**Settings → Usage** でパネルを有効にし、必要なら `codexbar` へのパスを指定します（空欄の場合は `PATH` と一般的なインストール先から自動検出します）。表示されるプロバイダーは `~/.config/codexbar/config.json` の有効フラグに従い、Claude Codeを追加するには `codexbar config enable --provider claude` を実行します。詳細は[機能と画面のガイド](docs/FEATURES_JP.md)をご覧ください。
 
 ## ドキュメント
 

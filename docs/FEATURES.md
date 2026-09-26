@@ -10,7 +10,7 @@ The VINTAGE window is organized into three work areas:
 
 - **Sidebar**: Workspace navigation, Spaces, and the Attention list for terminals that need a response.
 - **Center**: Space tabs and terminal panes. Split a Space horizontally or vertically to work in multiple shells at once.
-- **Right pane**: Switch between Files, Review, and Browser without replacing the active terminal layout.
+- **Right pane**: Switch between Files, Review, Usage, and Browser without replacing the active terminal layout.
 
 ![VINTAGE showing the Attention list, terminal panes, and Files pane](../assets/readme/vintage-background-attention.png)
 
@@ -70,6 +70,18 @@ _Sample repository diff. File names have language-specific icons, and added and 
 
 The built-in Browser uses a session separate from terminal sessions and supports multiple tabs. It allows `http:`, `https:`, and `about:blank` URLs. Downloads, extensions, and saved login credentials are not supported.
 
+### Usage limits (CodexBar)
+
+The **Usage** tab shows each AI provider's quota at a glance: usage windows with a remaining percentage, the reset time in local `YYYY/MM/DD HH:MM` format, plan and account, credits, and recent cost when a provider reports them. Bars stay neutral and only take the warning or danger color once the remaining quota drops to 40% or 10%. Hovering a reset time shows the countdown.
+
+The tab is hidden until it is enabled in **Settings → Usage**. It requires the [CodexBar CLI](https://github.com/steipete/codexbar):
+
+1. Install the CodexBar CLI and complete its provider setup so that the `codexbar` command runs in a terminal.
+2. In **Settings → Usage**, turn the panel on. Leave **codexbar path** empty to auto-detect the binary on `PATH` and in common install locations, or pick it with **Browse…**. The detected binary and version are shown under the field.
+3. Which providers appear follows the enabled flags in `~/.config/codexbar/config.json` — VINTAGE displays whatever `codexbar dashboard` reports. To add Claude Code, run `codexbar config enable --provider claude`.
+
+While the tab is visible, VINTAGE re-runs `codexbar dashboard` at the configured interval (60–600 seconds, adjusted in 10-second steps in Settings). A refresh control is always available. A provider that fails to report shows its error in place of its usage, and windows that CodexBar marks as idle (model families without usage) are hidden. Quota data comes from the local CodexBar installation; VINTAGE does not talk to provider APIs itself.
+
 ## Attention monitoring
 
 Choose a monitoring mode from the menu at the top of each terminal. Attention items appear in the sidebar and history; depending on the mode and notification settings, VINTAGE can also send desktop notifications. Click an item or notification to return to its terminal.
@@ -109,7 +121,7 @@ For classification logs, fully quit VINTAGE and run `VINTAGE_JEV_DEBUG=1 pnpm de
 
 ## Settings and saved data
 
-Settings cover appearance and UI size, terminal font and scrollback, shell, browser, Attention, shortcuts, Jev integration, and updates. Four themes are available: System, Light, Dark, and Graphite.
+Settings cover appearance and UI size, terminal font and scrollback, shell, browser, Attention, shortcuts, Jev integration, the usage panel (CodexBar), and updates. Four themes are available: System, Light, Dark, and Graphite.
 
 On Linux, VINTAGE applies AppImage updates directly. For `.deb` installs, it opens the downloaded package with the system package installer; complete the installation there and restart VINTAGE. If no package installer is available, Settings shows a `sudo apt install` command for the downloaded package.
 

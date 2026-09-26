@@ -15,6 +15,7 @@ VINTAGE keeps projects, Spaces, and terminals together, then brings you back whe
 - **Attention monitoring**: See command completions, errors, and input requests from background terminals in one list.
 - **Agent status at a glance**: Color-coded dots in Space tabs and the sidebar surface agent activity, waits, and failures.
 - **Files and Git Review**: Preview common files and inspect unstaged Git changes, including untracked files.
+- **AI usage limits**: See remaining quota, reset times, and credits for AI CLIs such as Codex and Claude Code in the right pane. Requires the optional [CodexBar CLI](https://github.com/steipete/codexbar).
 - **Flexible shells**: Choose zsh, bash, fish, or the operating system’s default shell.
 - **Automatic text copy**: Select terminal output with the mouse to copy it to the clipboard.
 - **Built-in browser**: Browse in a session separate from your terminals, with support for multiple tabs.
@@ -72,6 +73,12 @@ pnpm start
 ## Optional Jev analysis
 
 VINTAGE can optionally use [Jev](https://docs.typesafe.ai/sdk/javascript) to classify terminal output when local rules are not enough. The integration is configured in **Settings → Integrations**. See the [features and screen guide](docs/FEATURES.md#jev-semantic-analysis) for supported states, privacy details, and API key setup.
+
+## Optional CodexBar usage panel
+
+VINTAGE can show AI provider usage limits — remaining quota per window, reset times, credits, and recent cost — in a right-pane **Usage** tab for CLIs such as Codex, Claude Code, OpenCode Go, and Grok. This optional feature requires the [CodexBar CLI](https://github.com/steipete/codexbar) to be installed and configured so that the `codexbar` command runs in a terminal.
+
+Enable it in **Settings → Usage**: turn the panel on, optionally point VINTAGE at the `codexbar` binary (it is auto-detected on `PATH` and in common install locations when the path is empty), and choose a refresh interval. Which providers appear follows the enabled flags in `~/.config/codexbar/config.json`; to add Claude Code, run `codexbar config enable --provider claude`. See the [features and screen guide](docs/FEATURES.md#usage-limits-codexbar) for details.
 
 ## Documentation
 

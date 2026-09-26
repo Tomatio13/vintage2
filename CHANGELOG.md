@@ -1,5 +1,11 @@
 # VINTAGE Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Usage panel (CodexBar):** New right-pane **Usage** tab shows AI provider usage limits — remaining quota per window, reset times, credits, and recent cost — via the external [CodexBar CLI](https://github.com/steipete/codexbar) (optional; must be installed and configured separately). Which providers appear follows the enabled flags in `~/.config/codexbar/config.json`. The panel is toggled in **Settings → Usage** with a `codexbar` path setting and a configurable refresh interval, and a **Toggle usage panel** action is available in the command palette.
+
 ## [0.2.5] - 2026-09-25
 
 ### Added
