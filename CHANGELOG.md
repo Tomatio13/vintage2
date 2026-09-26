@@ -1,5 +1,11 @@
 # VINTAGE Changelog
 
+## [Unreleased]
+
+### Improved
+
+- **Automatic `.deb` updates:** Installing a downloaded update on Linux now asks for system authorization once (`pkexec`), applies the package directly, and offers a **Restart now** button. If system authorization is unavailable or fails, VINTAGE falls back to opening the `.deb` with the system package installer as before.
+
 ## [0.2.6] - 2026-09-26
 
 ### Added
