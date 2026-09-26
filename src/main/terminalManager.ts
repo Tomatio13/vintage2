@@ -7,6 +7,7 @@ import { spawn, type IPty } from "node-pty";
 
 import {
   DesktopChannels,
+  TERMINAL_SHELLS,
   type TerminalCreateOptions,
   type TerminalClipboardPasteResult,
   type TerminalExitEvent,
@@ -16,6 +17,7 @@ import {
 import { AttentionRouter } from "./attentionRouter.js";
 import { AttentionSettingsManager, isTerminalMonitorMode } from "./attentionSettings.js";
 import { createSharedProcessMonitor, type ForegroundProcessSnapshot } from "./processMonitor.js";
+import { resolveShell } from "./shellResolver.js";
 import type { JevEvaluationQueue } from "./jevEvaluationQueue.js";
 import { prepareShellIntegration } from "./shellIntegration.js";
 
@@ -332,7 +334,7 @@ function parseCreateOptions(raw: unknown): TerminalCreateOptions {
   if (typeof workspaceId !== "string" || !workspaceId) {
     throw new TypeError("A registered workspace is required");
   }
-  if (shell !== undefined && !["system", "zsh", "bash", "fish"].includes(shell)) {
+  if (shell !== undefined && !TERMINAL_SHELLS.includes(shell)) {
     throw new TypeError("Unsupported terminal shell");
   }
   for (const title of [tabTitle, paneTitle]) {
@@ -363,16 +365,6 @@ function parseSize(raw: unknown): TerminalResize {
     throw new RangeError("Terminal size is outside the supported range");
   }
   return { cols: cols!, rows: rows! };
-}
-
-function resolveShell(preferred: TerminalCreateOptions["shell"]): { file: string; args: string[] } {
-  if (preferred === "zsh") return { file: "/usr/bin/zsh", args: ["-l"] };
-  if (preferred === "bash") return { file: "/bin/bash", args: ["-l"] };
-  if (preferred === "fish") return { file: "/usr/bin/fish", args: ["-l"] };
-  if (process.platform === "win32") {
-    return { file: process.env.COMSPEC || "powershell.exe", args: [] };
-  }
-  return { file: process.env.SHELL || "/bin/bash", args: ["-l"] };
 }
 
 function cleanEnvironment(): Record<string, string> {

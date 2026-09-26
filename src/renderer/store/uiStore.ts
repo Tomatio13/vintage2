@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { TerminalShell } from "../../shared/desktop.js";
+import { TERMINAL_SHELLS, type TerminalShell } from "../../shared/desktop.js";
 
 export const DEFAULT_BROWSER_START_URL = "https://example.com/";
 
@@ -170,6 +170,9 @@ export const useUiStore = create<UiState>()(
         return {
           ...currentState,
           ...persisted,
+          shell: TERMINAL_SHELLS.includes(persisted.shell as TerminalShell)
+            ? (persisted.shell as TerminalShell)
+            : currentState.shell,
           shortcuts: mergeShortcutBindings(persisted.shortcuts),
         };
       },

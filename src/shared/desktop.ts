@@ -369,7 +369,26 @@ export interface TerminalResize {
   rows: number;
 }
 
-export type TerminalShell = "system" | "zsh" | "bash" | "fish";
+export type TerminalShell =
+  | "system"
+  | "zsh"
+  | "bash"
+  | "fish"
+  | "cmd"
+  | "powershell"
+  | "pwsh"
+  | "gitbash";
+
+export const TERMINAL_SHELLS: readonly TerminalShell[] = [
+  "system",
+  "zsh",
+  "bash",
+  "fish",
+  "cmd",
+  "powershell",
+  "pwsh",
+  "gitbash",
+];
 
 export interface TerminalCreateOptions extends TerminalResize {
   workspaceId: string;

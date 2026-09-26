@@ -18,6 +18,7 @@ import {
   type CodexbarStatusResult,
   type DesktopUpdateStatus,
   type JevSettingsStatus,
+  type TerminalShell,
 } from "../../shared/desktop.js";
 import { normalizeBrowserUrl } from "../lib/browserUrl.js";
 import { eventKey, shortcutLabel } from "../lib/shortcuts.js";
@@ -46,6 +47,17 @@ const themes: Array<{ id: Theme; label: string; description: string }> = [
   { id: "light", label: "Light", description: "A brighter workspace" },
   { id: "dark", label: "Dark", description: "A warmer workspace" },
   { id: "graphite", label: "Graphite", description: "A neutral charcoal workspace" },
+];
+const posixShellOptions: Array<{ id: TerminalShell; label: string }> = [
+  { id: "zsh", label: "zsh" },
+  { id: "bash", label: "bash" },
+  { id: "fish", label: "fish" },
+];
+const windowsShellOptions: Array<{ id: TerminalShell; label: string }> = [
+  { id: "cmd", label: "Command Prompt" },
+  { id: "powershell", label: "Windows PowerShell" },
+  { id: "pwsh", label: "PowerShell 7" },
+  { id: "gitbash", label: "Git Bash" },
 ];
 const shortcutGroups: Array<[string, ShortcutAction[]]> = [
   ["Spaces", ["previous-tab", "next-tab", "new-terminal"]],
@@ -763,10 +775,19 @@ export function SettingsDialog() {
                     change({ shell: event.target.value as VintageSettings["shell"] })
                   }
                 >
-                  <option>System default</option>
-                  <option>zsh</option>
-                  <option>bash</option>
-                  <option>fish</option>
+                  <option value="system">
+                    {window.desktop?.platform === "win32"
+                      ? "System default (Command Prompt)"
+                      : "System default"}
+                  </option>
+                  {(window.desktop?.platform === "win32"
+                    ? windowsShellOptions
+                    : posixShellOptions
+                  ).map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-2 top-2 size-4 text-foreground-subtle" />
               </div>
