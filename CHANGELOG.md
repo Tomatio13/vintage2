@@ -1,5 +1,14 @@
 # VINTAGE Changelog
 
+## [0.2.11] - 2026-09-27
+
+### Fixed
+
+- **Stable split terminal rendering:** Switching focus between terminal panes now keeps each visible pane's renderer in place, preventing terminal content from shifting horizontally. GPU rendering is limited to eight visible panes, and hidden tabs release their GPU contexts.
+- **Usage refresh recovery:** Allow CodexBar up to 60 seconds to collect dashboard data. Automatic refresh waits for the current request to finish before starting its countdown, so slow requests can complete and recovered provider warnings clear correctly.
+
+**Full Changelog:** [v0.2.10...v0.2.11](https://github.com/Tomatio13/vintage2/compare/v0.2.10...v0.2.11)
+
 ## [0.2.10] - 2026-09-27
 
 ### Added
