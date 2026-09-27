@@ -31,6 +31,7 @@ import { fetchCodexbarUsage, probeCodexbarStatus } from "./codexbarClient.js";
 import { JevCredentialStore, JevSettingsManager } from "./jevSettings.js";
 import { JevEvaluationQueue } from "./jevEvaluationQueue.js";
 import { UpdateManager } from "./updateManager.js";
+import { restartApp } from "./restartApp.js";
 import { registerTerminalIpc } from "./terminalManager.js";
 import { createRendererNavigationGuard } from "./windowNavigation.js";
 import {
@@ -492,8 +493,7 @@ function registerDesktopIpc(
   });
   ipcMain.handle(DesktopChannels.appRestart, (event) => {
     resolveSenderWindow(event);
-    app.relaunch();
-    app.quit();
+    restartApp();
   });
   ipcMain.handle(DesktopChannels.workspaceHome, async (event) => {
     resolveSenderWindow(event);
