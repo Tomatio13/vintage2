@@ -18,6 +18,8 @@ VINTAGE keeps projects, Spaces, and terminals together, then brings you back whe
 - **AI usage limits**: See remaining quota, reset times, and credits for AI CLIs such as Codex and Claude Code in the right pane. Requires the optional [CodexBar CLI](https://github.com/steipete/codexbar).
 - **Flexible shells**: Choose zsh, bash, fish, or the operating system’s default shell. On Windows, Command Prompt, Windows PowerShell, PowerShell 7, and Git Bash are supported.
 - **Automatic text copy**: Select terminal output with the mouse to copy it to the clipboard.
+- **Fast terminal rendering**: Output draws through WebGL with automatic fallback, links in terminal output open in the browser, and Sixel/iTerm2 inline images are supported.
+- **Resilient terminal sessions**: Terminals survive a window reload or renderer crash and reconnect with their recent output restored.
 - **Built-in browser**: Browse in a session separate from your terminals, with support for multiple tabs.
 - **Customization**: Reassign shortcuts, choose from four themes, and adjust the interface, terminal, and shell settings.
 - **Cross-platform desktop app**: Runs on Linux, Windows, and macOS.

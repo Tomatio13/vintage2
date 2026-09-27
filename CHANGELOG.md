@@ -5,6 +5,15 @@
 ### Added
 
 - **Markdown links:** Links in the Markdown preview now work. Relative paths open the target file in the file viewer, `#heading` anchors scroll within the document (headings now carry stable ids), and HTTP(S) links open in the built-in Browser — `Ctrl+Click` / `⌘+Click` opens a new Browser tab. `mailto:` links open the system email app, and unsupported schemes such as `javascript:` are ignored. Clicking a link never navigates the app window: the main window now blocks top-level navigation away from its own origin, and `window.open` popups are handed to the OS only for HTTP(S) and `mailto:` URLs.
+- **Terminal session reconnection:** Terminals now survive a window reload or a renderer crash. The underlying shell keeps running, and the pane reconnects to it with its recent output restored — the terminal header shows `reconnected` when this happens. Panes are matched by their stable id, so renaming a tab or pane does not prevent reconnection. Reloads no longer leave orphaned shell processes running invisibly until the window closes. Sessions are still not restored after the app itself is closed.
+- **Clickable terminal links:** URLs in terminal output are now clickable and open in the system browser. Only `http:`, `https:`, and `mailto:` URLs are followed; other schemes are ignored.
+- **Inline terminal images:** The terminal renders sixel and iTerm2 inline image sequences, so tools that print images directly (such as `imgcat` or `chafa`) show them in place.
+
+### Improved
+
+- **GPU-rendered terminals:** The visible terminal renders through WebGL, which is much faster than the previous DOM renderer for heavy output. Rendering falls back to the DOM automatically when WebGL is unavailable, and background panes never hold a GPU context, so any number of tabs and splits stays within the browser's WebGL context limit.
+- **Smoother output bursts:** Terminal output is coalesced across an ~8 ms window before it crosses the process boundary, cutting the number of messages the UI receives during large bursts such as build logs or package installs.
+- **Correct character widths:** Terminals now apply the Unicode 11 width tables, fixing misaligned columns in TUI programs that use newer emoji and full-width symbols.
 
 ### Fixed
 
