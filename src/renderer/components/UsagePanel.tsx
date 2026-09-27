@@ -232,13 +232,13 @@ export function UsagePanel({ active }: { active: boolean }) {
   }, [active, usagePanelEnabled, codexbarPath, refreshVersion]);
 
   useEffect(() => {
-    if (!active || !usagePanelEnabled || usageRefreshSeconds <= 0) return;
-    const timer = window.setInterval(
+    if (!active || !usagePanelEnabled || loading || usageRefreshSeconds <= 0) return;
+    const timer = window.setTimeout(
       () => setRefreshVersion((version) => version + 1),
       usageRefreshSeconds * 1000,
     );
-    return () => window.clearInterval(timer);
-  }, [active, usagePanelEnabled, usageRefreshSeconds]);
+    return () => window.clearTimeout(timer);
+  }, [active, usagePanelEnabled, usageRefreshSeconds, loading, refreshVersion]);
 
   if (!result) {
     return (

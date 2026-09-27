@@ -10,6 +10,8 @@ import type {
 } from "../shared/desktop.js";
 
 const execFileAsync = promisify(execFile);
+// Allow cost collection to finish after quota fetching, before the process timeout.
+const dashboardTimeoutSeconds = 60;
 const usageTimeoutMs = 90_000;
 const probeTimeoutMs = 5_000;
 const usageMaxBuffer = 8 * 1024 * 1024;
@@ -133,13 +135,17 @@ export async function fetchCodexbarUsage(settingPath: string): Promise<CodexbarU
   }
   let stdout: string;
   try {
-    ({ stdout } = await execFileAsync(resolvedPath, ["dashboard"], {
-      encoding: "utf8",
-      env: { ...process.env, NO_COLOR: "1" },
-      maxBuffer: usageMaxBuffer,
-      timeout: usageTimeoutMs,
-      windowsHide: true,
-    }));
+    ({ stdout } = await execFileAsync(
+      resolvedPath,
+      ["dashboard", "--timeout", String(dashboardTimeoutSeconds)],
+      {
+        encoding: "utf8",
+        env: { ...process.env, NO_COLOR: "1" },
+        maxBuffer: usageMaxBuffer,
+        timeout: usageTimeoutMs,
+        windowsHide: true,
+      },
+    ));
   } catch (rawError) {
     const error = commandError(rawError);
     if (error.code === "ENOENT") {

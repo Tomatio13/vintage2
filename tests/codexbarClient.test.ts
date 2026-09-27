@@ -70,7 +70,7 @@ describe("codexbar client", () => {
     });
     expect(execFileMock.mock.calls[0]?.[0]).toBe("codexbar");
     expect(execFileMock.mock.calls[0]?.[1]).toEqual(["--version"]);
-    expect(execFileMock.mock.calls[1]?.[1]).toEqual(["dashboard"]);
+    expect(execFileMock.mock.calls[1]?.[1]).toEqual(["dashboard", "--timeout", "60"]);
   });
 
   it("uses the configured path directly without probing", async () => {
@@ -79,7 +79,7 @@ describe("codexbar client", () => {
     expect(result).toMatchObject({ ok: true });
     expect(execFileMock).toHaveBeenCalledTimes(1);
     expect(execFileMock.mock.calls[0]?.[0]).toBe("/usr/local/bin/codexbar");
-    expect(execFileMock.mock.calls[0]?.[1]).toEqual(["dashboard"]);
+    expect(execFileMock.mock.calls[0]?.[1]).toEqual(["dashboard", "--timeout", "60"]);
   });
 
   it("expands a home-relative configured path", async () => {

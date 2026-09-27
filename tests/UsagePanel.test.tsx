@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { UsagePanel } from "../src/renderer/components/UsagePanel.js";
@@ -57,6 +57,7 @@ function enableUsagePanel(): void {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   delete window.desktop;
   useUiStore.setState({
@@ -180,6 +181,51 @@ describe("UsagePanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText("Codex")).toBeInTheDocument();
     expect(getCodexbarUsage).toHaveBeenCalledTimes(2);
+  });
+
+  it("waits for an in-flight refresh and clears provider timeouts after recovery", async () => {
+    vi.useFakeTimers();
+    enableUsagePanel();
+    useUiStore.setState({ usageRefreshSeconds: 60 });
+    const warning = "codex cost refresh timed out";
+    const failedSnapshot: CodexbarSnapshot = {
+      ...snapshot,
+      providers: [{ ...snapshot.providers[0]!, error: { message: warning } }],
+    };
+    let finishRefresh!: (value: { ok: true; snapshot: CodexbarSnapshot }) => void;
+    const getCodexbarUsage = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, snapshot: failedSnapshot })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishRefresh = resolve;
+          }),
+      )
+      .mockResolvedValue({ ok: true, snapshot });
+    window.desktop = { getCodexbarUsage } as unknown as DesktopBridge;
+    render(<UsagePanel active />);
+    await act(async () => {});
+    expect(screen.getByText(warning)).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(getCodexbarUsage).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(70_000);
+    });
+    expect(getCodexbarUsage).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      finishRefresh({ ok: true, snapshot });
+    });
+    expect(screen.queryByText(warning)).not.toBeInTheDocument();
+    expect(screen.getByText("72% left")).toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(getCodexbarUsage).toHaveBeenCalledTimes(3);
   });
 
   it("does not fetch when the tab is inactive", () => {
