@@ -388,6 +388,7 @@ export function TerminalPanel({
   tabTitle = title,
   paneId = title,
   active,
+  webglEnabled = true,
   onRename,
   onAttentionChange,
 }: {
@@ -396,6 +397,7 @@ export function TerminalPanel({
   paneId?: string;
   title: string;
   active: boolean;
+  webglEnabled?: boolean;
   onRename?: (title: string) => void;
   onAttentionChange?: (paneId: string, state: TerminalAttentionState | null) => void;
 }) {
@@ -720,11 +722,11 @@ export function TerminalPanel({
     };
   }, [workspaceId, paneId]);
 
-  // Panes stay mounted across tabs and Chromium caps WebGL contexts per page,
-  // so only the active pane may hold the GPU renderer; others fall back to DOM.
+  // Keep the renderer stable while focus moves between visible panes: DOM and
+  // WebGL cell metrics differ. The parent caps GPU use and releases hidden tabs.
   useEffect(() => {
     const terminal = terminalRef.current;
-    if (!active || !terminal || !window.desktop) return;
+    if (!webglEnabled || !terminal || !window.desktop) return;
 
     const webgl = new WebglAddon();
     webglRef.current = webgl;
@@ -743,7 +745,7 @@ export function TerminalPanel({
       if (webglRef.current === webgl) webglRef.current = null;
       webgl.dispose();
     };
-  }, [active, paneId, workspaceId]);
+  }, [webglEnabled, paneId, workspaceId]);
 
   const changeMonitorMode = (mode: TerminalMonitorMode) => {
     const sessionId = sessionIdRef.current;

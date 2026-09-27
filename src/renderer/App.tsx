@@ -41,6 +41,7 @@ type VintageWorkspace = RegisteredWorkspace & {
 type ToastAttentionItem = { id: string; item: SidebarAttentionItem };
 
 const MAX_PANES = 64;
+const MAX_WEBGL_PANES = 8;
 const MAX_LAYOUT_DEPTH = 8;
 const id = () => crypto.randomUUID();
 
@@ -346,6 +347,7 @@ function PaneView({
   tab,
   pane,
   visible,
+  webglEnabled,
   style,
   onClosePane,
   onActivatePane,
@@ -357,6 +359,7 @@ function PaneView({
   tab: Tab;
   pane: Pane;
   visible: boolean;
+  webglEnabled: boolean;
   style?: CSSProperties;
   onClosePane(paneId: string): void;
   onActivatePane(paneId: string): void;
@@ -375,6 +378,7 @@ function PaneView({
       {pane.kind === "terminal" ? (
         <TerminalPanel
           active={visible && active}
+          webglEnabled={webglEnabled}
           paneId={pane.id}
           tabTitle={tab.title}
           workspaceId={workspaceId}
@@ -437,7 +441,7 @@ function TabSurface({
       className={`absolute inset-0 p-1 ${visible ? "" : "invisible pointer-events-none"}`}
     >
       <div className="relative h-full min-h-0 min-w-0 overflow-hidden rounded-xl bg-panel-divider">
-        {tab.panes.map((pane) => {
+        {tab.panes.map((pane, paneIndex) => {
           const bounds = boundsByPane.get(pane.id);
           if (!bounds) return null;
           return (
@@ -447,6 +451,7 @@ function TabSurface({
               tab={tab}
               pane={pane}
               visible={visible}
+              webglEnabled={visible && paneIndex < MAX_WEBGL_PANES}
               style={{
                 position: "absolute",
                 left: cssLength(bounds.leftPercent, bounds.leftPixels),

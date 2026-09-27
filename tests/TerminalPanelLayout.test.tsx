@@ -207,6 +207,53 @@ describe("TerminalPanel", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
+  it("keeps the GPU renderer across focus changes and releases it when hidden", async () => {
+    const bridge = {
+      createTerminal: vi
+        .fn()
+        .mockResolvedValue({ id: "session-1", shell: "zsh", cwd: "/workspace" }),
+      onTerminalData: vi.fn().mockReturnValue(() => {}),
+      onTerminalExit: vi.fn().mockReturnValue(() => {}),
+      onTerminalAttention: vi.fn().mockReturnValue(() => {}),
+      setTerminalActive: vi.fn().mockResolvedValue(undefined),
+      readyTerminal: vi.fn().mockResolvedValue(undefined),
+      closeTerminal: vi.fn().mockResolvedValue(undefined),
+    } as unknown as DesktopBridge;
+    window.desktop = bridge;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+    const panel = (active: boolean, webglEnabled = true) => (
+      <TerminalPanel
+        workspaceId="workspace-1"
+        paneId="pane-1"
+        title="Terminal 1"
+        active={active}
+        webglEnabled={webglEnabled}
+      />
+    );
+    const view = render(panel(true));
+    await waitFor(() => expect(bridge.readyTerminal).toHaveBeenCalled());
+    const renderer = terminalTestState.addons.find(
+      (addon) => addon instanceof WebglAddon,
+    ) as WebglAddon;
+    const dispose = vi.spyOn(renderer, "dispose");
+    view.rerender(panel(false));
+    view.rerender(panel(true));
+    expect(dispose).not.toHaveBeenCalled();
+    expect(terminalTestState.addons.filter((addon) => addon instanceof WebglAddon)).toHaveLength(1);
+    view.rerender(panel(false, false));
+    expect(dispose).toHaveBeenCalledTimes(1);
+    view.rerender(panel(true));
+    expect(terminalTestState.addons.filter((addon) => addon instanceof WebglAddon)).toHaveLength(2);
+    expect(bridge.createTerminal).toHaveBeenCalledTimes(1);
+    expect(bridge.closeTerminal).not.toHaveBeenCalled();
+  });
+
   it("copies selected terminal text to the system clipboard", async () => {
     const bridge = {
       writeClipboardText: vi.fn().mockResolvedValue(undefined),
