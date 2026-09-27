@@ -8,21 +8,26 @@ import { spawn, type IPty } from "node-pty";
 import {
   DesktopChannels,
   TERMINAL_SHELLS,
-  type TerminalCreateOptions,
   type TerminalClipboardPasteResult,
+  type TerminalCreateOptions,
   type TerminalExitEvent,
+  type TerminalMonitorMode,
   type TerminalResize,
   type TerminalSession,
 } from "../shared/desktop.js";
 import { AttentionRouter } from "./attentionRouter.js";
 import { AttentionSettingsManager, isTerminalMonitorMode } from "./attentionSettings.js";
 import { createSharedProcessMonitor, type ForegroundProcessSnapshot } from "./processMonitor.js";
+import { createReplayBuffer, type ReplayBuffer } from "./ptyReplayBuffer.js";
 import { resolveShell } from "./shellResolver.js";
 import type { JevEvaluationQueue } from "./jevEvaluationQueue.js";
 import { prepareShellIntegration } from "./shellIntegration.js";
 
 const MAX_BUFFER_LENGTH = 64 * 1024;
 const MAX_WRITE_LENGTH = 1024 * 1024;
+const PTY_DATA_FLUSH_MS = 8;
+const PTY_DATA_FLUSH_MAX_LENGTH = 512 * 1024;
+const PTY_REPLAY_MAX_LENGTH = 1024 * 1024;
 const MAX_CLIPBOARD_IMAGE_BYTES = 25 * 1024 * 1024;
 const CLIPBOARD_IMAGE_RETENTION_MS = 24 * 60 * 60 * 1000;
 const MAX_CLIPBOARD_IMAGES_PER_WORKSPACE = 100;
@@ -38,8 +43,18 @@ interface OwnedTerminal {
   attention: AttentionRouter;
   profileKey: string;
   cwd: string;
+  shell: string;
+  paneId: string;
+  monitorMode: TerminalMonitorMode;
+  // True while the renderer page that created the session is still using it;
+  // cleared on reload or renderer crash so the session can be reattached.
+  attached: boolean;
+  replay: ReplayBuffer;
+  pendingReplay: string | null;
   cleanup(): void;
   stopProcessMonitor(): void;
+  flushDataBuffer(): void;
+  stopDataBuffering(): void;
 }
 
 const sessions = new Map<string, OwnedTerminal>();
@@ -66,11 +81,22 @@ export function registerTerminalIpc(
     const terminal = requireOwnedSession(event, rawId);
     if (terminal.ready) return;
     terminal.ready = true;
+    const flush = (data: string) => {
+      if (!terminal.owner.isDestroyed()) {
+        terminal.owner.send(DesktopChannels.terminalData, {
+          sessionId: terminal.id,
+          data,
+        });
+      }
+    };
+    // Replayed scrollback must precede output buffered since the reattach so
+    // the renderer parses one continuous stream.
+    if (terminal.pendingReplay) {
+      flush(terminal.pendingReplay);
+      terminal.pendingReplay = null;
+    }
     if (terminal.buffer) {
-      terminal.owner.send(DesktopChannels.terminalData, {
-        sessionId: terminal.id,
-        data: terminal.buffer,
-      });
+      flush(terminal.buffer);
       terminal.buffer = "";
     }
   });
@@ -120,6 +146,7 @@ export function registerTerminalIpc(
       if (!isTerminalMonitorMode(rawMode)) throw new TypeError("Unsupported terminal monitor mode");
       const terminal = requireOwnedSession(event, rawId);
       attentionSettings.setTerminalMode(terminal.profileKey, rawMode);
+      terminal.monitorMode = rawMode;
       terminal.attention.setMonitorMode(rawMode);
     },
   );
@@ -139,9 +166,13 @@ function createTerminal(
   attentionSettings: AttentionSettingsManager,
 ): TerminalSession {
   observeOwner(event.sender);
-  const command = prepareShellIntegration(resolveShell(options.shell), cleanEnvironment());
   const cwd = resolveWorkspace(options.workspaceId);
   void cleanClipboardImages(clipboardImageDirectory(cwd)).catch(() => {});
+  const detached = findDetachedSession(event.sender.id, options.paneId);
+  if (detached) {
+    return reattachSession(detached, event.sender, options);
+  }
+  const command = prepareShellIntegration(resolveShell(options.shell), cleanEnvironment());
   const profileKey = terminalProfileKey(cwd, options.tabTitle, options.paneTitle);
   const monitorMode = attentionSettings.getTerminalMode(profileKey);
   let process: IPty;
@@ -178,8 +209,16 @@ function createTerminal(
     attention,
     profileKey,
     cwd,
+    shell: basename(command.file),
+    paneId: options.paneId,
+    monitorMode,
+    attached: true,
+    replay: createReplayBuffer(PTY_REPLAY_MAX_LENGTH),
+    pendingReplay: null,
     cleanup: command.cleanup,
     stopProcessMonitor: () => {},
+    flushDataBuffer: () => {},
+    stopDataBuffering: () => {},
   };
   sessions.set(terminal.id, terminal);
   sharedProcessMonitor.add(terminal.id, process.pid, (snapshot) =>
@@ -187,18 +226,51 @@ function createTerminal(
   );
   terminal.stopProcessMonitor = () => sharedProcessMonitor.remove(terminal.id);
 
+  // Coalesce PTY chunks into one IPC message per flush window so bursts of
+  // output don't flood the renderer with individual events.
+  let pendingData = "";
+  let pendingDataTimer: ReturnType<typeof setTimeout> | null = null;
+  const flushDataBuffer = () => {
+    if (pendingDataTimer !== null) {
+      clearTimeout(pendingDataTimer);
+      pendingDataTimer = null;
+    }
+    if (!pendingData) return;
+    const data = pendingData;
+    pendingData = "";
+    if (terminal.ready && !terminal.owner.isDestroyed()) {
+      terminal.owner.send(DesktopChannels.terminalData, { sessionId: terminal.id, data });
+    }
+  };
+  const stopDataBuffering = () => {
+    if (pendingDataTimer !== null) {
+      clearTimeout(pendingDataTimer);
+      pendingDataTimer = null;
+    }
+    pendingData = "";
+  };
+  terminal.flushDataBuffer = flushDataBuffer;
+  terminal.stopDataBuffering = stopDataBuffering;
+
   process.onData((data) => {
+    terminal.replay.append(data);
     terminal.attention.observeOutput(data);
     if (!sessions.has(terminal.id)) return;
     if (!terminal.ready) {
       terminal.buffer = `${terminal.buffer}${data}`.slice(-MAX_BUFFER_LENGTH);
       return;
     }
-    if (!terminal.owner.isDestroyed()) {
-      terminal.owner.send(DesktopChannels.terminalData, { sessionId: terminal.id, data });
+    pendingData = `${pendingData}${data}`;
+    if (pendingData.length >= PTY_DATA_FLUSH_MAX_LENGTH) {
+      flushDataBuffer();
+      return;
+    }
+    if (pendingDataTimer === null) {
+      pendingDataTimer = setTimeout(flushDataBuffer, PTY_DATA_FLUSH_MS);
     }
   });
   process.onExit(({ exitCode, signal }) => {
+    terminal.flushDataBuffer();
     if (!sessions.delete(terminal.id)) return;
     terminal.attention.observeSessionExit(exitCode);
     terminal.stopProcessMonitor();
@@ -214,6 +286,37 @@ function createTerminal(
   });
 
   return { id: terminal.id, shell: basename(command.file), cwd, monitorMode };
+}
+
+function findDetachedSession(ownerId: number, paneId: string): OwnedTerminal | undefined {
+  for (const terminal of sessions.values()) {
+    if (terminal.attached || terminal.ownerId !== ownerId) continue;
+    // Panes are matched by their stable id so renames between the session's
+    // creation and a reload cannot break reattachment.
+    if (terminal.paneId === paneId) return terminal;
+  }
+  return undefined;
+}
+
+function reattachSession(
+  terminal: OwnedTerminal,
+  sender: WebContents,
+  options: TerminalCreateOptions,
+): TerminalSession {
+  terminal.ownerId = sender.id;
+  terminal.owner = sender;
+  terminal.attached = true;
+  terminal.ready = false;
+  terminal.buffer = "";
+  terminal.pendingReplay = terminal.replay.snapshot();
+  terminal.process.resize(options.cols, options.rows);
+  return {
+    id: terminal.id,
+    shell: terminal.shell,
+    cwd: terminal.cwd,
+    monitorMode: terminal.monitorMode,
+    reattached: true,
+  };
 }
 
 async function saveClipboardImage(workspaceRoot: string, buffer: Buffer): Promise<string> {
@@ -302,6 +405,18 @@ function terminalProfileKey(
 function observeOwner(owner: WebContents): void {
   if (observedOwners.has(owner.id)) return;
   observedOwners.add(owner.id);
+  const detachSessions = () => {
+    for (const terminal of sessions.values()) {
+      if (terminal.ownerId === owner.id) terminal.attached = false;
+    }
+  };
+  // A main-frame navigation (reload) or renderer crash orphans the page's
+  // terminal bindings; the sessions stay alive until reattached by the next
+  // page or reaped when the window closes.
+  owner.on("did-start-navigation", (_event, _url, _isInPlace, isMainFrame) => {
+    if (isMainFrame) detachSessions();
+  });
+  owner.on("render-process-gone", detachSessions);
   owner.once("destroyed", () => {
     for (const terminal of sessions.values()) {
       if (terminal.ownerId === owner.id) closeSession(terminal);
@@ -321,6 +436,7 @@ function requireOwnedSession(event: IpcMainInvokeEvent, rawId: unknown): OwnedTe
 
 function closeSession(terminal: OwnedTerminal): void {
   if (!sessions.delete(terminal.id)) return;
+  terminal.stopDataBuffering();
   terminal.stopProcessMonitor();
   terminal.attention.dispose();
   terminal.process.kill();
@@ -329,10 +445,13 @@ function closeSession(terminal: OwnedTerminal): void {
 
 function parseCreateOptions(raw: unknown): TerminalCreateOptions {
   if (!raw || typeof raw !== "object") throw new TypeError("Terminal options are required");
-  const { workspaceId, shell, tabTitle, paneTitle, ...size } =
+  const { workspaceId, paneId, shell, tabTitle, paneTitle, ...size } =
     raw as Partial<TerminalCreateOptions>;
   if (typeof workspaceId !== "string" || !workspaceId) {
     throw new TypeError("A registered workspace is required");
+  }
+  if (typeof paneId !== "string" || !paneId || paneId.length > 200) {
+    throw new TypeError("A terminal pane id no longer than 200 characters is required");
   }
   if (shell !== undefined && !TERMINAL_SHELLS.includes(shell)) {
     throw new TypeError("Unsupported terminal shell");
@@ -344,6 +463,7 @@ function parseCreateOptions(raw: unknown): TerminalCreateOptions {
   }
   return {
     workspaceId,
+    paneId,
     ...(shell === undefined ? {} : { shell }),
     ...(tabTitle === undefined ? {} : { tabTitle }),
     ...(paneTitle === undefined ? {} : { paneTitle }),

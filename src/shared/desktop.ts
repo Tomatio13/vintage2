@@ -305,6 +305,8 @@ export interface TerminalSession {
   shell: string;
   cwd: string;
   monitorMode: TerminalMonitorMode;
+  /** True when the session survived a renderer reload and was reattached. */
+  reattached?: boolean;
 }
 
 export interface TerminalDataEvent {
@@ -392,6 +394,8 @@ export const TERMINAL_SHELLS: readonly TerminalShell[] = [
 
 export interface TerminalCreateOptions extends TerminalResize {
   workspaceId: string;
+  /** Stable pane identity; used to reattach sessions after a reload. */
+  paneId: string;
   shell?: TerminalShell;
   tabTitle?: string;
   paneTitle?: string;

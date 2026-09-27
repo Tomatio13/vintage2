@@ -669,6 +669,7 @@ export function TerminalPanel({
     void bridge
       .createTerminal({
         workspaceId,
+        paneId,
         tabTitle: tabTitleRef.current,
         paneTitle: titleRef.current,
         shell,
@@ -682,7 +683,7 @@ export function TerminalPanel({
         }
         sessionIdRef.current = session.id;
         setMonitorMode(session.monitorMode ?? DEFAULT_TERMINAL_MONITOR_MODE);
-        setStatus(`${session.shell} · ${session.cwd}`);
+        setStatus(`${session.shell} · ${session.cwd}${session.reattached ? " · reconnected" : ""}`);
         await bridge.setTerminalActive(session.id, activeRef.current);
         await bridge.readyTerminal(session.id);
         if (activeRef.current) terminal.focus();

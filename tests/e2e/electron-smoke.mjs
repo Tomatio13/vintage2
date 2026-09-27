@@ -58,6 +58,40 @@ try {
     home.path,
   );
   await terminalHeader.waitFor();
+  // Terminal sessions must survive a renderer reload: a marker is typed into
+  // the shell and later looked up through the buffer-wide search (terminal
+  // output lives on the WebGL canvas, so DOM text queries cannot see it).
+  const terminalSurface = window
+    .locator('[data-pane-kind="terminal"] .xterm')
+    .filter({ visible: true });
+  const assertMarkerInBuffer = async () => {
+    await window.getByRole("button", { name: "Find in terminal" }).click();
+    await window.getByPlaceholder("Find in terminal").fill("VINTAGE_REATTACH_MARKER");
+    await window.waitForTimeout(300);
+    if ((await window.getByText("No results").count()) > 0) {
+      throw new Error("terminal buffer did not contain the reattach marker");
+    }
+    await window.getByRole("button", { name: "Close search" }).click();
+  };
+  await terminalSurface.click();
+  await window.keyboard.type("echo VINTAGE_REATTACH_MARKER\r");
+  await assertMarkerInBuffer();
+  // Renaming the pane after its session started must not break reconnection:
+  // sessions match by pane id, not by the (possibly renamed) titles.
+  await window.locator('button[title="Double-click to rename"]').dblclick();
+  const renameInput = window.getByRole("textbox", { name: "Rename Terminal 1" });
+  await renameInput.fill("Renamed Terminal");
+  await renameInput.press("Enter");
+  await window.waitForTimeout(500);
+  await window.reload();
+  await terminalSurface.waitFor();
+  await window.waitForFunction(() => {
+    const header = document.querySelector(
+      '[data-pane-kind="terminal"] button[title="Double-click to rename"]',
+    )?.textContent;
+    return Boolean(header?.includes("reconnected") && header.includes("Renamed Terminal"));
+  });
+  await assertMarkerInBuffer();
   const brandIcon = window.getByRole("button", { name: "Toggle sidebar" }).locator("img");
   await brandIcon.waitFor();
   if ((await brandIcon.evaluate((image) => image.naturalWidth)) === 0) {
