@@ -1,6 +1,6 @@
 # VINTAGE Changelog
 
-## [Unreleased]
+## [0.2.9] - 2026-09-27
 
 ### Added
 
@@ -18,6 +18,8 @@
 ### Fixed
 
 - **Markdown re-render churn:** The Markdown preview rebuilt its entire DOM on every app render because the renderer components passed to react-markdown were recreated each time. This swallowed real mouse clicks on links (the click event was lost when the mousedown target was swapped between mousedown and mouseup) and re-fetched preview images unnecessarily. The renderer components are now stable at module level and the preview is memoized, so the rendered DOM persists across renders.
+
+**Full Changelog:** [v0.2.8...v0.2.9](https://github.com/Tomatio13/vintage2/compare/v0.2.8...v0.2.9)
 
 ## [0.2.8] - 2026-09-26
 
