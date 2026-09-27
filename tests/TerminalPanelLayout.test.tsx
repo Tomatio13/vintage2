@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TerminalPanel } from "../src/renderer/components/TerminalPanel.js";
@@ -9,6 +10,8 @@ const terminalTestState = vi.hoisted(() => ({
   selection: "",
   selectionListener: undefined as (() => void) | undefined,
   keyHandler: undefined as ((event: KeyboardEvent) => boolean) | undefined,
+  addons: [] as unknown[],
+  terminals: [] as { unicode: { activeVersion: string } }[],
 }));
 
 vi.mock("@xterm/xterm", () => ({
@@ -16,8 +19,15 @@ vi.mock("@xterm/xterm", () => ({
     cols = 80;
     rows = 24;
     options = {};
+    unicode = { activeVersion: "unicode6" };
 
-    loadAddon() {}
+    constructor() {
+      terminalTestState.terminals.push(this);
+    }
+
+    loadAddon(addon: unknown) {
+      terminalTestState.addons.push(addon);
+    }
     open() {}
     focus() {}
     write() {}
@@ -54,6 +64,8 @@ describe("TerminalPanel", () => {
     terminalTestState.selection = "";
     terminalTestState.selectionListener = undefined;
     terminalTestState.keyHandler = undefined;
+    terminalTestState.addons = [];
+    terminalTestState.terminals = [];
   });
 
   afterEach(() => {
@@ -101,6 +113,8 @@ describe("TerminalPanel", () => {
       />,
     );
 
+    expect(terminalTestState.terminals[0]?.unicode.activeVersion).toBe("11");
+    expect(terminalTestState.addons.some((addon) => addon instanceof WebglAddon)).toBe(true);
     await waitFor(() => expect(attentionListener).toBeDefined());
     act(() =>
       attentionListener?.({

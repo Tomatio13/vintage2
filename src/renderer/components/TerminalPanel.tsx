@@ -1,5 +1,9 @@
 import { FitAddon } from "@xterm/addon-fit";
+import { ImageAddon } from "@xterm/addon-image";
 import { SearchAddon } from "@xterm/addon-search";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { WebglAddon } from "@xterm/addon-webgl";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 import {
   Bell,
@@ -401,6 +405,7 @@ export function TerminalPanel({
   } = useUiStore();
   const hostRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
+  const webglRef = useRef<WebglAddon | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -503,6 +508,9 @@ export function TerminalPanel({
     }
     let disposed = false;
     const terminal = new Terminal({
+      // Required by the Unicode11Addon, which reads the proposed
+      // terminal.unicode API to register the "11" width tables.
+      allowProposedApi: true,
       cursorBlink: true,
       fontFamily: terminalFontFamily,
       fontSize: terminalFontSize,
@@ -515,6 +523,14 @@ export function TerminalPanel({
     terminal.loadAddon(fit);
     terminal.loadAddon(searchAddon);
     searchAddonRef.current = searchAddon;
+    terminal.loadAddon(
+      new WebLinksAddon((_event, uri) => {
+        void bridge.openExternal(uri).catch(() => {});
+      }),
+    );
+    terminal.loadAddon(new Unicode11Addon());
+    terminal.unicode.activeVersion = "11";
+    terminal.loadAddon(new ImageAddon());
     terminal.open(host);
     fit.fit();
     terminal.attachCustomKeyEventHandler((event) => {
@@ -697,6 +713,31 @@ export function TerminalPanel({
       if (sessionId) void bridge.closeTerminal(sessionId).catch(() => {});
     };
   }, [workspaceId, paneId]);
+
+  // Panes stay mounted across tabs and Chromium caps WebGL contexts per page,
+  // so only the active pane may hold the GPU renderer; others fall back to DOM.
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!active || !terminal || !window.desktop) return;
+
+    const webgl = new WebglAddon();
+    webglRef.current = webgl;
+    webgl.onContextLoss(() => {
+      if (webglRef.current !== webgl) return;
+      webglRef.current = null;
+      webgl.dispose();
+    });
+    try {
+      terminal.loadAddon(webgl);
+    } catch {
+      webglRef.current = null;
+      webgl.dispose();
+    }
+    return () => {
+      if (webglRef.current === webgl) webglRef.current = null;
+      webgl.dispose();
+    };
+  }, [active, paneId, workspaceId]);
 
   const changeMonitorMode = (mode: TerminalMonitorMode) => {
     const sessionId = sessionIdRef.current;
