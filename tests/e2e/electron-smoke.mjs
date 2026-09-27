@@ -1,8 +1,17 @@
 import { _electron as electron } from "playwright-core";
-import { resolve } from "node:path";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const mainEntry = resolve("dist/main/index.js");
-const args = process.platform === "linux" ? ["--no-sandbox", mainEntry] : [mainEntry];
+// Isolate the profile so the smoke always sees a first-run state; the real
+// profile's workspace-state.json would restore other workspaces and break
+// the Home-first assumptions below.
+const userDataDir = mkdtempSync(join(tmpdir(), "vintage-smoke-"));
+const args =
+  process.platform === "linux"
+    ? ["--no-sandbox", `--user-data-dir=${userDataDir}`, mainEntry]
+    : [`--user-data-dir=${userDataDir}`, mainEntry];
 const app = await electron.launch({ args });
 try {
   const window = await app.firstWindow();
@@ -10,7 +19,7 @@ try {
   await window.reload();
   await window.getByText("Home", { exact: true }).waitFor();
   await window.locator('.workspace-tab[data-active="true"]').waitFor();
-  await window.locator('[data-pane-kind="terminal"] .xterm').waitFor();
+  await window.locator('[data-pane-kind="terminal"] .xterm').filter({ visible: true }).waitFor();
   await window.getByText("Home directory", { exact: true }).waitFor();
   const home = await window.evaluate(async () => {
     const workspace = await window.desktop.getHomeWorkspace();
