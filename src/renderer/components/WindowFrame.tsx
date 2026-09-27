@@ -117,7 +117,7 @@ export function WindowFrame({
               </Button>
             )}
             <Button
-              aria-label="Toggle browser pane"
+              aria-label="Toggle side pane"
               className={windowChromeButtonClass}
               size="icon"
               variant="ghost"

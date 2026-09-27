@@ -1,5 +1,11 @@
 # VINTAGE Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Side pane keyboard shortcuts:** The right pane is now fully keyboard-operable. New reassignable shortcuts open Files (`Ctrl+Shift+E`), Review (`Ctrl+Shift+G`), Usage (`Ctrl+Shift+U`), and the Browser (`Ctrl+Shift+B`), and `Ctrl+Shift+S` toggles the side pane — they are listed in **Settings → Shortcuts** under **Side pane** and in the README shortcut table. The command palette gains matching actions (Open Files / Review / Usage / Browser pane, Toggle side pane) plus **Find in terminal**, which opens the search of the active terminal; the former "Toggle browser pane" action is now the broader "Toggle side pane".
+
 ## [0.2.9] - 2026-09-27
 
 ### Added

@@ -50,6 +50,12 @@ Shortcuts can be reassigned in **Settings → Shortcuts**. Press `Ctrl+S` to sav
 | Split right          | `Ctrl+Shift+D` |
 | Split below          | `Ctrl+Shift+T` |
 | Toggle sidebar       | `Ctrl+B`       |
+| Toggle side pane     | `Ctrl+Shift+S` |
+| Open Files pane      | `Ctrl+Shift+E` |
+| Open Review pane     | `Ctrl+Shift+G` |
+| Open Usage pane      | `Ctrl+Shift+U` |
+| Open Browser pane    | `Ctrl+Shift+B` |
+| Find in terminal     | `Ctrl+F`       |
 | Close selected pane  | `Ctrl+Shift+W` |
 
 ## Requirements

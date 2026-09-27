@@ -47,6 +47,8 @@ SpaceタブとサイドバーのWorkspace/Tab行には、配下ペインの認�
 
 ## 右ペイン
 
+右ペインの Files・Review・Usage・Browser はキーボードからすぐに開けます。`Ctrl+Shift+E`、`Ctrl+Shift+G`、`Ctrl+Shift+U`、`Ctrl+Shift+B` でそれぞれ Files・Review・Usage・Browser を開き、`Ctrl+Shift+S` で右ペインの表示を切り替えます。どの項目もコマンドパレットからも呼び出せ、ショートカットは **Settings → Shortcuts** で変更できます。
+
 ### Filesとファイルプレビュー
 
 **Files** で選択中のワークスペースを閲覧できます。ファイルをダブルクリックすると、ターミナル領域の横にプレビューが開きます。

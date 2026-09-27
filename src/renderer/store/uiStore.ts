@@ -46,6 +46,11 @@ export const shortcutActions = [
   "split-right",
   "split-down",
   "toggle-sidebar",
+  "toggle-side-pane",
+  "open-files",
+  "open-review",
+  "open-usage",
+  "open-browser",
   "close-pane",
 ] as const;
 export type ShortcutAction = (typeof shortcutActions)[number];
@@ -69,6 +74,11 @@ export const defaultShortcuts: ShortcutBinding[] = [
   { action: "split-right", key: "d", ctrl: true, alt: false, shift: true },
   { action: "split-down", key: "t", ctrl: true, alt: false, shift: true },
   { action: "toggle-sidebar", key: "b", ctrl: true, alt: false, shift: false },
+  { action: "toggle-side-pane", key: "s", ctrl: true, alt: false, shift: true },
+  { action: "open-files", key: "e", ctrl: true, alt: false, shift: true },
+  { action: "open-review", key: "g", ctrl: true, alt: false, shift: true },
+  { action: "open-usage", key: "u", ctrl: true, alt: false, shift: true },
+  { action: "open-browser", key: "b", ctrl: true, alt: false, shift: true },
   { action: "close-pane", key: "w", ctrl: true, alt: false, shift: true },
 ];
 
@@ -111,6 +121,10 @@ interface UiState extends VintageSettings {
   setSidePaneWidth(width: number): void;
   setActivityHeight(height: number): void;
   activateSidePaneTab(tabId: string): void;
+  /** Opens the side pane on the given tab; the Usage tab requires the panel to be enabled. */
+  showSidePaneTab(tabId: string): void;
+  /** Focuses the embedded browser (first or active tab) or opens a new tab; never navigates. */
+  openBrowserPane(): void;
   activateBrowserTab(tabId: string): void;
   addBrowserTab(): void;
   closeBrowserTab(tabId: string): void;
@@ -159,6 +173,46 @@ export const useUiStore = create<UiState>()(
       setSidePaneWidth: (sidePaneWidth) => set({ sidePaneWidth }),
       setActivityHeight: (activityHeight) => set({ activityHeight }),
       activateSidePaneTab: (activeSidePaneTabId) => set({ activeSidePaneTabId }),
+      showSidePaneTab: (tabId) =>
+        set((state) => {
+          if (tabId === "usage" && !state.usagePanelEnabled) return state;
+          return { activeSidePaneTabId: tabId, sidePaneOpen: true };
+        }),
+      openBrowserPane: () =>
+        set((state) => {
+          if (state.browserTabs.length === 0) {
+            const number = state.browserTabCounter;
+            const newTab: BrowserTabState = {
+              id: `${BROWSER_TAB_PREFIX}${number}`,
+              title: `Browser ${number}`,
+              initialUrl: state.browserDefaultUrl,
+              mounted: true,
+            };
+            return {
+              browserTabs: [...state.browserTabs, newTab],
+              browserTabCounter: number + 1,
+              activeSidePaneTabId: newTab.id,
+              sidePaneOpen: true,
+            };
+          }
+          const activeTab = state.browserTabs.find(
+            (browserTab) => browserTab.id === state.activeSidePaneTabId,
+          );
+          const targetId = activeTab?.id ?? state.browserTabs[0]!.id;
+          return {
+            sidePaneOpen: true,
+            activeSidePaneTabId: targetId,
+            browserTabs: state.browserTabs.map((browserTab) =>
+              browserTab.id === targetId
+                ? {
+                    ...browserTab,
+                    initialUrl: browserTab.initialUrl ?? state.browserDefaultUrl,
+                    mounted: true,
+                  }
+                : browserTab,
+            ),
+          };
+        }),
       activateBrowserTab: (tabId) =>
         set((state) => ({
           activeSidePaneTabId: tabId,

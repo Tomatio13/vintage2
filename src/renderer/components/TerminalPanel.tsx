@@ -36,7 +36,12 @@ import {
   type TerminalAttentionState,
   type TerminalMonitorMode,
 } from "../../shared/desktop.js";
-import { bindingMatchesEvent, shortcutBinding, shortcutLabel } from "../lib/shortcuts.js";
+import {
+  bindingMatchesEvent,
+  findInTerminalEvent,
+  shortcutBinding,
+  shortcutLabel,
+} from "../lib/shortcuts.js";
 import { useUiStore } from "../store/uiStore.js";
 
 function resolveTerminalTheme() {
@@ -758,6 +763,24 @@ export function TerminalPanel({
       else terminalRef.current?.focus();
     }
   }, [active, windowFocused]);
+
+  useEffect(() => {
+    if (!active) return;
+    const openSearch = () => {
+      if (searchOpenRef.current) {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+      searchOpenRef.current = true;
+      setSearchOpen(true);
+      // The command palette restores the previous focus when it closes;
+      // take the focus back once the search input has mounted.
+      requestAnimationFrame(() => searchInputRef.current?.focus());
+    };
+    window.addEventListener(findInTerminalEvent, openSearch);
+    return () => window.removeEventListener(findInTerminalEvent, openSearch);
+  }, [active]);
 
   useEffect(() => {
     if (!editingTitle) setDraftTitle(title);

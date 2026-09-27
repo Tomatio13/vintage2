@@ -64,6 +64,7 @@ const shortcutGroups: Array<[string, ShortcutAction[]]> = [
   ["Panes", ["previous-pane", "next-pane", "split-right", "split-down", "close-pane"]],
   ["Workspaces", ["previous-workspace", "next-workspace", "toggle-sidebar"]],
   ["Navigation", ["open-command-palette"]],
+  ["Side pane", ["toggle-side-pane", "open-files", "open-review", "open-usage", "open-browser"]],
   ["Terminal", ["find-in-terminal"]],
 ];
 const shortcutLabels: Record<ShortcutAction, string> = {
@@ -79,6 +80,11 @@ const shortcutLabels: Record<ShortcutAction, string> = {
   "split-right": "Split right",
   "split-down": "Split down",
   "toggle-sidebar": "Toggle sidebar",
+  "toggle-side-pane": "Toggle side pane",
+  "open-files": "Open Files pane",
+  "open-review": "Open Review pane",
+  "open-usage": "Open Usage pane",
+  "open-browser": "Open Browser pane",
   "close-pane": "Close pane",
 };
 

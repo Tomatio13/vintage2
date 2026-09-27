@@ -374,7 +374,7 @@ describe("VINTAGE workspace shell", () => {
     expect(newSpaceButton).toBeInTheDocument();
     expect(newSpaceButton).not.toHaveClass("border-border");
     expect(newSpaceButton.querySelector("svg")).toHaveClass("size-4");
-    const browserPaneButton = screen.getByRole("button", { name: "Toggle browser pane" });
+    const browserPaneButton = screen.getByRole("button", { name: "Toggle side pane" });
     expect(browserPaneButton).toHaveClass("size-7");
     expect(browserPaneButton.querySelector("svg")).toHaveClass("size-4");
     const maximizeButton = screen.getByRole("button", { name: "Maximize window" });
@@ -422,7 +422,7 @@ describe("VINTAGE workspace shell", () => {
     const secondAddress = screen.getByRole("textbox", { name: "Browser address" });
     fireEvent.change(secondAddress, { target: { value: "https://second.example/" } });
 
-    const togglePane = screen.getByRole("button", { name: "Toggle browser pane" });
+    const togglePane = screen.getByRole("button", { name: "Toggle side pane" });
     fireEvent.click(togglePane);
     fireEvent.click(togglePane);
 
@@ -620,6 +620,23 @@ describe("VINTAGE workspace shell", () => {
     fireEvent.keyDown(input, { key: "b", ctrlKey: true });
     expect(screen.queryByText("Workspace")).not.toBeInTheDocument();
     terminal.remove();
+  });
+
+  it("switches and toggles the side pane with shortcuts", () => {
+    renderApp();
+
+    fireEvent.keyDown(window, { key: "e", ctrlKey: true, shiftKey: true });
+    expect(screen.getByRole("button", { name: "Files" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.keyDown(window, { key: "b", ctrlKey: true, shiftKey: true });
+    expect(screen.getByRole("button", { name: "Browser" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true, shiftKey: true });
+    expect(document.querySelector(".workspace-side-panel")).toHaveClass("invisible");
+
+    fireEvent.keyDown(window, { key: "g", ctrlKey: true, shiftKey: true });
+    expect(screen.getByRole("button", { name: "Review" })).toHaveAttribute("aria-pressed", "true");
+    expect(document.querySelector(".workspace-side-panel")).not.toHaveClass("invisible");
   });
 
   it("leaves the find-in-terminal shortcut for the terminal to handle", () => {

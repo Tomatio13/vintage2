@@ -47,6 +47,8 @@ The shortcut can be reassigned in **Settings → Shortcuts**. The palette is int
 
 ## Right pane
 
+The right pane keeps Files, Review, Usage, and Browser one keyboard away: `Ctrl+Shift+E`, `Ctrl+Shift+G`, `Ctrl+Shift+U`, and `Ctrl+Shift+B` open Files, Review, Usage, and Browser respectively, and `Ctrl+Shift+S` shows or hides the pane. Each destination is also a command palette action, and the shortcuts can be reassigned in **Settings → Shortcuts**.
+
 ### Files and previews
 
 Open **Files** to browse the selected workspace. Double-click a file to open its preview beside the terminal area.

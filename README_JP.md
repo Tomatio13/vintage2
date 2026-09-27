@@ -50,6 +50,12 @@ VINTAGEは、プロジェクト、Space、ターミナルをまとめて管理�
 | 右へ分割               | `Ctrl+Shift+D` |
 | 下へ分割               | `Ctrl+Shift+T` |
 | サイドバー表示切り替え | `Ctrl+B`       |
+| 右ペイン表示切り替え   | `Ctrl+Shift+S` |
+| Filesペインを開く      | `Ctrl+Shift+E` |
+| Reviewペインを開く     | `Ctrl+Shift+G` |
+| Usageペインを開く      | `Ctrl+Shift+U` |
+| Browserペインを開く    | `Ctrl+Shift+B` |
+| ターミナル内検索       | `Ctrl+F`       |
 | 選択中のペインを閉じる | `Ctrl+Shift+W` |
 
 ## 必要環境

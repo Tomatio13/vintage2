@@ -4,6 +4,7 @@ import {
   Folder,
   FolderOpen,
   Gauge,
+  GitBranch,
   LayoutGrid,
   List,
   MapPin,
@@ -37,6 +38,8 @@ export type CommandPaletteIcon =
   | "split-down"
   | "sidebar"
   | "browser"
+  | "review"
+  | "find"
   | "usage";
 
 export interface CommandPaletteItem {
@@ -93,6 +96,8 @@ const paletteIcons: Record<CommandPaletteIcon, LucideIcon> = {
   "split-down": SplitSquareVertical,
   sidebar: PanelLeft,
   browser: PanelRight,
+  review: GitBranch,
+  find: Search,
   usage: Gauge,
 };
 

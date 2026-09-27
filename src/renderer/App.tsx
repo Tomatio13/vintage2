@@ -18,7 +18,7 @@ import { ResizeHandle } from "./components/ResizeHandle.js";
 import { SettingsDialog } from "./components/SettingsDialog.js";
 import { SidePane } from "./components/SidePane.js";
 import { strongestAgentStatus } from "./lib/agentStatus.js";
-import { eventKey, shortcutBinding, shortcutLabel } from "./lib/shortcuts.js";
+import { eventKey, findInTerminalEvent, shortcutBinding, shortcutLabel } from "./lib/shortcuts.js";
 import {
   Sidebar,
   type SidebarAttentionHistoryItem,
@@ -915,6 +915,16 @@ export function App() {
         return split("down");
       case "toggle-sidebar":
         return ui.toggleSidebar();
+      case "toggle-side-pane":
+        return ui.toggleSidePane();
+      case "open-files":
+        return ui.showSidePaneTab("files");
+      case "open-review":
+        return ui.showSidePaneTab("review");
+      case "open-usage":
+        return ui.showSidePaneTab("usage");
+      case "open-browser":
+        return ui.openBrowserPane();
       case "close-pane": {
         const tab = active?.tabs.find((item) => item.id === active.activeTabId);
         if (active && tab && tab.panes.length) closePane(active.id, tab.id, tab.activePaneId);
@@ -1116,6 +1126,12 @@ export function App() {
   const splitRightShortcut = shortcutText(ui.shortcuts, "split-right");
   const splitDownShortcut = shortcutText(ui.shortcuts, "split-down");
   const toggleSidebarShortcut = shortcutText(ui.shortcuts, "toggle-sidebar");
+  const toggleSidePaneShortcut = shortcutText(ui.shortcuts, "toggle-side-pane");
+  const openFilesShortcut = shortcutText(ui.shortcuts, "open-files");
+  const openReviewShortcut = shortcutText(ui.shortcuts, "open-review");
+  const openUsageShortcut = shortcutText(ui.shortcuts, "open-usage");
+  const openBrowserShortcut = shortcutText(ui.shortcuts, "open-browser");
+  const findTerminalShortcut = shortcutText(ui.shortcuts, "find-in-terminal");
   const closePaneShortcut = shortcutText(ui.shortcuts, "close-pane");
   const paletteItems: CommandPaletteItem[] = commandPaletteOpen
     ? [
@@ -1252,13 +1268,68 @@ export function App() {
           onSelect: () => ui.toggleSidebar(),
         },
         {
-          id: "action:toggle-browser",
+          id: "action:toggle-side-pane",
           kind: "action",
           section: "actions",
-          title: "Toggle browser pane",
-          keywords: ["show", "hide", "preview", "web"],
+          title: "Toggle side pane",
+          keywords: ["show", "hide", "side", "panel", "files", "review", "browser", "usage"],
           icon: "browser",
+          ...(toggleSidePaneShortcut ? { shortcut: toggleSidePaneShortcut } : {}),
           onSelect: () => ui.toggleSidePane(),
+        },
+        {
+          id: "action:open-files",
+          kind: "action",
+          section: "actions",
+          title: "Open Files pane",
+          keywords: ["show", "files", "explorer", "preview", "side", "panel"],
+          icon: "file",
+          ...(openFilesShortcut ? { shortcut: openFilesShortcut } : {}),
+          onSelect: () => ui.showSidePaneTab("files"),
+        },
+        {
+          id: "action:open-review",
+          kind: "action",
+          section: "actions",
+          title: "Open Review pane",
+          keywords: ["show", "git", "diff", "changes", "review", "side", "panel"],
+          icon: "review",
+          ...(openReviewShortcut ? { shortcut: openReviewShortcut } : {}),
+          onSelect: () => ui.showSidePaneTab("review"),
+        },
+        {
+          id: "action:open-usage",
+          kind: "action",
+          section: "actions",
+          title: "Open Usage pane",
+          keywords: ["show", "usage", "quota", "limits", "codexbar", "side", "panel"],
+          icon: "usage",
+          ...(openUsageShortcut ? { shortcut: openUsageShortcut } : {}),
+          disabled: !ui.usagePanelEnabled,
+          onSelect: () => ui.showSidePaneTab("usage"),
+        },
+        {
+          id: "action:open-browser",
+          kind: "action",
+          section: "actions",
+          title: "Open Browser pane",
+          keywords: ["show", "browser", "web", "preview", "side", "panel"],
+          icon: "browser",
+          ...(openBrowserShortcut ? { shortcut: openBrowserShortcut } : {}),
+          onSelect: () => ui.openBrowserPane(),
+        },
+        {
+          id: "action:find-in-terminal",
+          kind: "action",
+          section: "actions",
+          title: "Find in terminal",
+          keywords: ["search", "find", "scrollback", "terminal"],
+          icon: "find",
+          ...(findTerminalShortcut ? { shortcut: findTerminalShortcut } : {}),
+          disabled: !active?.available,
+          onSelect: () => {
+            window.dispatchEvent(new Event(findInTerminalEvent));
+          },
         },
         {
           id: "action:toggle-usage",

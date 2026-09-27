@@ -1,5 +1,11 @@
 import type { ShortcutAction, ShortcutBinding } from "../store/uiStore.js";
 
+/**
+ * Window event the active terminal pane listens for so the command palette can
+ * open the terminal search the same way the in-terminal shortcut does.
+ */
+export const findInTerminalEvent = "vintage:find-in-terminal";
+
 const arrowEventKeys: Record<string, string> = {
   ArrowLeft: "left",
   ArrowRight: "right",

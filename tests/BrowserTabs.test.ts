@@ -123,6 +123,59 @@ describe("uiStore browser tabs", () => {
     });
   });
 
+  it("opens side pane tabs and keeps the Usage tab behind its setting", () => {
+    useUiStore.getState().showSidePaneTab("review");
+    let state = useUiStore.getState();
+    expect(state.sidePaneOpen).toBe(true);
+    expect(state.activeSidePaneTabId).toBe("review");
+
+    useUiStore.setState({
+      usagePanelEnabled: false,
+      activeSidePaneTabId: "files",
+      sidePaneOpen: false,
+    });
+    useUiStore.getState().showSidePaneTab("usage");
+    state = useUiStore.getState();
+    expect(state.activeSidePaneTabId).toBe("files");
+    expect(state.sidePaneOpen).toBe(false);
+
+    useUiStore.setState({ usagePanelEnabled: true });
+    useUiStore.getState().showSidePaneTab("usage");
+    state = useUiStore.getState();
+    expect(state.activeSidePaneTabId).toBe("usage");
+    expect(state.sidePaneOpen).toBe(true);
+  });
+
+  it("focuses the browser without navigating, creating a tab only when none remain", () => {
+    useUiStore.setState({
+      browserTabs: [{ id: "browser-1", title: "Browser", initialUrl: null, mounted: false }],
+      activeSidePaneTabId: "files",
+      sidePaneOpen: false,
+    });
+
+    useUiStore.getState().openBrowserPane();
+    let state = useUiStore.getState();
+    expect(state.sidePaneOpen).toBe(true);
+    expect(state.activeSidePaneTabId).toBe("browser-1");
+    expect(state.browserTabs[0]).toMatchObject({
+      mounted: true,
+      initialUrl: state.browserDefaultUrl,
+    });
+    expect(state.browserNavigateRequest).toBeNull();
+
+    useUiStore.setState({
+      browserTabs: [],
+      browserTabCounter: 2,
+      activeSidePaneTabId: "files",
+      sidePaneOpen: false,
+    });
+    useUiStore.getState().openBrowserPane();
+    state = useUiStore.getState();
+    expect(state.browserTabs[0]).toMatchObject({ id: "browser-2", mounted: true });
+    expect(state.activeSidePaneTabId).toBe("browser-2");
+    expect(state.sidePaneOpen).toBe(true);
+  });
+
   it("adds numbered tabs from the tab strip", () => {
     useUiStore.getState().addBrowserTab();
     let state = useUiStore.getState();
