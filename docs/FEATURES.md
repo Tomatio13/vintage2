@@ -62,9 +62,11 @@ Open **Files** to browse the selected workspace. Double-click a file to open its
 
 Text previews are limited to 1 MB and the first 10,000 lines. Image previews are limited to 10 MB. HTML previews and their CSS resources are limited to 5 MB. Previews are read-only.
 
+Files and Review automatically refresh every three seconds after the previous load finishes while their tab is visible in the side pane. Expanded folders and the selected diff are preserved. Periodic refresh stops when the side pane is closed or another tab is selected. Manual refresh remains available.
+
 ### Git Review
 
-**Review** lists unstaged changes and untracked files in the selected workspace. Select a file to inspect a diff with added and removed lines highlighted. Review is read-only; it does not stage or unstage changes. Use the refresh control to reload Git status.
+**Review** lists unstaged changes and untracked files in the selected workspace. Select a file to inspect a diff with added and removed lines highlighted. Review is read-only; it does not stage or unstage changes. Git status refreshes automatically while visible; the refresh control also reloads it manually.
 
 ![A TypeScript Git diff expanded in VINTAGE’s Review tab](../assets/readme/vintage-git-review.png)
 

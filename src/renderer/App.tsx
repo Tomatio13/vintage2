@@ -1637,6 +1637,7 @@ export function App() {
               style={{ width: ui.sidePaneWidth }}
             >
               <SidePane
+                visible={ui.sidePaneOpen}
                 workspaceId={active?.available ? active.id : null}
                 workspaceName={active?.name ?? null}
                 onOpenFile={openFile}

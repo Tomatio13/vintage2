@@ -24,8 +24,10 @@ import { UsagePanel } from "./UsagePanel.js";
 export function SidePane({
   workspaceId,
   workspaceName,
+  visible = true,
   onOpenFile,
 }: {
+  visible?: boolean;
   workspaceId: string | null;
   workspaceName?: string | null;
   onOpenFile(path: string, line?: number): void;
@@ -60,7 +62,12 @@ export function SidePane({
       setLoading(false);
       return;
     }
+    if (!visible || activeTabId !== "files") {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     setLoading(true);
     void window.desktop
       .listWorkspaceFiles(workspaceId)
@@ -74,12 +81,18 @@ export function SidePane({
         if (!cancelled) setError("Unable to read this location.");
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          if (visible && activeTabId === "files") {
+            timer = setTimeout(() => setRefreshVersion((version) => version + 1), 3000);
+          }
+        }
       });
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, [workspaceId, refreshVersion]);
+  }, [workspaceId, refreshVersion, visible, activeTabId]);
 
   useEffect(() => {
     if (activeTabId === "files") return;
@@ -259,7 +272,7 @@ export function SidePane({
                 ) : visibleFiles.length > 0 ? (
                   visibleFiles.map((entry) => (
                     <FileTree
-                      key={entry.path}
+                      key={`${workspaceId}:${entry.kind}:${entry.path}`}
                       entry={entry}
                       workspaceId={workspaceId}
                       refreshVersion={refreshVersion}
@@ -288,7 +301,7 @@ export function SidePane({
           hidden={activeTabId !== "review"}
         >
           <ReviewPane
-            active={activeTabId === "review"}
+            active={visible && activeTabId === "review"}
             refreshVersion={reviewRefreshVersion}
             workspaceId={workspaceId}
             onOpenFile={onOpenFile}

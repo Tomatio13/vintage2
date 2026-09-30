@@ -1141,13 +1141,20 @@ export function ReviewPane({
   const [expandedFolds, setExpandedFolds] = useState<Set<string>>(() => new Set());
   const diffRequestId = useRef(0);
 
+  const selectionRef = useRef({ expandedPath, diffContextLines, diffLoading });
+  selectionRef.current = { expandedPath, diffContextLines, diffLoading };
+
   useEffect(() => {
     setExpandedPath(null);
     setDiff(null);
+    setSnapshot(null);
     setDiffLoading(false);
     setDiffContextLines(500);
     setExpandedFolds(new Set());
     diffRequestId.current += 1;
+  }, [workspaceId, mode, baseRef]);
+
+  useEffect(() => {
     if (!active) return;
     if (!workspaceId) {
       setSnapshot(null);
@@ -1163,24 +1170,66 @@ export function ReviewPane({
       return;
     }
     let cancelled = false;
-    setSnapshot(null);
-    setError(null);
-    setLoading(true);
-    void getReview(workspaceId, {
-      mode,
-      ...(baseRef ? { baseRef } : {}),
-    })
-      .then((result) => {
-        if (!cancelled) setSnapshot(result);
-      })
-      .catch(() => {
-        if (!cancelled) setError("Unable to load Git changes.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = async () => {
+      setLoading(true);
+      try {
+        const result = await getReview(workspaceId, {
+          mode,
+          ...(baseRef ? { baseRef } : {}),
+        });
+        if (cancelled) return;
+        setError(null);
+        setSnapshot((current) =>
+          JSON.stringify(current) === JSON.stringify(result) ? current : result,
+        );
+        const selected = selectionRef.current;
+        if (!selected.expandedPath || selected.diffLoading) return;
+        const change = result.changes.find(
+          (candidate) =>
+            `${candidate.source ?? "unstaged"}\0${candidate.path}\0${candidate.originalPath ?? ""}` ===
+            selected.expandedPath,
+        );
+        if (!change) {
+          diffRequestId.current += 1;
+          setExpandedPath(null);
+          setDiff(null);
+          setDiffLoading(false);
+          setExpandedFolds(new Set());
+          return;
+        }
+        const getDiff = window.desktop?.getWorkspaceGitReviewDiff;
+        if (!getDiff) return;
+        const requestId = ++diffRequestId.current;
+        const source = change.source ?? "unstaged";
+        const nextDiff = await getDiff(workspaceId, {
+          source,
+          path: change.path,
+          kind: change.kind,
+          contextLines: selected.diffContextLines,
+          ...(change.originalPath ? { originalPath: change.originalPath } : {}),
+          ...(source === "branch" && result.baseRef ? { baseRef: result.baseRef } : {}),
+        });
+        if (!cancelled && requestId === diffRequestId.current) {
+          setDiff((current) =>
+            JSON.stringify(current) === JSON.stringify(nextDiff) ? current : nextDiff,
+          );
+          setDiffLoading(false);
+        }
+      } catch {
+        if (!cancelled) setError("Unable to refresh Git changes.");
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          timer = setTimeout(() => void refresh(), 3000);
+        }
+      }
+    };
+    void refresh();
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+      diffRequestId.current += 1;
     };
   }, [active, baseRef, mode, refreshVersion, workspaceId]);
 
