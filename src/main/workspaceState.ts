@@ -1,6 +1,8 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 
+import { WORKSPACE_LIMITS } from "../shared/desktop.js";
+
 import type {
   PersistedWorkspace,
   WorkspacePaneLayoutSnapshot,
@@ -13,9 +15,9 @@ const STATE_FILE = "workspace-state.json";
 const STATE_VERSION = 1;
 const MAX_STATE_BYTES = 8 * 1024 * 1024;
 const MAX_WORKSPACES = 128;
-const MAX_SPACES_PER_WORKSPACE = 256;
-const MAX_PANES_PER_SPACE = 64;
-const MAX_LAYOUT_DEPTH = 8;
+const MAX_SPACES_PER_WORKSPACE = WORKSPACE_LIMITS.spacesPerWorkspace;
+const MAX_PANES_PER_SPACE = WORKSPACE_LIMITS.panesPerSpace;
+const MAX_LAYOUT_DEPTH = WORKSPACE_LIMITS.layoutDepth;
 const PERSIST_DELAY_MS = 250;
 const MIN_SPLIT_RATIO = 0.15;
 const MAX_SPLIT_RATIO = 0.85;

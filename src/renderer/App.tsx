@@ -1,6 +1,8 @@
 import { Check, CircleAlert, FolderOpen, OctagonAlert, Plus, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
+import { WORKSPACE_LIMITS } from "../shared/desktop.js";
+
 import type {
   RegisteredWorkspace,
   RestoredWorkspaceState,
@@ -40,9 +42,9 @@ type VintageWorkspace = RegisteredWorkspace & {
 };
 type ToastAttentionItem = { id: string; item: SidebarAttentionItem };
 
-const MAX_PANES = 64;
+const MAX_PANES = WORKSPACE_LIMITS.panesPerSpace;
 const MAX_WEBGL_PANES = 8;
-const MAX_LAYOUT_DEPTH = 8;
+const MAX_LAYOUT_DEPTH = WORKSPACE_LIMITS.layoutDepth;
 const id = () => crypto.randomUUID();
 
 function updateFilePaneTargetLine(pane: FilePane, targetLine: number | undefined): FilePane {
@@ -201,6 +203,12 @@ function TabAttentionBadge({ state }: { state: TerminalAttentionState | null }) 
 function paneIds(layout: PaneLayout): string[] {
   if (layout.type === "pane") return [layout.paneId];
   return [...paneIds(layout.first), ...paneIds(layout.second)];
+}
+
+function layoutDepth(layout: PaneLayout): number {
+  return layout.type === "pane"
+    ? 0
+    : 1 + Math.max(layoutDepth(layout.first), layoutDepth(layout.second));
 }
 
 function splitPaneLayout(
@@ -639,6 +647,9 @@ export function App() {
     };
     void saveWorkspaceState(state).catch((error: unknown) => {
       console.error("Unable to save workspace state.", error);
+      setWorkspaceActionError(
+        "Unable to save workspace changes. Your latest layout may not be restored after restarting.",
+      );
     });
   }, [workspaceStateReady, workspaces, activeId]);
 
@@ -682,6 +693,12 @@ export function App() {
   const addSpace = () =>
     update((workspace) => {
       if (!workspace.available) return workspace;
+      if (workspace.tabs.length >= WORKSPACE_LIMITS.spacesPerWorkspace) {
+        setWorkspaceActionError(
+          `A workspace can contain up to ${WORKSPACE_LIMITS.spacesPerWorkspace} Spaces. Close a Space before adding another.`,
+        );
+        return workspace;
+      }
       const title = nextNumberedTitle(
         "Space",
         workspace.tabs.map((tab) => tab.title),
@@ -829,7 +846,7 @@ export function App() {
   const openFile = (path: string, targetLine?: number) =>
     update((workspace) => {
       const tab = workspace.tabs.find((item) => item.id === workspace.activeTabId);
-      if (!tab || tab.panes.length >= MAX_PANES) return workspace;
+      if (!tab) return workspace;
       const existing = tab.panes.find((pane) => pane.kind === "file" && pane.path === path);
       if (existing) {
         return {
@@ -848,6 +865,12 @@ export function App() {
               : item,
           ),
         };
+      }
+      if (tab.panes.length >= MAX_PANES || layoutDepth(tab.layout) >= MAX_LAYOUT_DEPTH) {
+        setWorkspaceActionError(
+          "This Space has reached its pane or layout depth limit. Close a pane or open the file in another Space.",
+        );
+        return workspace;
       }
       const pane: FilePane = {
         id: id(),
@@ -1492,6 +1515,22 @@ export function App() {
       >
         <div className="relative flex h-full min-h-0 bg-background">
           <main className="relative min-w-0 flex-1 overflow-hidden bg-background">
+            {workspaceActionError && active?.available && (
+              <div
+                role="alert"
+                className="absolute inset-x-3 top-3 z-40 flex items-center gap-3 rounded-lg border border-destructive bg-panel px-3 py-2 text-ui-sm text-destructive"
+              >
+                <span className="flex-1">{workspaceActionError}</span>
+                <Button
+                  aria-label="Dismiss workspace error"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setWorkspaceActionError(null)}
+                >
+                  <X aria-hidden="true" className="size-4" />
+                </Button>
+              </div>
+            )}
             {!active ? (
               <div className="grid h-full place-items-center p-8 text-center">
                 <div>

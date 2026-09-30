@@ -1,3 +1,9 @@
+export const WORKSPACE_LIMITS = {
+  spacesPerWorkspace: 256,
+  panesPerSpace: 64,
+  layoutDepth: 8,
+} as const;
+
 export const DesktopChannels = {
   minimize: "desktop:minimize",
   toggleMaximize: "desktop:toggle-maximize",
