@@ -1,5 +1,19 @@
 # VINTAGE Changelog
 
+## [0.2.12] - 2026-09-30
+
+### Added
+
+- **Automatic Files and Review refresh:** Visible Files and Git Review tabs refresh three seconds after the previous load completes. Expanded folders and the selected diff remain open, and periodic refresh stops when the side pane is hidden or another tab is selected.
+- **Live document previews:** Visible document panes check file metadata every three seconds and reload changed files. Markdown updates automatically only in Preview mode. Changes made while a pane is hidden are loaded when it becomes visible again, and manual reload remains available.
+
+### Fixed
+
+- **Linux restart privileges:** Restart VINTAGE through a detached shell instead of Electron's Linux relauncher, preserving sudo support in terminal sessions after restart. An already restricted process reports a message asking the user to reopen VINTAGE from the desktop.
+- **Workspace persistence limits:** File panes can no longer create layouts deeper than the saved workspace format supports, and each workspace is limited to 256 Spaces. The UI and persistence layer share the same limits, with visible messages when a limit is reached or workspace state cannot be saved.
+
+**Full Changelog:** [v0.2.11...v0.2.12](https://github.com/Tomatio13/vintage2/compare/v0.2.11...v0.2.12)
+
 ## [0.2.11] - 2026-09-27
 
 ### Fixed
