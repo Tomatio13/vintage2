@@ -66,6 +66,8 @@ const bridge: DesktopBridge = {
     ipcRenderer.invoke(DesktopChannels.workspaceLocate, workspaceId),
   listWorkspaceFiles: (workspaceId, directoryPath) =>
     ipcRenderer.invoke(DesktopChannels.workspaceListFiles, workspaceId, directoryPath),
+  getWorkspaceFileVersion: (workspaceId, path) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceFileVersion, workspaceId, path),
   readWorkspaceFile: (workspaceId, path) =>
     ipcRenderer.invoke(DesktopChannels.workspaceReadFile, workspaceId, path),
   readWorkspaceImage: (workspaceId, path) =>

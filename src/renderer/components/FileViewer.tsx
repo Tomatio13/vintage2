@@ -304,11 +304,13 @@ const MarkdownPreview = memo(function MarkdownPreview({
 });
 
 export function FileViewer({
+  visible = true,
   workspaceId,
   path,
   targetLine,
   onOpenFile,
 }: {
+  visible?: boolean;
   workspaceId: string;
   path: string;
   targetLine?: number | undefined;
@@ -337,9 +339,12 @@ export function FileViewer({
     kind === "video";
 
   useEffect(() => {
-    let cancelled = false;
     setFile(null);
     setPreviewUrl(null);
+  }, [workspaceId, path, needsText, needsPreviewUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
     setError(null);
     setActionError(null);
     if (!window.desktop) {
@@ -352,7 +357,13 @@ export function FileViewer({
       void window.desktop
         .readWorkspaceFile(workspaceId, path)
         .then((content) => {
-          if (!cancelled) setFile(content);
+          if (!cancelled) {
+            setFile((current) =>
+              current?.content === content.content && current.truncated === content.truncated
+                ? current
+                : content,
+            );
+          }
         })
         .catch(() => {
           if (!cancelled) setError("This file could not be opened.");
@@ -361,7 +372,7 @@ export function FileViewer({
       void window.desktop
         .getWorkspacePreviewUrl(workspaceId, path)
         .then((url) => {
-          if (!cancelled) setPreviewUrl(url);
+          if (!cancelled) setPreviewUrl(`${url}?v=${reloadVersion}`);
         })
         .catch(() => {
           if (!cancelled) setError("This file could not be previewed.");
@@ -371,6 +382,41 @@ export function FileViewer({
       cancelled = true;
     };
   }, [needsPreviewUrl, needsText, reloadVersion, workspaceId, path]);
+
+  // Check metadata rather than repeatedly reading unchanged documents or media.
+  // A fresh baseline reload also catches edits made while this pane was hidden.
+  useEffect(() => {
+    const getVersion = window.desktop?.getWorkspaceFileVersion;
+    if (
+      !visible ||
+      kind === "unsupported" ||
+      (kind === "markdown" && view !== "preview") ||
+      !getVersion
+    )
+      return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let previousVersion: string | null | undefined;
+    const check = async () => {
+      try {
+        const version = await getVersion(workspaceId, path);
+        if (cancelled) return;
+        if (previousVersion === undefined || version !== previousVersion) {
+          previousVersion = version;
+          setReloadVersion((current) => current + 1);
+        }
+      } catch {
+        // Keep the last readable preview; retry after transient filesystem errors.
+      } finally {
+        if (!cancelled) timer = setTimeout(() => void check(), 3000);
+      }
+    };
+    void check();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [visible, kind, view, workspaceId, path]);
 
   useEffect(() => {
     setView("preview");

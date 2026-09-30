@@ -29,6 +29,7 @@ export const DesktopChannels = {
   workspaceLocate: "workspace:locate",
   workspaceListFiles: "workspace:list-files",
   workspaceReadFile: "workspace:read-file",
+  workspaceFileVersion: "workspace:file-version",
   workspaceReadImage: "workspace:read-image",
   workspacePreviewUrl: "workspace:preview-url",
   workspaceOpenFile: "workspace:open-file",
@@ -438,6 +439,7 @@ export interface DesktopBridge {
   saveWorkspaceState(state: WorkspaceStateSnapshot): Promise<void>;
   locateWorkspace(workspaceId: string): Promise<RegisteredWorkspace | null>;
   listWorkspaceFiles(workspaceId: string, directoryPath?: string): Promise<WorkspaceFileEntry[]>;
+  getWorkspaceFileVersion(workspaceId: string, path: string): Promise<string | null>;
   readWorkspaceFile(workspaceId: string, path: string): Promise<WorkspaceFileContent>;
   readWorkspaceImage(workspaceId: string, path: string): Promise<string>;
   getWorkspacePreviewUrl(workspaceId: string, path: string): Promise<string>;

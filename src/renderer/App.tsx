@@ -396,6 +396,7 @@ function PaneView({
         />
       ) : (
         <FileViewer
+          visible={visible}
           workspaceId={workspaceId}
           path={pane.path}
           targetLine={pane.targetLine}

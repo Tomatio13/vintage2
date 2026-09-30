@@ -601,6 +601,20 @@ function registerDesktopIpc(
     },
   );
   ipcMain.handle(
+    DesktopChannels.workspaceFileVersion,
+    async (event, workspaceId: unknown, rawPath: unknown): Promise<string | null> => {
+      resolveSenderWindow(event);
+      try {
+        const file = await resolveWorkspaceFile(workspaceId, rawPath);
+        const details = await stat(file, { bigint: true });
+        return `${details.ino}:${details.size}:${details.mtimeNs}:${details.ctimeNs}`;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+        throw error;
+      }
+    },
+  );
+  ipcMain.handle(
     DesktopChannels.workspaceReadFile,
     async (_event, workspaceId: unknown, rawPath: unknown) => {
       const file = await resolveWorkspaceFile(workspaceId, rawPath);
