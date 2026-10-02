@@ -31,6 +31,7 @@ export type SettingsSection =
   | "attention"
   | "shortcuts"
   | "integrations"
+  | "notes"
   | "usage"
   | "updates";
 export const shortcutActions = [
@@ -47,6 +48,7 @@ export const shortcutActions = [
   "split-down",
   "toggle-sidebar",
   "toggle-side-pane",
+  "open-notes",
   "open-files",
   "open-review",
   "open-usage",
@@ -75,6 +77,7 @@ export const defaultShortcuts: ShortcutBinding[] = [
   { action: "split-down", key: "t", ctrl: true, alt: false, shift: true },
   { action: "toggle-sidebar", key: "b", ctrl: true, alt: false, shift: false },
   { action: "toggle-side-pane", key: "s", ctrl: true, alt: false, shift: true },
+  { action: "open-notes", key: "m", ctrl: true, alt: false, shift: true },
   { action: "open-files", key: "e", ctrl: true, alt: false, shift: true },
   { action: "open-review", key: "g", ctrl: true, alt: false, shift: true },
   { action: "open-usage", key: "u", ctrl: true, alt: false, shift: true },
@@ -91,6 +94,7 @@ export interface VintageSettings {
   shell: TerminalShell;
   browserDefaultUrl: string;
   desktopNotifications: boolean;
+  notesPanelEnabled: boolean;
   usagePanelEnabled: boolean;
   codexbarPath: string;
   usageRefreshSeconds: number;
@@ -146,6 +150,7 @@ export const useUiStore = create<UiState>()(
       shell: "system",
       browserDefaultUrl: DEFAULT_BROWSER_START_URL,
       desktopNotifications: true,
+      notesPanelEnabled: true,
       usagePanelEnabled: false,
       codexbarPath: "",
       usageRefreshSeconds: 120,
@@ -175,6 +180,7 @@ export const useUiStore = create<UiState>()(
       activateSidePaneTab: (activeSidePaneTabId) => set({ activeSidePaneTabId }),
       showSidePaneTab: (tabId) =>
         set((state) => {
+          if (tabId === "notes" && !state.notesPanelEnabled) return state;
           if (tabId === "usage" && !state.usagePanelEnabled) return state;
           return { activeSidePaneTabId: tabId, sidePaneOpen: true };
         }),
@@ -340,6 +346,7 @@ export const useUiStore = create<UiState>()(
         shell,
         browserDefaultUrl,
         desktopNotifications,
+        notesPanelEnabled,
         usagePanelEnabled,
         codexbarPath,
         usageRefreshSeconds,
@@ -359,6 +366,7 @@ export const useUiStore = create<UiState>()(
         shell,
         browserDefaultUrl,
         desktopNotifications,
+        notesPanelEnabled,
         usagePanelEnabled,
         codexbarPath,
         usageRefreshSeconds,

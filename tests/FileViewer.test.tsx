@@ -33,7 +33,7 @@ describe("FileViewer", () => {
     expect(screen.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
   });
 
-  it("switches Markdown between rendered preview and source", async () => {
+  it("switches Markdown between rendered preview and editing", async () => {
     const content = "# Notes\n\n- First item";
     window.desktop = {
       readWorkspaceFile: vi.fn().mockResolvedValue({
@@ -46,7 +46,7 @@ describe("FileViewer", () => {
     render(<FileViewer workspaceId="workspace" path="docs/notes.md" />);
 
     const previewButton = screen.getByRole("button", { name: "Preview" });
-    const sourceButton = screen.getByRole("button", { name: "Source" });
+    const sourceButton = screen.getByRole("button", { name: "Edit" });
     expect(previewButton).toHaveAttribute("aria-pressed", "true");
     expect(sourceButton).toHaveAttribute("aria-pressed", "false");
     expect(await screen.findByRole("heading", { name: "Notes" })).toBeInTheDocument();
@@ -54,9 +54,9 @@ describe("FileViewer", () => {
     fireEvent.click(sourceButton);
 
     expect(sourceButton).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByTestId("file-viewer-scroll").querySelector("pre")?.textContent).toBe(
-      content,
-    );
+    expect(
+      (screen.getByRole("textbox", { name: "Markdown editor" }) as HTMLTextAreaElement).value,
+    ).toBe(content);
   });
 
   it("renders Markdown headings with slug ids for anchors", async () => {

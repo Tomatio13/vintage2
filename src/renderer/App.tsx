@@ -946,6 +946,8 @@ export function App() {
         return ui.toggleSidebar();
       case "toggle-side-pane":
         return ui.toggleSidePane();
+      case "open-notes":
+        return ui.showSidePaneTab("notes");
       case "open-files":
         return ui.showSidePaneTab("files");
       case "open-review":
@@ -1315,6 +1317,16 @@ export function App() {
           icon: "file",
           ...(openFilesShortcut ? { shortcut: openFilesShortcut } : {}),
           onSelect: () => ui.showSidePaneTab("files"),
+        },
+        {
+          id: "action:open-notes",
+          kind: "action",
+          section: "actions",
+          title: "Open Notes pane",
+          disabled: !ui.notesPanelEnabled,
+          keywords: ["memo", "scratchpad", "markdown", "notes"],
+          icon: "file",
+          onSelect: () => ui.showSidePaneTab("notes"),
         },
         {
           id: "action:open-review",

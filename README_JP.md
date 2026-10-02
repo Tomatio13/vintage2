@@ -123,3 +123,11 @@ RendererからNode.jsを利用できないよう分離し、OS機能へのアク
 ## ライセンス
 
 本プロジェクトは **Apache License 2.0** のもとで公開されています。[LICENSE](LICENSE) と [NOTICE.md](NOTICE.md) をご確認ください。
+
+## Markdown編集とメモ
+
+Filesから開いたMarkdownはPreview／Editを切り替えて編集できます。Saveまたは`Ctrl+S`（macOSは`⌘S`）で保存します。外部で変更されたファイルは上書きせず、Reloadで読み直せます（編集中は破棄の確認があります）。1 MBを超えるファイルは編集できません。Previewの自動更新は未編集の文書のみで、Edit表示中と未保存の変更がある間は停止します。
+
+右ペインのNotes、コマンドパレットのOpen Notes pane、または`Ctrl+Shift+M`（macOSは`⌘Shift+M`）でWorkspaceのScratchpadを開けます。このショートカットはSettingsで変更できます。メモは入力時に自動保存され、Save as .mdでWorkspace内の新しいMarkdownファイルへ書き出せます（既存ファイルの上書きには対応しません）。メモとMarkdownの書きかけはアプリのローカルストレージに平文で保存され、ペインを閉じたりアプリを再起動しても復元されます。
+
+Settings → Notes → Show Notes tabでNotesタブを表示／非表示にできます（既定はOn）。Offの間はショートカットからも開きません。メモは保持され、設定は再起動後も維持されます。

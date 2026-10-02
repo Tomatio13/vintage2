@@ -19,6 +19,7 @@ import { useUiStore } from "../store/uiStore.js";
 import { BrowserPane } from "./BrowserPane.js";
 import { Button } from "./Button.js";
 import { LanguageIcon, ReviewPane } from "./ReviewPane.js";
+import { MarkdownEditor } from "./MarkdownEditor.js";
 import { UsagePanel } from "./UsagePanel.js";
 
 export function SidePane({
@@ -40,6 +41,7 @@ export function SidePane({
   const browserTabs = useUiStore((state) => state.browserTabs);
   const browserNavigateRequest = useUiStore((state) => state.browserNavigateRequest);
   const consumeBrowserNavigateRequest = useUiStore((state) => state.consumeBrowserNavigateRequest);
+  const notesPanelEnabled = useUiStore((state) => state.notesPanelEnabled);
   const usagePanelEnabled = useUiStore((state) => state.usagePanelEnabled);
   const browserTabElements = useRef(new Map<string, HTMLDivElement>());
   const [files, setFiles] = useState<WorkspaceFileEntry[]>([]);
@@ -108,6 +110,10 @@ export function SidePane({
     }
   }, [activeTabId, activateSidePaneTab, usagePanelEnabled]);
 
+  useEffect(() => {
+    if (!notesPanelEnabled && activeTabId === "notes") activateSidePaneTab("files");
+  }, [notesPanelEnabled, activeTabId, activateSidePaneTab]);
+
   const refreshFilesButton = (
     <Button
       aria-label="Refresh"
@@ -139,6 +145,16 @@ export function SidePane({
           <FolderOpen aria-hidden="true" className="size-3.5" />
           <span>Files</span>
         </button>
+        {notesPanelEnabled && (
+          <button
+            type="button"
+            className={`h-7 rounded-lg px-2 text-ui-sm ${activeTabId === "notes" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
+            aria-pressed={activeTabId === "notes"}
+            onClick={() => activateSidePaneTab("notes")}
+          >
+            Notes
+          </button>
+        )}
         <button
           aria-pressed={activeTabId === "review"}
           className={`flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${
@@ -315,6 +331,16 @@ export function SidePane({
             hidden={activeTabId !== "usage"}
           >
             <UsagePanel active={activeTabId === "usage"} />
+          </div>
+        )}
+        {notesPanelEnabled && workspaceId && (
+          <div className="h-full min-h-0" hidden={activeTabId !== "notes"}>
+            <MarkdownEditor
+              key={workspaceId}
+              workspaceId={workspaceId}
+              visible={visible && activeTabId === "notes"}
+              onOpenFile={onOpenFile}
+            />
           </div>
         )}
         {browserTabs.map((browserTab) => {

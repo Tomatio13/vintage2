@@ -123,3 +123,11 @@ For more detail, see [Architecture](docs/ARCHITECTURE.md) and the [features and 
 ## License
 
 This project is available under the **Apache License 2.0**. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md) for details.
+
+## Markdown editing and notes
+
+Markdown files opened from Files support Preview and Edit. Save explicitly with Save or `Ctrl+S` (`⌘S` on macOS). Saving rejects files changed externally; Reload reads the current file and asks before discarding a dirty draft. Files over 1 MB cannot be edited. Automatic preview refresh runs only for clean previews, never while editing or with unsaved changes.
+
+Open the workspace Scratchpad from the Notes tab, Open Notes pane in the command palette, or `Ctrl+Shift+M` (`⌘Shift+M` on macOS), configurable in Settings. Notes autosave as you type. Save as .md exports to a new Markdown file inside the workspace; existing files are not overwritten. Notes and unfinished Markdown drafts are stored as plain text in the app’s local storage and restored after closing panes or restarting the app.
+
+Use Settings → Notes → Show Notes tab to show or hide Notes (On by default). While Off, its shortcut does not open the pane. Saved notes are retained, and the preference persists across restarts.

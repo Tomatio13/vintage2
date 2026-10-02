@@ -39,6 +39,7 @@ const sections: Array<{ id: SettingsSection; label: string }> = [
   { id: "attention", label: "Attention" },
   { id: "shortcuts", label: "Shortcuts" },
   { id: "integrations", label: "Integrations" },
+  { id: "notes", label: "Notes" },
   { id: "usage", label: "Usage" },
   { id: "updates", label: "Updates" },
 ];
@@ -64,7 +65,10 @@ const shortcutGroups: Array<[string, ShortcutAction[]]> = [
   ["Panes", ["previous-pane", "next-pane", "split-right", "split-down", "close-pane"]],
   ["Workspaces", ["previous-workspace", "next-workspace", "toggle-sidebar"]],
   ["Navigation", ["open-command-palette"]],
-  ["Side pane", ["toggle-side-pane", "open-files", "open-review", "open-usage", "open-browser"]],
+  [
+    "Side pane",
+    ["toggle-side-pane", "open-notes", "open-files", "open-review", "open-usage", "open-browser"],
+  ],
   ["Terminal", ["find-in-terminal"]],
 ];
 const shortcutLabels: Record<ShortcutAction, string> = {
@@ -81,6 +85,7 @@ const shortcutLabels: Record<ShortcutAction, string> = {
   "split-down": "Split down",
   "toggle-sidebar": "Toggle sidebar",
   "toggle-side-pane": "Toggle side pane",
+  "open-notes": "Open Notes pane",
   "open-files": "Open Files pane",
   "open-review": "Open Review pane",
   "open-usage": "Open Usage pane",
@@ -237,6 +242,7 @@ export function SettingsDialog() {
       shell: store.shell,
       browserDefaultUrl: store.browserDefaultUrl,
       desktopNotifications: store.desktopNotifications,
+      notesPanelEnabled: store.notesPanelEnabled,
       usagePanelEnabled: store.usagePanelEnabled,
       codexbarPath: store.codexbarPath,
       usageRefreshSeconds: store.usageRefreshSeconds,
@@ -251,6 +257,7 @@ export function SettingsDialog() {
       store.shell,
       store.browserDefaultUrl,
       store.desktopNotifications,
+      store.notesPanelEnabled,
       store.usagePanelEnabled,
       store.codexbarPath,
       store.usageRefreshSeconds,
@@ -1136,6 +1143,38 @@ export function SettingsDialog() {
             Sidebar and pane badges remain available regardless of this setting. Agent-specific
             hooks are not used.
           </p>
+        </>
+      );
+    if (section === "notes")
+      return (
+        <>
+          <div>
+            <h2 className="text-2xl font-semibold">Notes</h2>
+            <p className="mt-1 text-ui-base text-foreground-subtle">
+              Keep a scratchpad for each workspace.
+            </p>
+          </div>
+          <Card>
+            <Field
+              label="Show Notes tab"
+              description="Show Notes in the side pane. Turning it off keeps your saved notes."
+            >
+              <div className="flex gap-2">
+                <Choice
+                  active={draft.notesPanelEnabled}
+                  onClick={() => change({ notesPanelEnabled: true })}
+                >
+                  On
+                </Choice>
+                <Choice
+                  active={!draft.notesPanelEnabled}
+                  onClick={() => change({ notesPanelEnabled: false })}
+                >
+                  Off
+                </Choice>
+              </div>
+            </Field>
+          </Card>
         </>
       );
     if (section === "usage")

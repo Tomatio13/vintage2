@@ -10,7 +10,7 @@ import {
 } from "electron";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { lstat, open, readdir, readFile, realpath, stat } from "node:fs/promises";
+import { lstat, open, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { release as readPlatformRelease } from "node:os";
 import { Readable } from "node:stream";
 import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
@@ -26,6 +26,7 @@ import {
   type WorkspaceFileEntry,
   type WorkspaceStateSnapshot,
 } from "../shared/desktop.js";
+import { saveMarkdown } from "./markdownSave.js";
 import { AttentionSettingsManager } from "./attentionSettings.js";
 import { fetchCodexbarUsage, probeCodexbarStatus } from "./codexbarClient.js";
 import { JevCredentialStore, JevSettingsManager } from "./jevSettings.js";
@@ -612,6 +613,35 @@ function registerDesktopIpc(
         if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
         throw error;
       }
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceWriteMarkdown,
+    async (event, workspaceId: unknown, rawPath: unknown, content: unknown, expected: unknown) => {
+      resolveSenderWindow(event);
+      const file = await resolveWorkspaceFile(workspaceId, rawPath);
+      await saveMarkdown(file, content, expected);
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceExportNote,
+    async (event, workspaceId: unknown, content: unknown) => {
+      const owner = resolveSenderWindow(event);
+      if (typeof content !== "string" || Buffer.byteLength(content) > maxFileBytes)
+        throw new Error("Note must be at most 1 MB.");
+      const root = registeredWorkspace(workspaceId).path;
+      const result = await dialog.showSaveDialog(owner, {
+        defaultPath: resolve(root, "notes.md"),
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+      });
+      if (result.canceled || !result.filePath) return null;
+      const parent = await realpath(dirname(result.filePath));
+      const relativeParent = relative(await realpath(root), parent);
+      if (isAbsolute(relativeParent) || /^\.\.(?:[\\/]|$)/u.test(relativeParent))
+        throw new Error("Choose a location inside this workspace.");
+      if (extname(result.filePath).toLowerCase() !== ".md") throw new Error("Choose a .md file.");
+      await writeFile(resolve(parent, basename(result.filePath)), content, { flag: "wx" });
+      return relative(root, result.filePath);
     },
   );
   ipcMain.handle(

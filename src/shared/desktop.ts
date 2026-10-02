@@ -28,6 +28,8 @@ export const DesktopChannels = {
   workspaceStateSave: "workspace:state-save",
   workspaceLocate: "workspace:locate",
   workspaceListFiles: "workspace:list-files",
+  workspaceWriteMarkdown: "workspace:write-markdown",
+  workspaceExportNote: "workspace:export-note",
   workspaceReadFile: "workspace:read-file",
   workspaceFileVersion: "workspace:file-version",
   workspaceReadImage: "workspace:read-image",
@@ -441,6 +443,13 @@ export interface DesktopBridge {
   listWorkspaceFiles(workspaceId: string, directoryPath?: string): Promise<WorkspaceFileEntry[]>;
   getWorkspaceFileVersion(workspaceId: string, path: string): Promise<string | null>;
   readWorkspaceFile(workspaceId: string, path: string): Promise<WorkspaceFileContent>;
+  writeWorkspaceMarkdown(
+    workspaceId: string,
+    path: string,
+    content: string,
+    expectedContent: string,
+  ): Promise<void>;
+  exportWorkspaceNote(workspaceId: string, content: string): Promise<string | null>;
   readWorkspaceImage(workspaceId: string, path: string): Promise<string>;
   getWorkspacePreviewUrl(workspaceId: string, path: string): Promise<string>;
   openWorkspaceFile(workspaceId: string, path: string): Promise<void>;

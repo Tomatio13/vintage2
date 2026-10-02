@@ -1,5 +1,14 @@
 # VINTAGE Changelog
 
+## [Unreleased]
+
+### Added
+
+- Optional Notes tab visibility in Settings, retained across restarts without deleting notes.
+
+- Markdown editing with explicit save, recoverable local drafts, and conflict detection for external file changes.
+- Workspace Scratchpad with autosave, Markdown preview, export to a new workspace `.md` file, and a configurable Notes shortcut (`Ctrl+Shift+M`).
+
 ## [0.2.12] - 2026-09-30
 
 ### Added
