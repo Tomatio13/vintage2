@@ -1,5 +1,24 @@
 # VINTAGE Changelog
 
+## [0.2.15] - 2026-10-04
+
+### Added
+
+- **Browser restoration and project scopes:** Save the latest page URLs, titles, tab order, selected view, and per-tab zoom across restarts. Restored background tabs load when selected. Common tabs appear in every workspace, while project tabs and selections are restored per workspace. Change tab ownership through the Tab scope dropdown without reloading the page. Existing tabs and bookmarks are retained as Common; cookies and login sessions remain shared.
+- **Bookmarks, search, and zoom:** Save bookmarks to Common or the current project, rename or delete them, and open them in the current or a new tab. Search pages with `Ctrl+F` (`⌘F` on macOS), match counts, and previous/next navigation. Zoom each tab from 50% to 300% in 10% steps, with a one-click reset to 100%.
+- **Local file pages:** Open local `file:///` URLs with CSS, images, scripts, and relative links, including start-page settings, bookmarks, and restart restoration. Remote file hosts and automatic web-to-file navigation are rejected; sandboxing, isolation, and disabled Node.js integration remain in place.
+
+### Changed
+
+- **Browser controls:** Place the bookmark star, Bookmarks, and Open in default browser beside the address bar. Move Responsive preview and Pick element and copy selector into the actions menu above Developer tools. Tab and bookmark scopes use the same dropdown style as Review.
+- **Wider right pane:** Drag the divider beyond the former fixed width limit when the window has room, including when maximized. Preserve the preferred width and running terminal sessions while adapting the displayed width to smaller windows.
+
+### Documentation
+
+- Expand the English and Japanese feature guides with Browser controls, project and Common scopes, restoration behavior, local file support, and limitations. Keep README summaries concise and link to the detailed guides.
+
+**Full Changelog:** [v0.2.14...v0.2.15](https://github.com/Tomatio13/vintage2/compare/v0.2.14...v0.2.15)
+
 ## [0.2.14] - 2026-10-03
 
 ### Added
