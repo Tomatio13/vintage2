@@ -21,7 +21,8 @@ VINTAGE keeps projects, Spaces, and terminals together, then brings you back whe
 - **Automatic text copy**: Select terminal output with the mouse to copy it to the clipboard.
 - **Fast terminal rendering**: Output draws through WebGL with automatic fallback, links in terminal output open in the browser, and Sixel/iTerm2 inline images are supported.
 - **Resilient terminal sessions**: Terminals survive a window reload or renderer crash and reconnect with their recent output restored.
-- **Built-in browser**: Browse in a session separate from your terminals, with support for multiple tabs.
+- **Built-in browser**: Open HTTP/HTTPS and local `file:///` pages with project tabs and Common tabs, restart restoration, scoped bookmarks, page search, and per-tab zoom. Toolbar shortcuts open bookmarks or the default browser; the actions menu includes responsive preview, an element picker, and developer tools. See the [Browser guide](docs/FEATURES.md#browser) for scope behavior, controls, and limits.
+- **Flexible right pane**: Drag the divider to widen the right pane up to the available window width, while keeping room for terminals. The preferred width is saved and adapts when the window shrinks.
 - **Customization**: Reassign shortcuts, choose from four themes, and adjust the interface, terminal, and shell settings.
 - **Cross-platform desktop app**: Runs on Linux, Windows, and macOS.
 

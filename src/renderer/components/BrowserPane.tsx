@@ -1,10 +1,15 @@
 import {
   Bug,
+  Bookmark,
+  Search,
+  Star,
   ChevronLeft,
   ChevronRight,
   Ellipsis,
   ExternalLink,
   MonitorSmartphone,
+  Minus,
+  Plus,
   MousePointerClick,
   RefreshCw,
   X,
@@ -13,12 +18,19 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 import { normalizeBrowserUrl } from "../lib/browserUrl.js";
+import { useUiStore } from "../store/uiStore.js";
+import { BrowserScopePicker } from "./BrowserScopePicker.js";
 import { Button } from "./Button.js";
 
 interface EmbeddedWebviewElement extends HTMLElement {
   src: string;
   loadURL(url: string): Promise<void>;
   getURL(): string;
+  getTitle(): string;
+  setZoomFactor(factor: number): void;
+  getWebContentsId(): number;
+  findInPage(text: string, options?: { forward?: boolean; findNext?: boolean }): number;
+  stopFindInPage(action: "clearSelection"): void;
   canGoBack(): boolean;
   canGoForward(): boolean;
   goBack(): void;
@@ -122,18 +134,59 @@ const ELEMENT_PICKER_SCRIPT = `(() => {
 
 export function BrowserPane({
   initialUrl,
+  tabId,
+  workspaceName,
+  active,
   navigateRequest,
   onNavigateRequestHandled,
 }: {
   initialUrl: string;
+  tabId: string;
+  workspaceName?: string | null | undefined;
+  active: boolean;
   navigateRequest?: { url: string; nonce: number } | undefined;
   onNavigateRequestHandled?: ((nonce: number) => void) | undefined;
 }) {
+  const zoomFactor = useUiStore(
+    (state) => state.browserTabs.find((tab) => tab.id === tabId)?.zoomFactor ?? 1,
+  );
+  const setZoom = useUiStore((state) => state.setBrowserZoom);
+  const zoomRef = useRef(zoomFactor);
+  zoomRef.current = zoomFactor;
+  const allBookmarks = useUiStore((state) => state.browserBookmarks);
+  const workspaceId = useUiStore((state) => state.browserWorkspaceId);
+  const tabWorkspaceId = useUiStore(
+    (state) => state.browserTabs.find((tab) => tab.id === tabId)?.workspaceId,
+  );
+  const moveTab = useUiStore((state) => state.moveBrowserTab);
+  const [bookmarkScope, setBookmarkScope] = useState<string | null>(workspaceId);
+  useEffect(() => setBookmarkScope(workspaceId), [workspaceId]);
+  const bookmarks = allBookmarks.filter(
+    (item) => !item.workspaceId || item.workspaceId === workspaceId,
+  );
+
+  const updatePage = useUiStore((state) => state.updateBrowserPage);
+  const toggleBookmark = useUiStore((state) => state.toggleBrowserBookmark);
+  const renameBookmark = useUiStore((state) => state.renameBrowserBookmark);
+  const openBookmark = useUiStore((state) => state.openInBrowserTab);
+  const [currentUrl, setCurrentUrl] = useState(initialUrl);
+  const isBookmarked = bookmarks.some(
+    (item) => item.url === currentUrl && (item.workspaceId ?? null) === bookmarkScope,
+  );
+  const [pageTitle, setPageTitle] = useState("");
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findText, setFindText] = useState("");
+  const [findResult, setFindResult] = useState({ activeMatchOrdinal: 0, matches: 0 });
+  const findInputRef = useRef<HTMLInputElement>(null);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const hostRef = useRef<HTMLDivElement>(null);
   const guestRef = useRef<EmbeddedWebviewElement | null>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const pickerGenerationRef = useRef(0);
   const initialUrlRef = useRef(initialUrl);
+  const addressDirtyRef = useRef(false);
   const [address, setAddress] = useState(initialUrlRef.current);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("Ready");
@@ -147,7 +200,13 @@ export function BrowserPane({
     const guest = guestRef.current;
     if (!guest) return;
     const current = guest.getURL();
-    if (current) setAddress(current);
+    if (current) {
+      if (!addressDirtyRef.current) setAddress(current);
+      setCurrentUrl(current);
+      const title = guest.getTitle();
+      setPageTitle(title);
+      updatePage(tabId, current, title);
+    }
     setHistoryState({ back: guest.canGoBack(), forward: guest.canGoForward() });
   };
 
@@ -175,7 +234,7 @@ export function BrowserPane({
       syncNavigationState();
     };
     const navigate = (event: Event) => {
-      setAddress((event as WebviewNavigationEvent).url);
+      if (!addressDirtyRef.current) setAddress((event as WebviewNavigationEvent).url);
       syncNavigationState();
     };
     const fail = (event: Event) => {
@@ -185,15 +244,29 @@ export function BrowserPane({
       setStatus(failure.errorDescription || "Navigation failed");
     };
 
+    const found = (event: Event) =>
+      setFindResult(
+        (event as Event & { result: { activeMatchOrdinal: number; matches: number } }).result,
+      );
+    const titleUpdated = () => syncNavigationState();
+    const ready = () => {
+      setBrowserAvailable(true);
+      if (activeRef.current) guest.setZoomFactor(zoomRef.current);
+    };
+    guest.addEventListener("dom-ready", ready);
+    guest.addEventListener("found-in-page", found);
+    guest.addEventListener("page-title-updated", titleUpdated);
     guest.addEventListener("did-start-loading", start);
     guest.addEventListener("did-stop-loading", stop);
     guest.addEventListener("did-navigate", navigate);
     guest.addEventListener("did-navigate-in-page", navigate);
     guest.addEventListener("did-fail-load", fail);
-    setBrowserAvailable(true);
 
     return () => {
       pickerGenerationRef.current += 1;
+      guest.removeEventListener("dom-ready", ready);
+      guest.removeEventListener("found-in-page", found);
+      guest.removeEventListener("page-title-updated", titleUpdated);
       guest.removeEventListener("did-start-loading", start);
       guest.removeEventListener("did-stop-loading", stop);
       guest.removeEventListener("did-navigate", navigate);
@@ -205,12 +278,46 @@ export function BrowserPane({
   }, []);
 
   useEffect(() => {
+    // Chromium shares zoom by origin; reapply the selected tab's saved preference.
+    if (active && browserAvailable) guestRef.current?.setZoomFactor(zoomFactor);
+  }, [active, browserAvailable, zoomFactor]);
+
+  useEffect(() => {
+    return window.desktop?.onBrowserFindRequested?.((guestId) => {
+      if (activeRef.current && guestRef.current?.getWebContentsId() === guestId) {
+        setFindOpen(true);
+        requestAnimationFrame(() => findInputRef.current?.focus());
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!findOpen || !active) return;
+    findInputRef.current?.focus();
+  }, [findOpen, active]);
+
+  useEffect(() => {
+    if (!browserAvailable) return;
+    if (!findOpen || !findText) {
+      guestRef.current?.stopFindInPage("clearSelection");
+      setFindResult({ activeMatchOrdinal: 0, matches: 0 });
+      return;
+    }
+    const timer = setTimeout(() => guestRef.current?.findInPage(findText), 100);
+    return () => clearTimeout(timer);
+  }, [findText, findOpen, browserAvailable, currentUrl]);
+
+  useEffect(() => {
     if (!moreMenuOpen) return;
     const closeOnOutsidePointer = (event: PointerEvent) => {
       if (!moreMenuRef.current?.contains(event.target as Node)) setMoreMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMoreMenuOpen(false);
+      if (
+        event.key === "Escape" &&
+        !moreMenuRef.current?.querySelector('[aria-haspopup="menu"][aria-expanded="true"]')
+      )
+        setMoreMenuOpen(false);
     };
     document.addEventListener("pointerdown", closeOnOutsidePointer);
     document.addEventListener("keydown", closeOnEscape);
@@ -309,6 +416,7 @@ export function BrowserPane({
     if (!guest) return;
     try {
       const url = normalizeBrowserUrl(address);
+      addressDirtyRef.current = false;
       setAddress(url);
       setStatus("Loading…");
       void guest.loadURL(url).catch((error: unknown) => {
@@ -320,7 +428,17 @@ export function BrowserPane({
   };
 
   return (
-    <section className="flex h-full min-h-0 flex-col bg-panel">
+    <section
+      className="flex h-full min-h-0 flex-col bg-panel"
+      onKeyDown={(event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+          event.preventDefault();
+          event.stopPropagation();
+          setFindOpen(true);
+          findInputRef.current?.focus();
+        }
+      }}
+    >
       <form className="flex h-12 shrink-0 items-center gap-2 px-3" onSubmit={navigate}>
         <Button
           aria-label="Browser back"
@@ -364,35 +482,47 @@ export function BrowserPane({
           placeholder="Enter a URL and press Enter"
           spellCheck={false}
           value={address}
-          onChange={(event) => setAddress(event.target.value)}
+          onChange={(event) => {
+            addressDirtyRef.current = true;
+            setAddress(event.target.value);
+          }}
         />
         <Button
-          aria-label="Toggle responsive preview"
-          aria-pressed={responsivePreview}
-          className={`size-7 px-0 ${responsivePreview ? "bg-selected text-foreground" : ""}`}
-          disabled={!browserAvailable}
+          aria-label={isBookmarked ? "Remove bookmark" : "Bookmark page"}
+          className="size-7 px-0"
           size="icon"
-          title={responsivePreview ? "Exit responsive preview" : "Responsive preview"}
           type="button"
           variant="ghost"
-          onClick={() => setResponsivePreview((active) => !active)}
+          onClick={() => toggleBookmark(currentUrl, pageTitle || currentUrl, bookmarkScope)}
         >
-          <MonitorSmartphone aria-hidden="true" className="size-4" />
+          <Star className={`size-4 ${isBookmarked ? "fill-current" : ""}`} />
         </Button>
         <Button
-          aria-label={
-            pickingElement ? "Cancel element selection" : "Pick element and copy selector"
-          }
-          aria-pressed={pickingElement}
-          className={`size-7 px-0 ${pickingElement ? "bg-selected text-foreground" : ""}`}
-          disabled={!browserAvailable || loading}
+          aria-label="Bookmarks"
+          aria-expanded={bookmarksOpen}
+          className="size-7 px-0"
           size="icon"
-          title={pickingElement ? "Cancel element selection" : "Pick element and copy selector"}
+          title="Bookmarks"
           type="button"
           variant="ghost"
-          onClick={toggleElementPicker}
+          onClick={() => {
+            setBookmarksOpen((open) => !open);
+            setMoreMenuOpen(false);
+          }}
         >
-          <MousePointerClick aria-hidden="true" className="size-4" />
+          <Bookmark aria-hidden="true" className="size-4" />
+        </Button>
+        <Button
+          aria-label="Open in default browser"
+          className="size-7 px-0"
+          disabled={!browserAvailable || !/^https?:/u.test(currentUrl)}
+          size="icon"
+          title="Open in default browser"
+          type="button"
+          variant="ghost"
+          onClick={() => void openInDefaultBrowser()}
+        >
+          <ExternalLink aria-hidden="true" className="size-4" />
         </Button>
         <div ref={moreMenuRef} className="relative">
           <Button
@@ -414,14 +544,106 @@ export function BrowserPane({
               className="absolute right-0 top-full z-30 mt-1 w-52 rounded-lg border border-border bg-popover p-1 shadow-lg"
               role="dialog"
             >
+              <div className="flex items-center justify-between gap-1 border-b border-border px-2 py-1.5">
+                <span className="text-ui-sm">Zoom</span>
+                <Button
+                  aria-label="Zoom out"
+                  disabled={!browserAvailable || zoomFactor <= 0.5}
+                  size="icon"
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setZoom(tabId, zoomFactor - 0.1)}
+                >
+                  <Minus aria-hidden="true" className="size-4" />
+                </Button>
+                <Button
+                  aria-label="Reset zoom to 100%"
+                  title="Reset zoom to 100%"
+                  disabled={!browserAvailable}
+                  size="compact"
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setZoom(tabId, 1)}
+                >
+                  {Math.round(zoomFactor * 100)}%
+                </Button>
+                <Button
+                  aria-label="Zoom in"
+                  disabled={!browserAvailable || zoomFactor >= 3}
+                  size="icon"
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setZoom(tabId, zoomFactor + 0.1)}
+                >
+                  <Plus aria-hidden="true" className="size-4" />
+                </Button>
+              </div>
+              <div className="px-2 py-1.5">
+                <p className="mb-1 text-ui-xs text-foreground-subtlest">Tab belongs to</p>
+                <BrowserScopePicker
+                  title="Tab scope"
+                  subtitle="Choose where this tab is available"
+                  value={tabWorkspaceId ?? null}
+                  workspaceId={workspaceId}
+                  workspaceName={workspaceName}
+                  active={active && moreMenuOpen}
+                  onChange={(scope) => moveTab(tabId, scope)}
+                />
+              </div>
+              <div className="px-2 py-1.5">
+                <p className="mb-1 text-ui-xs text-foreground-subtlest">Save bookmarks in</p>
+                <BrowserScopePicker
+                  title="Bookmark scope"
+                  subtitle="Choose where new bookmarks are saved"
+                  value={bookmarkScope}
+                  workspaceId={workspaceId}
+                  workspaceName={workspaceName}
+                  active={active && moreMenuOpen}
+                  onChange={setBookmarkScope}
+                />
+              </div>
               <button
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-ui-sm text-foreground hover:bg-hover disabled:pointer-events-none disabled:opacity-50"
-                disabled={!browserAvailable}
-                onClick={() => void openInDefaultBrowser()}
                 type="button"
+                disabled={!browserAvailable}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-ui-sm hover:bg-hover"
+                onClick={() => {
+                  setFindOpen(true);
+                  setMoreMenuOpen(false);
+                }}
               >
-                <ExternalLink aria-hidden="true" className="size-4 shrink-0" />
-                <span>Open in default browser</span>
+                <Search className="size-4" /> Find in page (Ctrl+F)
+              </button>
+              <button
+                aria-label="Toggle responsive preview"
+                aria-pressed={responsivePreview}
+                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-ui-sm hover:bg-hover disabled:pointer-events-none disabled:opacity-50 ${responsivePreview ? "bg-selected text-foreground" : ""}`}
+                disabled={!browserAvailable}
+                type="button"
+                onClick={() => {
+                  setResponsivePreview((active) => !active);
+                  setMoreMenuOpen(false);
+                }}
+              >
+                <MonitorSmartphone aria-hidden="true" className="size-4 shrink-0" />
+                <span>{responsivePreview ? "Exit responsive preview" : "Responsive preview"}</span>
+              </button>
+              <button
+                aria-label={
+                  pickingElement ? "Cancel element selection" : "Pick element and copy selector"
+                }
+                aria-pressed={pickingElement}
+                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-ui-sm hover:bg-hover disabled:pointer-events-none disabled:opacity-50 ${pickingElement ? "bg-selected text-foreground" : ""}`}
+                disabled={!browserAvailable || loading}
+                type="button"
+                onClick={() => {
+                  setMoreMenuOpen(false);
+                  toggleElementPicker();
+                }}
+              >
+                <MousePointerClick aria-hidden="true" className="size-4 shrink-0" />
+                <span>
+                  {pickingElement ? "Cancel element selection" : "Pick element and copy selector"}
+                </span>
               </button>
               <button
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-ui-sm text-foreground hover:bg-hover disabled:pointer-events-none disabled:opacity-50"
@@ -436,6 +658,136 @@ export function BrowserPane({
           )}
         </div>
       </form>
+      {bookmarksOpen && (
+        <div
+          className="max-h-60 shrink-0 overflow-auto border-t border-border p-2"
+          aria-label="Bookmarks"
+        >
+          <div className="flex items-center justify-between text-ui-sm">
+            <span>Bookmarks</span>
+            <Button
+              aria-label="Close bookmarks"
+              size="icon"
+              variant="ghost"
+              onClick={() => setBookmarksOpen(false)}
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+          {bookmarks.length === 0 && (
+            <p className="p-2 text-ui-sm text-foreground-subtle">
+              Use the star to bookmark this page.
+            </p>
+          )}
+          {bookmarks.map((item) => (
+            <div
+              key={JSON.stringify([item.workspaceId ?? null, item.url])}
+              className="flex items-center gap-1 py-1"
+            >
+              <div className="min-w-0 flex-1">
+                <span className="text-ui-xs text-foreground-subtle">
+                  {item.workspaceId ? (workspaceName ?? "This project") : "Common"}
+                </span>
+                <input
+                  aria-label={`Bookmark name for ${item.url}${bookmarks.filter((bookmark) => bookmark.url === item.url).length > 1 ? ` (${item.workspaceId ? (workspaceName ?? "This project") : "Common"})` : ""}`}
+                  className="w-full bg-transparent text-ui-sm"
+                  value={item.title}
+                  onChange={(event) =>
+                    renameBookmark(item.url, event.target.value, item.workspaceId ?? null)
+                  }
+                />
+                <div className="truncate text-ui-xs text-foreground-subtle" title={item.url}>
+                  {item.url}
+                </div>
+              </div>
+              <Button size="compact" variant="ghost" onClick={() => openBookmark(item.url)}>
+                Open
+              </Button>
+              <Button
+                size="compact"
+                variant="ghost"
+                onClick={() => openBookmark(item.url, { newTab: true })}
+              >
+                New tab
+              </Button>
+              <Button
+                aria-label={`Delete bookmark ${item.title}`}
+                size="icon"
+                variant="ghost"
+                onClick={() => toggleBookmark(item.url, item.title, item.workspaceId ?? null)}
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+      {findOpen && (
+        <form
+          className="flex shrink-0 items-center gap-1 border-t border-border p-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (findText) guestRef.current?.findInPage(findText, { findNext: true });
+          }}
+        >
+          <input
+            ref={findInputRef}
+            aria-label="Find in page"
+            placeholder="Find in page"
+            className="min-w-0 flex-1 rounded border border-input-border bg-input px-2 py-1 text-ui-sm"
+            value={findText}
+            onChange={(event) => setFindText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setFindOpen(false);
+                guestRef.current?.focus();
+              }
+              if (event.key === "Enter" && event.shiftKey) {
+                event.preventDefault();
+                if (findText)
+                  guestRef.current?.findInPage(findText, { forward: false, findNext: true });
+              }
+            }}
+          />
+          <span aria-live="polite" className="text-ui-xs">
+            {findResult.activeMatchOrdinal}/{findResult.matches}
+          </span>
+          <Button
+            aria-label="Previous match"
+            disabled={!findText}
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={() =>
+              guestRef.current?.findInPage(findText, { forward: false, findNext: true })
+            }
+          >
+            <ChevronLeft className="size-4" />
+          </Button>
+          <Button
+            aria-label="Next match"
+            disabled={!findText}
+            type="submit"
+            size="icon"
+            variant="ghost"
+          >
+            <ChevronRight className="size-4" />
+          </Button>
+          <Button
+            aria-label="Close page search"
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={() => {
+              setFindOpen(false);
+              guestRef.current?.focus();
+            }}
+          >
+            <X className="size-4" />
+          </Button>
+        </form>
+      )}
       <div
         className={`min-h-0 flex-1 ${
           responsivePreview ? "overflow-auto bg-panel p-3" : "overflow-hidden bg-white"

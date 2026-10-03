@@ -40,6 +40,11 @@ const bridge: DesktopBridge = {
     ipcRenderer.on(DesktopChannels.windowStateChanged, wrapped);
     return () => ipcRenderer.removeListener(DesktopChannels.windowStateChanged, wrapped);
   },
+  onBrowserFindRequested(listener) {
+    const wrapped = (_event: Electron.IpcRendererEvent, guestId: number) => listener(guestId);
+    ipcRenderer.on(DesktopChannels.browserFindRequested, wrapped);
+    return () => ipcRenderer.removeListener(DesktopChannels.browserFindRequested, wrapped);
+  },
   openExternal: (url) => ipcRenderer.invoke(DesktopChannels.openExternal, url),
   showAttentionNotification: (notification: AttentionNotification) =>
     ipcRenderer.invoke(DesktopChannels.showAttentionNotification, notification),

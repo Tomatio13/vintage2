@@ -856,7 +856,7 @@ export function SettingsDialog() {
           <Card>
             <Field
               label="Default start URL"
-              description="HTTP and HTTPS URLs are supported. Leave empty to open a blank page."
+              description="HTTP, HTTPS, and local file URLs are supported. Leave empty to open a blank page."
             >
               <input
                 aria-label="Default browser URL"

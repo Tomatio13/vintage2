@@ -10,6 +10,8 @@ function resetBrowserState(): void {
   useUiStore.setState({
     activeSidePaneTabId: "files",
     browserTabs: [...initialBrowserTabs],
+    browserWorkspaceId: null,
+    browserSelections: {},
     browserTabCounter: 2,
     browserNavigateRequest: null,
     sidePaneOpen: false,

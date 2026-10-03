@@ -12,6 +12,8 @@ afterEach(() => {
     codexbarPath: "",
     activeSidePaneTabId: "files",
     browserTabs: [...initialBrowserTabs],
+    browserWorkspaceId: null,
+    browserSelections: {},
     browserTabCounter: 2,
     browserNavigateRequest: null,
   });
@@ -37,14 +39,19 @@ describe("SidePane files", () => {
     expect(firstAddress).toHaveClass("h-7", "rounded-lg", "bg-input", "text-ui-base");
     expect(firstAddress.closest("form")).toHaveClass("h-12", "gap-2", "px-3");
     expect(screen.getByRole("button", { name: "Browser back" })).toHaveClass("size-7");
-    expect(screen.getByRole("button", { name: "Toggle responsive preview" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bookmarks" })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Pick element and copy selector" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Toggle responsive preview" }),
+    ).not.toBeInTheDocument();
     fireEvent.change(firstAddress, { target: { value: "https://first.example/" } });
 
     fireEvent.click(screen.getByRole("button", { name: "More browser actions" }));
     expect(screen.getByRole("dialog", { name: "Browser actions" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Toggle responsive preview" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Pick element and copy selector" }),
+    ).toBeInTheDocument();
+
     expect(screen.getByRole("button", { name: "Open in default browser" })).toBeDisabled();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "Browser actions" })).not.toBeInTheDocument();

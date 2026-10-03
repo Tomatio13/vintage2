@@ -12,12 +12,22 @@ describe("normalizeBrowserUrl", () => {
     expect(normalizeBrowserUrl("about:blank")).toBe("about:blank");
   });
 
+  it("normalizes local files, including spaces, Unicode, Windows drives and fragments", () => {
+    expect(normalizeBrowserUrl(" file:///tmp/local page.html#part ")).toBe(
+      "file:///tmp/local%20page.html#part",
+    );
+    expect(normalizeBrowserUrl("file:///tmp/資料.html")).toBe(
+      "file:///tmp/%E8%B3%87%E6%96%99.html",
+    );
+    expect(normalizeBrowserUrl("file:///C:/docs/index.html")).toBe("file:///C:/docs/index.html");
+    expect(normalizeBrowserUrl("file://localhost/tmp/index.html")).toBe("file:///tmp/index.html");
+  });
   it("rejects privileged protocols", () => {
-    expect(() => normalizeBrowserUrl("file:///etc/passwd")).toThrow(
-      "Only HTTP and HTTPS addresses are supported",
+    expect(() => normalizeBrowserUrl("file://server/share/index.html")).toThrow(
+      "Only HTTP, HTTPS, and local file URLs are supported",
     );
     expect(() => normalizeBrowserUrl("javascript:alert(1)")).toThrow(
-      "Only HTTP and HTTPS addresses are supported",
+      "Only HTTP, HTTPS, and local file URLs are supported",
     );
   });
 });

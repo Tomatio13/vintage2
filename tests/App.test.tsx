@@ -80,6 +80,8 @@ describe("VINTAGE workspace shell", () => {
       shortcuts: defaultShortcuts.map((binding) => ({ ...binding })),
       activeSidePaneTabId: "files",
       browserTabs: [...initialBrowserTabs],
+      browserWorkspaceId: null,
+      browserSelections: {},
       browserTabCounter: 2,
       browserNavigateRequest: null,
     });
@@ -763,7 +765,7 @@ describe("VINTAGE workspace shell", () => {
     fireEvent.click(save);
 
     expect(await within(settings).findByRole("alert")).toHaveTextContent(
-      "Only HTTP and HTTPS addresses are supported",
+      "Only HTTP, HTTPS, and local file URLs are supported",
     );
     expect(useUiStore.getState().browserDefaultUrl).toBe(DEFAULT_BROWSER_START_URL);
   });

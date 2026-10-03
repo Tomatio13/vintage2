@@ -12,12 +12,13 @@ import {
   RefreshCw,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { FileActions } from "./FileActions.js";
 import type { WorkspaceFileEntry } from "../../shared/desktop.js";
 import { useUiStore } from "../store/uiStore.js";
+import { BrowserScopePicker } from "./BrowserScopePicker.js";
 import { BrowserPane } from "./BrowserPane.js";
 import { Button } from "./Button.js";
 import { LanguageIcon, ReviewPane } from "./ReviewPane.js";
@@ -35,6 +36,33 @@ export function SidePane({
   workspaceName?: string | null;
   onOpenFile(path: string, line?: number): void;
 }) {
+  const setBrowserWorkspace = useUiStore((state) => state.setBrowserWorkspace);
+  const moveBrowserTab = useUiStore((state) => state.moveBrowserTab);
+  useLayoutEffect(() => {
+    if (workspaceId) setBrowserWorkspace(workspaceId);
+  }, [workspaceId, setBrowserWorkspace]);
+  const tabMenuRef = useRef<HTMLDivElement>(null);
+  const [tabMenu, setTabMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  useEffect(() => {
+    setTabMenu(null);
+  }, [workspaceId]);
+  useEffect(() => {
+    if (!tabMenu) return;
+    const close = () => setTabMenu(null);
+    const key = (event: KeyboardEvent) => {
+      if (
+        event.key === "Escape" &&
+        !tabMenuRef.current?.querySelector('[aria-haspopup="menu"][aria-expanded="true"]')
+      )
+        close();
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", key);
+    };
+  }, [tabMenu]);
   const activeTabId = useUiStore((state) => state.activeSidePaneTabId);
   const activateSidePaneTab = useUiStore((state) => state.activateSidePaneTab);
   const activateBrowserTab = useUiStore((state) => state.activateBrowserTab);
@@ -217,46 +245,60 @@ export function SidePane({
           className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]"
           role="group"
         >
-          {browserTabs.map((browserTab) => {
-            const active = activeTabId === browserTab.id;
-            return (
-              <div
-                key={browserTab.id}
-                ref={(element) => {
-                  if (element) browserTabElements.current.set(browserTab.id, element);
-                  else browserTabElements.current.delete(browserTab.id);
-                }}
-                className={`group flex h-7 min-w-0 max-w-36 shrink-0 items-center rounded-lg transition-colors ${
-                  active
-                    ? "bg-selected text-foreground"
-                    : "text-foreground-subtle hover:bg-hover hover:text-foreground"
-                }`}
-              >
-                <button
-                  aria-pressed={active}
-                  className="flex h-full min-w-0 items-center gap-1.5 overflow-hidden pl-2 text-left text-ui-sm font-medium"
-                  onClick={() => activateBrowserTab(browserTab.id)}
-                  title={browserTab.title}
-                  type="button"
-                >
-                  <Globe2 aria-hidden="true" className="size-3.5 shrink-0" />
-                  <span className="truncate">{browserTab.title}</span>
-                </button>
-                <button
-                  aria-label={`Close ${browserTab.title} tab`}
-                  className={`mr-1 flex size-5 shrink-0 items-center justify-center rounded-md text-foreground-subtlest transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand ${
+          {browserTabs
+            .filter((tab) => !tab.workspaceId || tab.workspaceId === workspaceId)
+            .map((browserTab) => {
+              const active = activeTabId === browserTab.id;
+              return (
+                <div
+                  key={browserTab.id}
+                  ref={(element) => {
+                    if (element) browserTabElements.current.set(browserTab.id, element);
+                    else browserTabElements.current.delete(browserTab.id);
+                  }}
+                  className={`group flex h-7 min-w-0 max-w-36 shrink-0 items-center rounded-lg transition-colors ${
                     active
-                      ? "opacity-100"
-                      : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                      ? "bg-selected text-foreground"
+                      : "text-foreground-subtle hover:bg-hover hover:text-foreground"
                   }`}
-                  onClick={() => closeBrowserTab(browserTab.id)}
-                  type="button"
                 >
-                  <X aria-hidden="true" className="size-3.5" />
-                </button>
-              </div>
-            );
-          })}
+                  <button
+                    aria-pressed={active}
+                    className="flex h-full min-w-0 items-center gap-1.5 overflow-hidden pl-2 text-left text-ui-sm font-medium"
+                    onClick={() => activateBrowserTab(browserTab.id)}
+                    title={`${browserTab.title} · ${browserTab.workspaceId ? (workspaceName ?? "This project") : "Common"}`}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      setTabMenu({
+                        id: browserTab.id,
+                        x: Math.min(event.clientX, window.innerWidth - 220),
+                        y: Math.min(event.clientY, window.innerHeight - 100),
+                      });
+                    }}
+                    type="button"
+                  >
+                    {browserTab.workspaceId ? (
+                      <Folder aria-hidden="true" className="size-3.5 shrink-0" />
+                    ) : (
+                      <Globe2 aria-hidden="true" className="size-3.5 shrink-0" />
+                    )}
+                    <span className="truncate">{browserTab.title}</span>
+                  </button>
+                  <button
+                    aria-label={`Close ${browserTab.title} tab`}
+                    className={`mr-1 flex size-5 shrink-0 items-center justify-center rounded-md text-foreground-subtlest transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand ${
+                      active
+                        ? "opacity-100"
+                        : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                    }`}
+                    onClick={() => closeBrowserTab(browserTab.id)}
+                    type="button"
+                  >
+                    <X aria-hidden="true" className="size-3.5" />
+                  </button>
+                </div>
+              );
+            })}
         </div>
         <Button
           aria-label="New browser tab"
@@ -380,7 +422,9 @@ export function SidePane({
           </div>
         )}
         {browserTabs.map((browserTab) => {
-          const active = activeTabId === browserTab.id;
+          const active =
+            activeTabId === browserTab.id &&
+            (!browserTab.workspaceId || browserTab.workspaceId === workspaceId);
           return (
             <div
               key={browserTab.id}
@@ -390,6 +434,9 @@ export function SidePane({
             >
               {browserTab.mounted && browserTab.initialUrl && (
                 <BrowserPane
+                  workspaceName={workspaceName}
+                  tabId={browserTab.id}
+                  active={active && visible}
                   initialUrl={browserTab.initialUrl}
                   navigateRequest={
                     browserNavigateRequest?.tabId === browserTab.id
@@ -403,6 +450,29 @@ export function SidePane({
           );
         })}
       </div>
+      {tabMenu && (
+        <div
+          role="dialog"
+          ref={tabMenuRef}
+          aria-label="Browser tab actions"
+          className="fixed z-50 w-52 rounded-lg border border-border bg-popover p-1 shadow-lg"
+          style={{ left: tabMenu.x, top: tabMenu.y }}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div className="px-2 py-1.5">
+            <p className="mb-1 text-ui-xs text-foreground-subtlest">Tab belongs to</p>
+            <BrowserScopePicker
+              title="Tab scope"
+              subtitle="Choose where this tab is available"
+              value={browserTabs.find((tab) => tab.id === tabMenu.id)?.workspaceId ?? null}
+              workspaceId={workspaceId}
+              workspaceName={workspaceName}
+              active={visible}
+              onChange={(scope) => moveBrowserTab(tabMenu.id, scope)}
+            />
+          </div>
+        </div>
+      )}
       {menu && workspaceId && (
         <FileActions
           key={workspaceId}

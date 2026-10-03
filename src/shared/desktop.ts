@@ -11,6 +11,7 @@ export const DesktopChannels = {
   close: "desktop:close",
   getWindowState: "desktop:get-window-state",
   windowStateChanged: "desktop:window-state-changed",
+  browserFindRequested: "browser:find-requested",
   openExternal: "desktop:open-external",
   showAttentionNotification: "attention:show-notification",
   attentionNotificationClicked: "attention:notification-clicked",
@@ -429,6 +430,7 @@ export interface DesktopBridge {
   toggleMaximize(): Promise<DesktopWindowState>;
   close(): Promise<void>;
   getWindowState(): Promise<DesktopWindowState>;
+  onBrowserFindRequested(listener: (guestId: number) => void): () => void;
   onWindowStateChanged(listener: (state: DesktopWindowState) => void): () => void;
   openExternal(url: string): Promise<void>;
   showAttentionNotification(notification: AttentionNotification): Promise<boolean>;

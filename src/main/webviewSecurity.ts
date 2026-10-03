@@ -1,5 +1,9 @@
 import { session, type BrowserWindow, type WebContents } from "electron";
 
+import { canNavigateBrowserGuest, isAllowedBrowserUrl } from "../shared/browserUrl.js";
+
+import { DesktopChannels } from "../shared/desktop.js";
+
 export const BROWSER_PARTITION = "persist:starter-browser";
 
 export function configureBrowserSession(): void {
@@ -23,24 +27,33 @@ export function configureWebviewSecurity(window: BrowserWindow): void {
     webPreferences.partition = BROWSER_PARTITION;
   });
 
-  window.webContents.on("did-attach-webview", (_event, contents) => hardenGuest(contents));
-}
-
-export function isAllowedBrowserUrl(rawUrl: string): boolean {
-  if (rawUrl === "about:blank") return true;
-  try {
-    return ["http:", "https:"].includes(new URL(rawUrl).protocol);
-  } catch {
-    return false;
-  }
+  window.webContents.on("did-attach-webview", (_event, contents) => {
+    hardenGuest(contents);
+    contents.on("before-input-event", (event, input) => {
+      if (
+        input.type === "keyDown" &&
+        (input.control || input.meta) &&
+        !input.alt &&
+        !input.shift &&
+        input.key.toLowerCase() === "f"
+      ) {
+        event.preventDefault();
+        if (!window.webContents.isDestroyed())
+          window.webContents.send(DesktopChannels.browserFindRequested, contents.id);
+      }
+    });
+  });
 }
 
 function hardenGuest(contents: WebContents): void {
   contents.on("will-navigate", (event, url) => {
-    if (!isAllowedBrowserUrl(url)) event.preventDefault();
+    if (!canNavigateBrowserGuest(contents.getURL(), url)) event.preventDefault();
+  });
+  contents.on("will-redirect", (event, url) => {
+    if (!isAllowedBrowserUrl(url) || new URL(url).protocol === "file:") event.preventDefault();
   });
   contents.setWindowOpenHandler(({ url }) => {
-    if (isAllowedBrowserUrl(url)) void contents.loadURL(url);
+    if (canNavigateBrowserGuest(contents.getURL(), url)) void contents.loadURL(url).catch(() => {});
     return { action: "deny" };
   });
 }

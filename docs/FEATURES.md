@@ -84,6 +84,8 @@ _Open Board pane, Toggle Notes tab, and Toggle Board tab can all be reassigned i
 
 The right pane contains Files, Review, Notes, Board, Usage, and Browser. Show or hide Notes and Board in Settings → Notes, and enable Usage in Settings → Usage. Press `Ctrl+Shift+S` to show or hide the entire pane. Each tab is also a command palette action, and shortcuts can be reassigned in **Settings → Shortcuts**.
 
+Drag the divider between the terminals and the right pane to adjust its width. The pane can expand with the window, including when maximized, while leaving room for terminals. Your preferred width is saved; shrinking the window temporarily reduces the displayed width. Resizing retains running terminal sessions.
+
 ### Files and previews
 
 Open **Files** to browse the selected workspace. Double-click a file to open its preview beside the terminal area.
@@ -151,7 +153,44 @@ _To do, Doing, and Done columns, with AI instruction copy controls for the board
 
 ### Browser
 
-The built-in Browser uses a session separate from terminal sessions and supports multiple tabs. It allows `http:`, `https:`, and `about:blank` URLs. Downloads, extensions, and saved login credentials are not supported.
+The built-in Browser opens web pages beside your terminals in multiple tabs. Enter an HTTP/HTTPS URL, `about:blank`, or a local `file:///` URL in the address bar. Configure the start page in **Settings → Browser**.
+
+#### Tabs and restart restoration
+
+Tabs display page titles and save their latest URL, tab order, and zoom level. After restarting VINTAGE, the selected Browser tab is restored; restored background tabs load when selected. Restoration opens the saved URLs again rather than restoring the page’s form inputs or navigation history.
+
+Tabs belong to either **Common** or a workspace:
+
+| Scope           | Where it appears    | Typical use                                          |
+| :-------------- | :------------------ | :--------------------------------------------------- |
+| Common          | Every workspace     | Shared documentation and reference pages             |
+| Current project | Only that workspace | Local development servers and project-specific pages |
+
+New tabs belong to the current workspace. Switching workspaces shows its project tabs alongside Common tabs and restores its selected view. To change a tab’s scope, right-click its tab or open the Browser actions menu, then choose **Common** or the current project from **Tab scope** under **Tab belongs to**. The page stays open when its scope changes. Tabs and bookmarks saved before this feature are retained as Common.
+
+Scopes organize tabs and bookmarks. Cookies and login sessions are shared across all Browser tabs; each project does not have a separate browser profile.
+
+#### Toolbar and bookmarks
+
+After the address bar, the toolbar offers the bookmark star, **Bookmarks**, and **Open in default browser**, followed by the Browser actions menu. The external-browser button is available for HTTP/HTTPS pages.
+
+Use the star to add or remove the current page’s bookmark. In the actions menu, **Bookmark scope** under **Save bookmarks in** selects Common or the current project for new bookmarks. **Bookmarks** displays both Common and current-project entries with their scope labels. Edit an entry’s name directly, open it in the current tab or a new tab, or delete it. Bookmarks persist across restarts, and the same URL can be saved separately in both scopes.
+
+#### Search, zoom, and development tools
+
+- **Find in page**: Press `Ctrl+F` (`⌘F` on macOS) while the Browser has focus, or select it from the actions menu. The search bar shows the current match and total count; use its controls, `Enter`, or `Shift+Enter` to move between matches. Press `Escape` to close it.
+- **Zoom**: Use the actions menu to zoom from 50% to 300% in 10% steps. Click the percentage to reset to 100%. Each tab retains its own zoom across tab switches and restarts.
+- **Responsive preview**: Toggle a narrower viewport from the actions menu to inspect a page’s layout.
+- **Pick element and copy selector**: Select this menu action, then click a page element to copy its CSS selector.
+- **Developer tools**: Open the page’s developer tools from the actions menu. Responsive preview and the element picker appear immediately above this action.
+
+#### Local files and limits
+
+For example, enter `file:///home/user/docs/index.html` to open a local HTML page. Its CSS, images, scripts, and relative links can load, and local URLs support bookmarks, the start-page setting, and restart restoration. Only files on this computer are supported; remote file hosts such as `file://server/share/page.html` are rejected.
+
+Browser pages run with sandboxing and isolation, without Node.js integration or access to VINTAGE’s desktop API. Web pages cannot automatically navigate into local files. Browser file pages differ from the isolated HTML preview in **Files**, which blocks scripts and external resources.
+
+Downloads, extensions, and saved login credentials are not supported.
 
 ### Usage limits (CodexBar)
 

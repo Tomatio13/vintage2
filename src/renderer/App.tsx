@@ -523,6 +523,20 @@ function TabSurface({
 
 export function App() {
   const ui = useUiStore();
+  const layoutRef = useRef<HTMLDivElement>(null);
+  const [layoutWidth, setLayoutWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const element = layoutRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setLayoutWidth(entry.contentRect.width);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  // The measured content row already excludes the workspace sidebar.
+  const sidePaneMaxWidth = Math.max(300, layoutWidth - 340);
+  const sidePaneDisplayWidth = Math.min(ui.sidePaneWidth, sidePaneMaxWidth);
   const [workspaces, setWorkspaces] = useState<VintageWorkspace[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [homeLoadStatus, setHomeLoadStatus] = useState<"idle" | "loading" | "failed">(() =>
@@ -1568,7 +1582,7 @@ export function App() {
         onSplitRight={active?.available ? () => split("right") : undefined}
         onSplitDown={active?.available ? () => split("down") : undefined}
       >
-        <div className="relative flex h-full min-h-0 bg-background">
+        <div ref={layoutRef} className="relative flex h-full min-h-0 bg-background">
           <main className="relative min-w-0 flex-1 overflow-hidden bg-background">
             {workspaceActionError && active?.available && (
               <div
@@ -1676,9 +1690,9 @@ export function App() {
                 axis="x"
                 invert
                 label="Resize browser pane"
-                max={760}
+                max={sidePaneMaxWidth}
                 min={300}
-                value={ui.sidePaneWidth}
+                value={sidePaneDisplayWidth}
                 onChange={ui.setSidePaneWidth}
               />
             )}
@@ -1689,7 +1703,10 @@ export function App() {
                   ? ""
                   : "pointer-events-none invisible absolute bottom-0 right-0 top-0"
               }`}
-              style={{ width: ui.sidePaneWidth }}
+              style={{
+                width: sidePaneDisplayWidth,
+                flexShrink: 0,
+              }}
             >
               <SidePane
                 visible={ui.sidePaneOpen}
