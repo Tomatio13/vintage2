@@ -1,5 +1,22 @@
 # VINTAGE Changelog
 
+## [0.2.16] - 2026-10-04
+
+### Added
+
+- **Create files and folders:** Use the Files context menu to create empty files or folders inside the selected folder, alongside a selected file, or at the workspace root from empty space. Existing names and unsafe paths are rejected, and the tree refreshes after creation.
+- **Delete to Trash:** Delete files or folders through a confirmation dialog, including nonempty folders. Entries move to the system Trash; failures are reported without falling back to permanent deletion.
+
+### Fixed
+
+- **Browser links opening new tabs:** Links using `target="_blank"` and supported `window.open()` requests now open in a new VINTAGE Browser tab instead of silently doing nothing. The original page and its project or Common scope are preserved; native popup windows remain blocked.
+
+### Changed
+
+- **Files menu layout:** Group New file, New folder, Delete, and Rename above Copy and Paste here, followed by name and path copying actions, with separator lines between groups.
+
+**Full Changelog:** [v0.2.15...v0.2.16](https://github.com/Tomatio13/vintage2/compare/v0.2.15...v0.2.16)
+
 ## [0.2.15] - 2026-10-04
 
 ### Added
