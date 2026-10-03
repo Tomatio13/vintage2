@@ -90,7 +90,7 @@ Drag the divider between the terminals and the right pane to adjust its width. T
 
 Open **Files** to browse the selected workspace. Double-click a file to open its preview beside the terminal area.
 
-Right-click a file or folder in Files to copy, rename, or copy its name, relative path, or full path. Paste into a folder or right-click empty space to paste into the workspace root. Copy/paste is internal to VINTAGE, supports folders and other workspaces, and rejects existing names and symbolic links.
+Right-click in Files to create a file or folder, copy, rename, delete, or copy an entry’s name, relative path, or full path. New entries are created inside the selected folder, alongside a selected file, or at the workspace root when right-clicking empty space. Delete asks for confirmation and moves the entry (including folder contents) to the system Trash; if Trash is unavailable, the operation fails without permanently deleting it. Paste into a folder or right-click empty space to paste into the workspace root. Copy/paste is internal to VINTAGE, supports folders and other workspaces, and rejects existing names and symbolic links.
 
 ![Files context menu with copy, rename, and path actions](../assets/readme/vintage-file-actions.png)
 

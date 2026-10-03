@@ -61,6 +61,24 @@ try {
     ({ webContents }) =>
       webContents.getAllWebContents().find((contents) => contents.getType() === "webview")?.id,
   );
+  // A target=_blank link must open an app tab without replacing its source.
+  await app.evaluate(async ({ webContents }, id) => {
+    await webContents.fromId(id).executeJavaScript(`
+      const link = document.createElement("a");
+      link.href = "/next?popup";
+      link.target = "_blank";
+      document.body.append(link);
+      link.click();
+    `);
+  }, guest);
+  await window.getByRole("button", { name: "Next page", exact: true }).waitFor({ timeout: 5000 });
+  assert.equal(
+    await app.evaluate(({ webContents }, id) => webContents.fromId(id).getURL(), guest),
+    url,
+  );
+  assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length), 1);
+  await window.getByRole("button", { name: "Close Next page tab", exact: true }).click();
+  await window.getByRole("button", { name: "Browser fixture", exact: true }).click();
   await app.evaluate(({ webContents }, id) => {
     const contents = webContents.fromId(id);
     contents.focus();

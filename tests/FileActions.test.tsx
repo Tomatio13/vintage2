@@ -14,6 +14,8 @@ function setup() {
       { name: "target", path: "target", kind: "directory" },
     ]),
     copyWorkspaceEntry: vi.fn().mockResolvedValue(undefined),
+    createWorkspaceEntry: vi.fn().mockResolvedValue(undefined),
+    trashWorkspaceEntry: vi.fn().mockResolvedValue(undefined),
     renameWorkspaceEntry: vi.fn().mockResolvedValue(undefined),
     copyWorkspaceEntryText: vi.fn().mockResolvedValue(undefined),
   };
@@ -26,7 +28,7 @@ it("copies an entry and pastes into a folder, then refreshes", async () => {
   fireEvent.contextMenu(await screen.findByRole("button", { name: "note.md" }));
   fireEvent.click(screen.getByRole("menuitem", { name: "Copy" }));
   fireEvent.contextMenu(screen.getByRole("button", { name: "target" }));
-  fireEvent.click(screen.getByRole("menuitem", { name: "Paste into folder" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Paste here" }));
   await waitFor(() =>
     expect(bridge.copyWorkspaceEntry).toHaveBeenCalledWith(
       "workspace",
@@ -64,4 +66,53 @@ it("shows errors without closing the menu", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("Missing entry");
   fireEvent.keyDown(document, { key: "Escape" });
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+});
+
+it("creates a file inside a folder and refreshes the tree", async () => {
+  const bridge = setup();
+  fireEvent.contextMenu(await screen.findByRole("button", { name: "target" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "New file…" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "File name" }), {
+    target: { value: "new.txt" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Create" }));
+  await waitFor(() =>
+    expect(bridge.createWorkspaceEntry).toHaveBeenCalledWith(
+      "workspace",
+      "target",
+      "new.txt",
+      "file",
+    ),
+  );
+  await waitFor(() => expect(bridge.listWorkspaceFiles).toHaveBeenCalledTimes(2));
+});
+it("creates a folder alongside a selected file", async () => {
+  const bridge = setup();
+  fireEvent.contextMenu(await screen.findByRole("button", { name: "note.md" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "New folder…" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Folder name" }), {
+    target: { value: "new" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Create" }));
+  await waitFor(() =>
+    expect(bridge.createWorkspaceEntry).toHaveBeenCalledWith("workspace", "", "new", "directory"),
+  );
+});
+it("requires confirmation before moving a folder to Trash and supports cancelling", async () => {
+  const bridge = setup();
+  fireEvent.contextMenu(await screen.findByRole("button", { name: "target" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Delete…" }));
+  expect(screen.getByRole("dialog", { name: "Delete entry" })).toHaveTextContent(
+    "all files and folders",
+  );
+  expect(bridge.trashWorkspaceEntry).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(bridge.trashWorkspaceEntry).not.toHaveBeenCalled();
+  fireEvent.contextMenu(screen.getByRole("button", { name: "target" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Delete…" }));
+  fireEvent.click(screen.getByRole("button", { name: "Move to Trash" }));
+  await waitFor(() =>
+    expect(bridge.trashWorkspaceEntry).toHaveBeenCalledWith("workspace", "target"),
+  );
+  await waitFor(() => expect(bridge.listWorkspaceFiles).toHaveBeenCalledTimes(2));
 });

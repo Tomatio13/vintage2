@@ -2,7 +2,13 @@ import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promis
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { copyEntry, entryText, renameEntry } from "../src/main/workspaceFileOperations.js";
+import {
+  copyEntry,
+  entryText,
+  renameEntry,
+  createEntry,
+  trashEntry,
+} from "../src/main/workspaceFileOperations.js";
 
 let root: string;
 beforeEach(async () => {
@@ -46,4 +52,45 @@ describe("workspace file operations", () => {
     await expect(copyEntry(root, "folder", root, "target")).rejects.toThrow("regular files");
     await expect(renameEntry(root, "folder/link", "renamed")).rejects.toThrow("Symbolic links");
   });
+});
+
+it("creates empty files and folders without overwriting existing entries", async () => {
+  await createEntry(root, "", "new", "directory");
+  await createEntry(root, "new", "empty.txt", "file");
+  expect(await readFile(join(root, "new/empty.txt"), "utf8")).toBe("");
+  await expect(createEntry(root, "", "note.md", "file")).rejects.toThrow("already exists");
+  expect(await readFile(join(root, "note.md"), "utf8")).toBe("hello");
+});
+it("rejects unsafe creation paths and entry types", async () => {
+  await symlink(root, join(root, "link"));
+  for (const directory of ["../", "link", "note.md"]) {
+    await expect(createEntry(root, directory, "new", "file")).rejects.toThrow();
+  }
+  for (const name of ["../escape", ".", "..", "a/b", "", "a\\b", "bad\0name"]) {
+    await expect(createEntry(root, "", name, "file")).rejects.toThrow();
+  }
+  await expect(createEntry(root, "", "new", "invalid")).rejects.toThrow();
+});
+it("trashes files and nonempty folders but rejects roots, traversal and links", async () => {
+  const targets: string[] = [];
+  const trash = async (path: string) => {
+    targets.push(path);
+    await rm(path, { recursive: true });
+  };
+  await writeFile(join(root, "folder/child.txt"), "child");
+  await trashEntry(root, "note.md", trash);
+  await trashEntry(root, "folder", trash);
+  expect(targets).toEqual([join(root, "note.md"), join(root, "folder")]);
+  await symlink(root, join(root, "link"));
+  for (const path of ["", ".", "../", "link"])
+    await expect(trashEntry(root, path, trash)).rejects.toThrow();
+  expect(targets).toHaveLength(2);
+});
+it("propagates trash failures without deleting the file", async () => {
+  await expect(
+    trashEntry(root, "note.md", async () => {
+      throw new Error("Trash unavailable");
+    }),
+  ).rejects.toThrow("Trash unavailable");
+  expect(await readFile(join(root, "note.md"), "utf8")).toBe("hello");
 });

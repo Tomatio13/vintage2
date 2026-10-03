@@ -40,6 +40,12 @@ const bridge: DesktopBridge = {
     ipcRenderer.on(DesktopChannels.windowStateChanged, wrapped);
     return () => ipcRenderer.removeListener(DesktopChannels.windowStateChanged, wrapped);
   },
+  onBrowserOpenTabRequested(listener) {
+    const wrapped = (_event: Electron.IpcRendererEvent, guestId: number, url: string) =>
+      listener(guestId, url);
+    ipcRenderer.on(DesktopChannels.browserOpenTabRequested, wrapped);
+    return () => ipcRenderer.removeListener(DesktopChannels.browserOpenTabRequested, wrapped);
+  },
   onBrowserFindRequested(listener) {
     const wrapped = (_event: Electron.IpcRendererEvent, guestId: number) => listener(guestId);
     ipcRenderer.on(DesktopChannels.browserFindRequested, wrapped);
@@ -79,6 +85,16 @@ const bridge: DesktopBridge = {
       targetWorkspaceId,
       directoryPath,
     ),
+  createWorkspaceEntry: (workspaceId, directoryPath, name, kind) =>
+    ipcRenderer.invoke(
+      DesktopChannels.workspaceCreateEntry,
+      workspaceId,
+      directoryPath,
+      name,
+      kind,
+    ),
+  trashWorkspaceEntry: (workspaceId, path) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceTrashEntry, workspaceId, path),
   renameWorkspaceEntry: (workspaceId, path, name) =>
     ipcRenderer.invoke(DesktopChannels.workspaceRenameEntry, workspaceId, path, name),
   copyWorkspaceEntryText: (workspaceId, path, kind) =>

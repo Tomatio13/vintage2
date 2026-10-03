@@ -28,7 +28,10 @@ export function configureWebviewSecurity(window: BrowserWindow): void {
   });
 
   window.webContents.on("did-attach-webview", (_event, contents) => {
-    hardenGuest(contents);
+    hardenGuest(contents, (url) => {
+      if (!window.webContents.isDestroyed())
+        window.webContents.send(DesktopChannels.browserOpenTabRequested, contents.id, url);
+    });
     contents.on("before-input-event", (event, input) => {
       if (
         input.type === "keyDown" &&
@@ -45,7 +48,7 @@ export function configureWebviewSecurity(window: BrowserWindow): void {
   });
 }
 
-function hardenGuest(contents: WebContents): void {
+function hardenGuest(contents: WebContents, openTab: (url: string) => void): void {
   contents.on("will-navigate", (event, url) => {
     if (!canNavigateBrowserGuest(contents.getURL(), url)) event.preventDefault();
   });
@@ -53,7 +56,7 @@ function hardenGuest(contents: WebContents): void {
     if (!isAllowedBrowserUrl(url) || new URL(url).protocol === "file:") event.preventDefault();
   });
   contents.setWindowOpenHandler(({ url }) => {
-    if (canNavigateBrowserGuest(contents.getURL(), url)) void contents.loadURL(url).catch(() => {});
+    if (canNavigateBrowserGuest(contents.getURL(), url)) openTab(url);
     return { action: "deny" };
   });
 }

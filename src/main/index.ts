@@ -29,7 +29,13 @@ import {
 import { kanbanDirectory, readKanban, saveKanban } from "./kanbanStore.js";
 import { prepareKanbanCli } from "./kanbanCli.js";
 import { kanbanInstructions } from "./kanbanInstructions.js";
-import { copyEntry, renameEntry, entryText } from "./workspaceFileOperations.js";
+import {
+  copyEntry,
+  renameEntry,
+  entryText,
+  createEntry,
+  trashEntry,
+} from "./workspaceFileOperations.js";
 import { saveMarkdown } from "./markdownSave.js";
 import { AttentionSettingsManager } from "./attentionSettings.js";
 import { fetchCodexbarUsage, probeCodexbarStatus } from "./codexbarClient.js";
@@ -617,6 +623,17 @@ function registerDesktopIpc(
       );
     },
   );
+  ipcMain.handle(
+    DesktopChannels.workspaceCreateEntry,
+    async (event, id: unknown, directory: unknown, name: unknown, kind: unknown) => {
+      resolveSenderWindow(event);
+      await createEntry(registeredWorkspace(id).path, directory, name, kind);
+    },
+  );
+  ipcMain.handle(DesktopChannels.workspaceTrashEntry, async (event, id: unknown, path: unknown) => {
+    resolveSenderWindow(event);
+    await trashEntry(registeredWorkspace(id).path, path, (target) => shell.trashItem(target));
+  });
   ipcMain.handle(
     DesktopChannels.workspaceRenameEntry,
     async (event, id: unknown, path: unknown, name: unknown) => {

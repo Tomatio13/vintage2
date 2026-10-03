@@ -21,7 +21,7 @@ export function FileActions({
   onClose(): void;
   onChanged(): void;
 }) {
-  const [renaming, setRenaming] = useState(false);
+  const [mode, setMode] = useState<"menu" | "rename" | "file" | "directory" | "delete">("menu");
   const [name, setName] = useState(entry?.name ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,31 +71,71 @@ export function FileActions({
     >
       <div
         ref={panel}
-        role={renaming ? "dialog" : "menu"}
-        aria-label={renaming ? "Rename entry" : "File actions"}
+        role={mode === "menu" ? "menu" : "dialog"}
+        aria-label={
+          mode === "rename"
+            ? "Rename entry"
+            : mode === "delete"
+              ? "Delete entry"
+              : mode === "file"
+                ? "New file"
+                : mode === "directory"
+                  ? "New folder"
+                  : "File actions"
+        }
         className="fixed w-64 rounded-lg border border-border bg-panel p-1 shadow-xl"
         style={{
           left: Math.max(8, Math.min(x, window.innerWidth - 264)),
-          top: Math.max(8, Math.min(y, window.innerHeight - 340)),
+          top: Math.max(8, Math.min(y, window.innerHeight - 440)),
         }}
       >
-        {renaming ? (
+        {mode === "delete" && entry ? (
+          <div className="p-2">
+            <p className="break-words text-ui-sm">Move “{entry.path}” to the Trash?</p>
+            {entry.kind === "directory" && (
+              <p className="mt-2 text-ui-xs text-foreground-subtle">
+                This includes all files and folders inside it.
+              </p>
+            )}
+            <button
+              autoFocus
+              className={itemClass}
+              disabled={busy}
+              onClick={() =>
+                void run(() => window.desktop!.trashWorkspaceEntry(workspaceId, entry.path), true)
+              }
+            >
+              Move to Trash
+            </button>
+            <button className={itemClass} disabled={busy} onClick={onClose}>
+              Cancel
+            </button>
+          </div>
+        ) : mode !== "menu" ? (
           <form
             className="p-2"
             onSubmit={(event) => {
               event.preventDefault();
-              if (entry)
+              if (busy) return;
+              if (mode === "rename" && entry)
                 void run(
                   () => window.desktop!.renameWorkspaceEntry(workspaceId, entry.path, name),
+                  true,
+                );
+              else if (mode === "file" || mode === "directory")
+                void run(
+                  () => window.desktop!.createWorkspaceEntry(workspaceId, directory, name, mode),
                   true,
                 );
             }}
           >
             <label className="text-ui-sm">
-              New name
+              {mode === "rename" ? "New name" : mode === "file" ? "File name" : "Folder name"}
               <input
                 autoFocus
-                aria-label="New name"
+                aria-label={
+                  mode === "rename" ? "New name" : mode === "file" ? "File name" : "Folder name"
+                }
                 className="my-2 w-full rounded border border-border bg-input px-2 py-1 text-ui-sm"
                 value={name}
                 disabled={busy}
@@ -104,7 +144,7 @@ export function FileActions({
               />
             </label>
             <button className={itemClass} disabled={busy || !name.trim()} type="submit">
-              Rename
+              {mode === "rename" ? "Rename" : "Create"}
             </button>
             <button className={itemClass} disabled={busy} type="button" onClick={onClose}>
               Cancel
@@ -112,27 +152,77 @@ export function FileActions({
           </form>
         ) : (
           <>
+            {(["file", "directory"] as const).map((kind) => (
+              <button
+                key={kind}
+                role="menuitem"
+                className={itemClass}
+                disabled={busy}
+                onClick={() => {
+                  setName("");
+                  setMode(kind);
+                }}
+              >
+                {kind === "file" ? "New file…" : "New folder…"}
+              </button>
+            ))}
             {entry && (
               <>
                 <button
                   role="menuitem"
                   className={itemClass}
                   disabled={busy}
-                  onClick={() => {
-                    onCopy({ workspaceId, path: entry.path });
-                    onClose();
-                  }}
+                  onClick={() => setMode("delete")}
                 >
-                  Copy
+                  Delete…
                 </button>
                 <button
                   role="menuitem"
                   className={itemClass}
                   disabled={busy}
-                  onClick={() => setRenaming(true)}
+                  onClick={() => setMode("rename")}
                 >
                   Rename…
                 </button>
+              </>
+            )}
+            <div role="separator" className="my-1 border-t border-border" />
+            {entry && (
+              <button
+                role="menuitem"
+                className={itemClass}
+                disabled={busy}
+                onClick={() => {
+                  onCopy({ workspaceId, path: entry.path });
+                  onClose();
+                }}
+              >
+                Copy
+              </button>
+            )}
+            <button
+              role="menuitem"
+              className={itemClass}
+              disabled={!copied || busy}
+              onClick={() => {
+                if (copied)
+                  void run(
+                    () =>
+                      window.desktop!.copyWorkspaceEntry(
+                        copied.workspaceId,
+                        copied.path,
+                        workspaceId,
+                        directory,
+                      ),
+                    true,
+                  );
+              }}
+            >
+              Paste here
+            </button>
+            {entry && (
+              <>
+                <div role="separator" className="my-1 border-t border-border" />
                 {(["name", "relative", "full"] as const).map((kind) => (
                   <button
                     key={kind}
@@ -154,26 +244,6 @@ export function FileActions({
                 ))}
               </>
             )}
-            <button
-              role="menuitem"
-              className={itemClass}
-              disabled={!copied || busy}
-              onClick={() => {
-                if (copied)
-                  void run(
-                    () =>
-                      window.desktop!.copyWorkspaceEntry(
-                        copied.workspaceId,
-                        copied.path,
-                        workspaceId,
-                        directory,
-                      ),
-                    true,
-                  );
-              }}
-            >
-              Paste{entry?.kind === "directory" ? " into folder" : " here"}
-            </button>
           </>
         )}
         {busy && (

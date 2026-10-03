@@ -220,6 +220,8 @@ export function BrowserPane({
     const guest = document.createElement("webview") as EmbeddedWebviewElement;
     guest.className = "embedded-webview";
     guest.setAttribute("partition", "persist:starter-browser");
+    // Main denies native popup windows and routes allowed URLs into app tabs.
+    guest.setAttribute("allowpopups", "");
     guest.src = initialUrlRef.current;
     guestRef.current = guest;
     host.replaceChildren(guest);
@@ -281,6 +283,20 @@ export function BrowserPane({
     // Chromium shares zoom by origin; reapply the selected tab's saved preference.
     if (active && browserAvailable) guestRef.current?.setZoomFactor(zoomFactor);
   }, [active, browserAvailable, zoomFactor]);
+
+  useEffect(() => {
+    return window.desktop?.onBrowserOpenTabRequested?.((guestId, url) => {
+      if (guestRef.current?.getWebContentsId() !== guestId) return;
+      // Keep the new tab in its source tab's scope, including Common tabs.
+      const state = useUiStore.getState();
+      const source = state.browserTabs.find((tab) => tab.id === tabId);
+      if (!source) return;
+      if (state.openInBrowserTab(url, { newTab: true })) {
+        const newTabId = useUiStore.getState().activeSidePaneTabId;
+        useUiStore.getState().moveBrowserTab(newTabId, source.workspaceId ?? null);
+      }
+    });
+  }, [tabId]);
 
   useEffect(() => {
     return window.desktop?.onBrowserFindRequested?.((guestId) => {

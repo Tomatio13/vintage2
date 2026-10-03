@@ -11,6 +11,7 @@ export const DesktopChannels = {
   close: "desktop:close",
   getWindowState: "desktop:get-window-state",
   windowStateChanged: "desktop:window-state-changed",
+  browserOpenTabRequested: "browser:open-tab-requested",
   browserFindRequested: "browser:find-requested",
   openExternal: "desktop:open-external",
   showAttentionNotification: "attention:show-notification",
@@ -30,6 +31,8 @@ export const DesktopChannels = {
   workspaceStateSave: "workspace:state-save",
   workspaceLocate: "workspace:locate",
   workspaceCopyEntry: "workspace:copy-entry",
+  workspaceCreateEntry: "workspace:create-entry",
+  workspaceTrashEntry: "workspace:trash-entry",
   workspaceRenameEntry: "workspace:rename-entry",
   workspaceCopyEntryText: "workspace:copy-entry-text",
   workspaceListFiles: "workspace:list-files",
@@ -430,6 +433,7 @@ export interface DesktopBridge {
   toggleMaximize(): Promise<DesktopWindowState>;
   close(): Promise<void>;
   getWindowState(): Promise<DesktopWindowState>;
+  onBrowserOpenTabRequested(listener: (guestId: number, url: string) => void): () => void;
   onBrowserFindRequested(listener: (guestId: number) => void): () => void;
   onWindowStateChanged(listener: (state: DesktopWindowState) => void): () => void;
   openExternal(url: string): Promise<void>;
@@ -456,6 +460,13 @@ export interface DesktopBridge {
     targetWorkspaceId: string,
     directoryPath: string,
   ): Promise<void>;
+  createWorkspaceEntry(
+    workspaceId: string,
+    directoryPath: string,
+    name: string,
+    kind: "file" | "directory",
+  ): Promise<void>;
+  trashWorkspaceEntry(workspaceId: string, path: string): Promise<void>;
   renameWorkspaceEntry(workspaceId: string, path: string, name: string): Promise<void>;
   copyWorkspaceEntryText(
     workspaceId: string,

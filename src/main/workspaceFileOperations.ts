@@ -1,4 +1,4 @@
-import { cp, lstat, readdir, realpath, rename } from "node:fs/promises";
+import { cp, lstat, mkdir, readdir, realpath, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 function inside(root: string, path: string) {
@@ -65,7 +65,7 @@ export async function copyEntry(
   await cp(source, target, { recursive: true, force: false, errorOnExist: true });
 }
 
-export async function renameEntry(root: string, rawPath: unknown, name: unknown): Promise<void> {
+function validateName(name: unknown): asserts name is string {
   if (
     typeof name !== "string" ||
     !name.trim() ||
@@ -74,6 +74,10 @@ export async function renameEntry(root: string, rawPath: unknown, name: unknown)
     /[\\/\0]/u.test(name)
   )
     throw new Error("Enter a name without path separators");
+}
+
+export async function renameEntry(root: string, rawPath: unknown, name: unknown): Promise<void> {
+  validateName(name);
   const source = await entry(root, rawPath);
   const target = join(dirname(source), name);
   if (source === target) return;
@@ -90,4 +94,32 @@ export async function entryText(root: string, rawPath: unknown, kind: unknown): 
       .join("/");
   if (kind === "full") return path;
   throw new Error("Invalid clipboard format");
+}
+
+export async function createEntry(
+  root: string,
+  directoryPath: unknown,
+  name: unknown,
+  kind: unknown,
+): Promise<void> {
+  validateName(name);
+  if (kind !== "file" && kind !== "directory") throw new Error("Invalid entry type");
+  const directory = await entry(root, directoryPath, true);
+  if (!(await lstat(directory)).isDirectory()) throw new Error("Destination must be a folder");
+  const target = join(directory, name);
+  await absent(target);
+  if (kind === "directory") await mkdir(target);
+  else await writeFile(target, "", { flag: "wx" });
+}
+
+export async function trashEntry(
+  root: string,
+  rawPath: unknown,
+  trash: (path: string) => Promise<void>,
+): Promise<void> {
+  const path = await entry(root, rawPath);
+  const info = await lstat(path);
+  if (!info.isFile() && !info.isDirectory())
+    throw new Error("Only regular files and folders can be deleted");
+  await trash(path);
 }
