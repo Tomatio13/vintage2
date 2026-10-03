@@ -66,6 +66,18 @@ const bridge: DesktopBridge = {
     ipcRenderer.invoke(DesktopChannels.workspaceLocate, workspaceId),
   listWorkspaceFiles: (workspaceId, directoryPath) =>
     ipcRenderer.invoke(DesktopChannels.workspaceListFiles, workspaceId, directoryPath),
+  copyWorkspaceEntry: (sourceWorkspaceId, sourcePath, targetWorkspaceId, directoryPath) =>
+    ipcRenderer.invoke(
+      DesktopChannels.workspaceCopyEntry,
+      sourceWorkspaceId,
+      sourcePath,
+      targetWorkspaceId,
+      directoryPath,
+    ),
+  renameWorkspaceEntry: (workspaceId, path, name) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceRenameEntry, workspaceId, path, name),
+  copyWorkspaceEntryText: (workspaceId, path, kind) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceCopyEntryText, workspaceId, path, kind),
   getWorkspaceFileVersion: (workspaceId, path) =>
     ipcRenderer.invoke(DesktopChannels.workspaceFileVersion, workspaceId, path),
   writeWorkspaceMarkdown: (workspaceId, path, content, expectedContent) =>

@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { FileActions } from "./FileActions.js";
 import type { WorkspaceFileEntry } from "../../shared/desktop.js";
 import { useUiStore } from "../store/uiStore.js";
 import { BrowserPane } from "./BrowserPane.js";
@@ -45,6 +47,18 @@ export function SidePane({
   const notesPanelEnabled = useUiStore((state) => state.notesPanelEnabled);
   const usagePanelEnabled = useUiStore((state) => state.usagePanelEnabled);
   const browserTabElements = useRef(new Map<string, HTMLDivElement>());
+  const [menu, setMenu] = useState<{
+    entry: WorkspaceFileEntry | null;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [copied, setCopied] = useState<{ workspaceId: string; path: string } | null>(null);
+  const openMenu = (event: ReactMouseEvent, entry: WorkspaceFileEntry | null) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setMenu({ entry, x: event.clientX, y: event.clientY });
+  };
+  useEffect(() => setMenu(null), [workspaceId, activeTabId, visible]);
   const [files, setFiles] = useState<WorkspaceFileEntry[]>([]);
   const [filesWorkspaceId, setFilesWorkspaceId] = useState<string | null>(null);
   const [refreshVersion, setRefreshVersion] = useState(0);
@@ -278,7 +292,10 @@ export function SidePane({
           className="absolute inset-0"
           hidden={activeTabId !== "files"}
         >
-          <div className="h-full overflow-y-auto p-2">
+          <div
+            className="h-full overflow-y-auto p-2"
+            onContextMenu={(event) => openMenu(event, null)}
+          >
             {error ? (
               <div className="flex items-center justify-between gap-2 p-2">
                 <p className="text-ui-sm text-destructive">{error}</p>
@@ -308,6 +325,7 @@ export function SidePane({
                       workspaceId={workspaceId}
                       refreshVersion={refreshVersion}
                       showHiddenFiles={showHiddenFiles}
+                      onContextMenu={openMenu}
                       onSelect={onOpenFile}
                     />
                   ))
@@ -385,6 +403,19 @@ export function SidePane({
           );
         })}
       </div>
+      {menu && workspaceId && (
+        <FileActions
+          key={workspaceId}
+          workspaceId={workspaceId}
+          entry={menu.entry}
+          x={menu.x}
+          y={menu.y}
+          copied={copied}
+          onCopy={setCopied}
+          onClose={() => setMenu(null)}
+          onChanged={() => setRefreshVersion((version) => version + 1)}
+        />
+      )}
     </aside>
   );
 }
@@ -394,11 +425,13 @@ function FileTree({
   refreshVersion,
   showHiddenFiles,
   onSelect,
+  onContextMenu,
 }: {
   entry: WorkspaceFileEntry;
   workspaceId: string;
   refreshVersion: number;
   showHiddenFiles: boolean;
+  onContextMenu(event: ReactMouseEvent, entry: WorkspaceFileEntry): void;
   onSelect(path: string): void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -445,6 +478,7 @@ function FileTree({
     return (
       <button
         className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-ui-sm hover:bg-hover"
+        onContextMenu={(event) => onContextMenu(event, entry)}
         onDoubleClick={() => onSelect(entry.path)}
       >
         <LanguageIcon path={entry.path} />
@@ -454,6 +488,7 @@ function FileTree({
   return (
     <div>
       <button
+        onContextMenu={(event) => onContextMenu(event, entry)}
         aria-expanded={expanded}
         aria-busy={loading}
         className="flex w-full items-center gap-1 rounded-md px-1 py-1.5 text-left text-ui-sm hover:bg-hover"
@@ -490,6 +525,7 @@ function FileTree({
                 workspaceId={workspaceId}
                 refreshVersion={refreshVersion}
                 showHiddenFiles={showHiddenFiles}
+                onContextMenu={onContextMenu}
                 onSelect={onSelect}
               />
             ))

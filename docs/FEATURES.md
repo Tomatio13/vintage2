@@ -4,25 +4,27 @@ English | [日本語](FEATURES_JP.md) | [README](../README.md)
 
 This guide describes VINTAGE’s main screens and behavior in more detail. The [README](../README.md) has a short overview and setup instructions.
 
+Screenshots show the current Electron development build using a sample workspace, files, terminal output, notes, and cards.
+
 ## Main window
 
 The VINTAGE window is organized into three work areas:
 
 - **Sidebar**: Workspace navigation, Spaces, and the Attention list for terminals that need a response.
 - **Center**: Space tabs and terminal panes. Split a Space horizontally or vertically to work in multiple shells at once.
-- **Right pane**: Switch between Files, Review, Usage, and Browser without replacing the active terminal layout.
+- **Right pane**: Switch between Files, Review, Notes, Board, Usage, and Browser without replacing the active terminal layout.
 
 ![VINTAGE showing the Attention list, terminal panes, and Files pane](../assets/readme/vintage-background-attention.png)
 
-_Sample workspace with an Attention item from another Space and language-specific icons in the Files pane._
+_Sample workspace with an Attention notification from another Space and the Files pane._
 
 ### Return to a background terminal
 
 Select an Attention item to open its workspace, Space, and terminal. The Review pane can stay open while you inspect the change that prompted the notification.
 
-![Selecting an Attention item and inspecting Git changes in Review](../assets/readme/vintage-attention-routing.png)
+![Returning to the Checks terminal from an Attention notification](../assets/readme/vintage-attention-routing.png)
 
-_Sample workspace after navigating to the terminal that needs attention._
+_The Checks terminal after selecting Open terminal in the Attention notification._
 
 ## Workspaces, Spaces, and terminals
 
@@ -45,26 +47,73 @@ Press `Ctrl+Shift+P` to open the palette. Search one input for actions, workspac
 
 The shortcut can be reassigned in **Settings → Shortcuts**. The palette is intended as a single entry point for navigation and app actions, so you do not need to memorize a separate shortcut for every destination.
 
+## Default keyboard shortcuts
+
+Shortcuts can be reassigned in **Settings → Shortcuts**. Press `Ctrl+S` to save settings.
+
+| Action               | Shortcut       |
+| :------------------- | :------------- |
+| Open command palette | `Ctrl+Shift+P` |
+| Previous Space       | `Ctrl+Shift+←` |
+| Next Space           | `Ctrl+Shift+→` |
+| Previous pane        | `Ctrl+Shift+↑` |
+| Next pane            | `Ctrl+Shift+↓` |
+| Previous workspace   | `Alt+←`        |
+| Next workspace       | `Alt+→`        |
+| New Space            | `Ctrl+Shift+N` |
+| Split right          | `Ctrl+Shift+D` |
+| Split below          | `Ctrl+Shift+T` |
+| Toggle sidebar       | `Ctrl+B`       |
+| Toggle side pane     | `Ctrl+Shift+S` |
+| Open Notes pane      | `Ctrl+Shift+M` |
+| Open Board pane      | `Ctrl+Shift+K` |
+| Toggle Notes tab     | `Ctrl+Alt+M`   |
+| Toggle Board tab     | `Ctrl+Alt+K`   |
+| Open Files pane      | `Ctrl+Shift+E` |
+| Open Review pane     | `Ctrl+Shift+G` |
+| Open Usage pane      | `Ctrl+Shift+U` |
+| Open Browser pane    | `Ctrl+Shift+B` |
+| Find in terminal     | `Ctrl+F`       |
+| Close selected pane  | `Ctrl+Shift+W` |
+
+![Shortcut settings for Board and the Notes and Board toggles](../assets/readme/vintage-shortcuts.png)
+
+_Open Board pane, Toggle Notes tab, and Toggle Board tab can all be reassigned in Settings → Shortcuts._
+
 ## Right pane
 
-The right pane keeps Files, Review, Usage, and Browser one keyboard away: `Ctrl+Shift+E`, `Ctrl+Shift+G`, `Ctrl+Shift+U`, and `Ctrl+Shift+B` open Files, Review, Usage, and Browser respectively, and `Ctrl+Shift+S` shows or hides the pane. Each destination is also a command palette action, and the shortcuts can be reassigned in **Settings → Shortcuts**.
+The right pane contains Files, Review, Notes, Board, Usage, and Browser. Show or hide Notes and Board in Settings → Notes, and enable Usage in Settings → Usage. Press `Ctrl+Shift+S` to show or hide the entire pane. Each tab is also a command palette action, and shortcuts can be reassigned in **Settings → Shortcuts**.
 
 ### Files and previews
 
 Open **Files** to browse the selected workspace. Double-click a file to open its preview beside the terminal area.
 
-- **Markdown** supports workspace images and tables, with **Preview** and **Source** views. Links work in the preview: relative paths open another workspace file in the viewer, `#heading` anchors scroll within the document, and HTTP(S) links open in the built-in Browser (`Ctrl+Click` / `⌘+Click` opens a new Browser tab). `mailto:` links open the system email app.
+Right-click a file or folder in Files to copy, rename, or copy its name, relative path, or full path. Paste into a folder or right-click empty space to paste into the workspace root. Copy/paste is internal to VINTAGE, supports folders and other workspaces, and rejects existing names and symbolic links.
+
+![Files context menu with copy, rename, and path actions](../assets/readme/vintage-file-actions.png)
+
+_The Files context menu. Paste becomes available after copying an entry within Files._
+
+- **Markdown** supports workspace images and tables, with **Preview** and **Edit** views. Links work in the preview: relative paths open another workspace file in the viewer, `#heading` anchors scroll within the document, and HTTP(S) links open in the built-in Browser (`Ctrl+Click` / `⌘+Click` opens a new Browser tab). `mailto:` links open the system email app.
 - **JSON** supports formatted preview and raw source. **CSV/TSV** supports a searchable table and source view.
 - **HTML** is shown in an isolated preview that blocks scripts and external resources; source view is also available.
 - **Images** have zoom controls. **PDF** uses a built-in viewer, and audio and video have playback controls.
 - Common source and text files use syntax highlighting. Search, line wrapping, copy, and reload controls depend on the file type and view.
 - Unsupported formats, including Office documents and ZIP archives, can be opened in the system app.
 
-Text previews are limited to 1 MB and the first 10,000 lines. Image previews are limited to 10 MB. HTML previews and their CSS resources are limited to 5 MB. Previews are read-only.
+Text previews are limited to 1 MB and the first 10,000 lines. Image previews are limited to 10 MB. HTML previews and their CSS resources are limited to 5 MB. Previews other than Markdown are read-only.
 
 Files and Review automatically refresh every three seconds after the previous load finishes while their tab is visible in the side pane. Expanded folders and the selected diff are preserved. Periodic refresh stops when the side pane is closed or another tab is selected. Manual refresh remains available.
 
 Documents opened from Files also check for file changes every three seconds while their pane is visible and reload when changed. Markdown updates automatically only in Preview mode. Changes made while hidden are loaded when the pane is shown again. Manual Reload remains available.
+
+#### Markdown editing
+
+Markdown files opened from Files support Preview and Edit. Save explicitly with Save or `Ctrl+S` (`⌘S` on macOS). Saving rejects files changed externally; Reload reads the current file and asks before discarding a dirty draft. Files over 1 MB cannot be edited. Automatic preview refresh runs only for clean previews, never while editing or with unsaved changes.
+
+![Editing a Markdown file with unsaved changes](../assets/readme/vintage-markdown-editing.png)
+
+_Markdown in Edit view, showing unsaved changes and the Save and Reload controls._
 
 ### Git Review
 
@@ -73,6 +122,32 @@ Documents opened from Files also check for file changes every three seconds whil
 ![A TypeScript Git diff expanded in VINTAGE’s Review tab](../assets/readme/vintage-git-review.png)
 
 _Sample repository diff. File names have language-specific icons, and added and removed lines are highlighted._
+
+### Notes (scratchpad)
+
+Open the workspace Scratchpad from the Notes tab, Open Notes pane in the command palette, or `Ctrl+Shift+M`, configurable in Settings. Notes autosave as you type. Save as .md exports to a new Markdown file inside the workspace; existing files are not overwritten. Notes and unfinished Markdown drafts are stored as plain text in the app’s local storage and restored after closing panes or restarting the app.
+
+Use Settings → Notes → Show Notes tab or `Ctrl+Alt+M` to turn Notes on or off (On by default). While Off, Open Notes pane does not open it. Turning off an active Notes tab returns to Files. Saved notes are retained, and the preference persists across restarts. Reassign the shortcut in Settings → Shortcuts.
+
+![Workspace notes in the Scratchpad editor](../assets/readme/vintage-notes.png)
+
+_Workspace Scratchpad with autosave, card creation, and Markdown export controls._
+
+### Board (Kanban)
+
+Open the workspace Kanban board from the Board tab, Open Board pane in the command palette, or `Ctrl+Shift+K`. It has To do, Doing, and Done columns. Create cards with a title and notes, move them by drag-and-drop, click to edit, and undo a deletion immediately afterward. Scroll horizontally in narrow panes.
+
+In Notes editing mode, select text and use Create card from note to open a card form; without a selection, it uses the current line. The original memo stays intact.
+
+Cards are saved as JSON in VINTAGE’s app data directory, keyed by the canonical workspace path. Notes and cards restore after restarting. Unsubmitted card form inputs are not restored after restarting.
+
+Use Settings → Notes → Show Board tab or `Ctrl+Alt+K` to turn Board on or off (On by default). While Off, Open Board pane does not open it. Turning off an active Board tab returns to Files. Cards are retained, and the preference persists across restarts. Reassign the shortcut in Settings → Shortcuts.
+
+The AI icons on the board and each card copy the JSON path, task instructions, and a parameterized Python helper command to the clipboard for pasting into your CLI agent. No files or environment variables are added to the project. Visible boards check for external edits every three seconds; an open card draft is retained and outdated saves are rejected. Legacy local cards migrate on first use, with the original local data retained as a backup. See [AI integration and storage format](KANBAN.md).
+
+![Kanban Board with To do, Doing, Done, and AI instruction controls](../assets/readme/vintage-board.png)
+
+_To do, Doing, and Done columns, with AI instruction copy controls for the board and individual cards._
 
 ### Browser
 
@@ -136,15 +211,3 @@ On Linux, VINTAGE applies AppImage updates directly. For `.deb` installs, instal
 Attention thresholds, monitoring intervals, and per-terminal modes are stored in `attention-settings.json` in the operating system’s user data directory. A terminal’s monitoring mode is matched using a hash derived from its workspace path, Space title, and terminal title; project paths and logs are not stored there as plain text. Other interface preferences are stored separately.
 
 Workspace and Space details, pane layouts, and open file paths are stored separately in `workspace-state.json`. It contains project paths and relative file paths needed for restoration. If a project folder is missing, its Space information is retained so you can locate the folder again or remove the project. Terminal processes and output are not saved.
-
-## Markdown editing and notes
-
-Markdown files opened from Files support Preview and Edit. Save explicitly with Save or `Ctrl+S` (`⌘S` on macOS). Saving rejects files changed externally; Reload reads the current file and asks before discarding a dirty draft. Files over 1 MB cannot be edited. Automatic preview refresh runs only for clean previews, never while editing or with unsaved changes.
-
-Open the workspace Scratchpad from the Notes tab, Open Notes pane in the command palette, or `Ctrl+Shift+M` (`⌘Shift+M` on macOS), configurable in Settings. Notes autosave as you type. Save as .md exports to a new Markdown file inside the workspace; existing files are not overwritten. Notes and unfinished Markdown drafts are stored as plain text in the app’s local storage and restored after closing panes or restarting the app.
-
-Use Settings → Notes → Show Notes tab to show or hide Notes (On by default). While Off, its shortcut does not open the pane. Saved notes are retained, and the preference persists across restarts.
-
-Notes and Board are separate tabs, ordered Files → Review → Notes → Board → Browser. Each workspace has a Kanban board with To do, Doing, and Done columns. Create cards with a title and notes, move them by drag-and-drop, click to edit, and undo a deletion immediately afterward. Scroll horizontally in narrow panes. In Notes editing mode, select text and use Create card from note to open a card form; without a selection, it uses the current line. The original memo stays intact. Cards are saved as JSON in VINTAGE’s app data directory, keyed by the canonical workspace path. Both restore after restarting. Unsubmitted card form inputs are not restored after restarting. Settings → Notes provides separate Show Notes tab and Show Board tab switches; hiding either preserves its data.
-
-The AI icons on the board and each card copy the JSON path, task instructions, and a parameterized Python helper command to the clipboard for pasting into your CLI agent. No files or environment variables are added to the project. Visible boards check for external edits every three seconds; an open card draft is retained and outdated saves are rejected. Legacy local cards migrate on first use, with the original local data retained as a backup. See [AI integration and storage format](KANBAN.md).

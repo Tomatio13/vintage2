@@ -29,6 +29,7 @@ import {
 import { kanbanDirectory, readKanban, saveKanban } from "./kanbanStore.js";
 import { prepareKanbanCli } from "./kanbanCli.js";
 import { kanbanInstructions } from "./kanbanInstructions.js";
+import { copyEntry, renameEntry, entryText } from "./workspaceFileOperations.js";
 import { saveMarkdown } from "./markdownSave.js";
 import { AttentionSettingsManager } from "./attentionSettings.js";
 import { fetchCodexbarUsage, probeCodexbarStatus } from "./codexbarClient.js";
@@ -602,6 +603,32 @@ function registerDesktopIpc(
     async (_event, workspaceId: unknown, directoryPath: unknown) => {
       const directory = await resolveWorkspaceDirectory(workspaceId, directoryPath);
       return listWorkspaceEntries(directory, (directoryPath as string | undefined) ?? "");
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceCopyEntry,
+    async (event, sourceId: unknown, source: unknown, targetId: unknown, directory: unknown) => {
+      resolveSenderWindow(event);
+      await copyEntry(
+        registeredWorkspace(sourceId).path,
+        source,
+        registeredWorkspace(targetId).path,
+        directory,
+      );
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceRenameEntry,
+    async (event, id: unknown, path: unknown, name: unknown) => {
+      resolveSenderWindow(event);
+      await renameEntry(registeredWorkspace(id).path, path, name);
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceCopyEntryText,
+    async (event, id: unknown, path: unknown, kind: unknown) => {
+      resolveSenderWindow(event);
+      clipboard.writeText(await entryText(registeredWorkspace(id).path, path, kind));
     },
   );
   ipcMain.handle(

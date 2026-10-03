@@ -948,6 +948,12 @@ export function App() {
         return ui.toggleSidePane();
       case "open-notes":
         return ui.showSidePaneTab("notes");
+      case "open-board":
+        return ui.showSidePaneTab("board");
+      case "toggle-notes":
+        return ui.toggleNotesPanel();
+      case "toggle-board":
+        return ui.toggleBoardPanel();
       case "open-files":
         return ui.showSidePaneTab("files");
       case "open-review":
@@ -1158,6 +1164,10 @@ export function App() {
   const splitDownShortcut = shortcutText(ui.shortcuts, "split-down");
   const toggleSidebarShortcut = shortcutText(ui.shortcuts, "toggle-sidebar");
   const toggleSidePaneShortcut = shortcutText(ui.shortcuts, "toggle-side-pane");
+  const openNotesShortcut = shortcutText(ui.shortcuts, "open-notes");
+  const openBoardShortcut = shortcutText(ui.shortcuts, "open-board");
+  const toggleNotesShortcut = shortcutText(ui.shortcuts, "toggle-notes");
+  const toggleBoardShortcut = shortcutText(ui.shortcuts, "toggle-board");
   const openFilesShortcut = shortcutText(ui.shortcuts, "open-files");
   const openReviewShortcut = shortcutText(ui.shortcuts, "open-review");
   const openUsageShortcut = shortcutText(ui.shortcuts, "open-usage");
@@ -1324,9 +1334,41 @@ export function App() {
           section: "actions",
           title: "Open Notes pane",
           disabled: !ui.notesPanelEnabled,
+          ...(openNotesShortcut ? { shortcut: openNotesShortcut } : {}),
           keywords: ["memo", "scratchpad", "markdown", "notes"],
           icon: "file",
           onSelect: () => ui.showSidePaneTab("notes"),
+        },
+        {
+          id: "action:open-board",
+          kind: "action",
+          section: "actions",
+          title: "Open Board pane",
+          disabled: !ui.boardPanelEnabled,
+          keywords: ["kanban", "tasks", "board"],
+          icon: "file",
+          ...(openBoardShortcut ? { shortcut: openBoardShortcut } : {}),
+          onSelect: () => ui.showSidePaneTab("board"),
+        },
+        {
+          id: "action:toggle-notes",
+          kind: "action",
+          section: "actions",
+          title: "Toggle Notes tab",
+          keywords: ["notes", "enable", "disable", "show", "hide"],
+          icon: "file",
+          ...(toggleNotesShortcut ? { shortcut: toggleNotesShortcut } : {}),
+          onSelect: () => ui.toggleNotesPanel(),
+        },
+        {
+          id: "action:toggle-board",
+          kind: "action",
+          section: "actions",
+          title: "Toggle Board tab",
+          keywords: ["board", "kanban", "enable", "disable", "show", "hide"],
+          icon: "file",
+          ...(toggleBoardShortcut ? { shortcut: toggleBoardShortcut } : {}),
+          onSelect: () => ui.toggleBoardPanel(),
         },
         {
           id: "action:open-review",

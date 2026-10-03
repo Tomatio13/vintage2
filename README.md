@@ -14,7 +14,8 @@ VINTAGE keeps projects, Spaces, and terminals together, then brings you back whe
 - **Command palette**: Press `Ctrl+Shift+P` to search actions and jump to a workspace, Space, or terminal.
 - **Attention monitoring**: See command completions, errors, and input requests from background terminals in one list.
 - **Agent status at a glance**: Color-coded dots in Space tabs and the sidebar surface agent activity, waits, and failures.
-- **Files and Git Review**: Preview common files and inspect unstaged Git changes, including untracked files.
+- **Files and Git Review**: Browse, copy, and rename files, edit Markdown, and inspect unstaged Git changes.
+- **Notes and Board**: Keep workspace notes and organize tasks on a Kanban board.
 - **AI usage limits**: See remaining quota, reset times, and credits for AI CLIs such as Codex and Claude Code in the right pane. Requires the optional [CodexBar CLI](https://github.com/steipete/codexbar).
 - **Flexible shells**: Choose zsh, bash, fish, or the operating system’s default shell. On Windows, Command Prompt, Windows PowerShell, PowerShell 7, and Git Bash are supported.
 - **Automatic text copy**: Select terminal output with the mouse to copy it to the clipboard.
@@ -33,30 +34,7 @@ See the [features and screen guide](docs/FEATURES.md) for the workspace layout, 
 3. Create Spaces or split the active terminal to organize your work.
 4. Use the command palette or click an Attention item to return to a workspace, Space, or terminal.
 
-## Default keyboard shortcuts
-
-Shortcuts can be reassigned in **Settings → Shortcuts**. Press `Ctrl+S` to save settings.
-
-| Action               | Shortcut       |
-| :------------------- | :------------- |
-| Open command palette | `Ctrl+Shift+P` |
-| Previous Space       | `Ctrl+Shift+←` |
-| Next Space           | `Ctrl+Shift+→` |
-| Previous pane        | `Ctrl+Shift+↑` |
-| Next pane            | `Ctrl+Shift+↓` |
-| Previous workspace   | `Alt+←`        |
-| Next workspace       | `Alt+→`        |
-| New Space            | `Ctrl+Shift+N` |
-| Split right          | `Ctrl+Shift+D` |
-| Split below          | `Ctrl+Shift+T` |
-| Toggle sidebar       | `Ctrl+B`       |
-| Toggle side pane     | `Ctrl+Shift+S` |
-| Open Files pane      | `Ctrl+Shift+E` |
-| Open Review pane     | `Ctrl+Shift+G` |
-| Open Usage pane      | `Ctrl+Shift+U` |
-| Open Browser pane    | `Ctrl+Shift+B` |
-| Find in terminal     | `Ctrl+F`       |
-| Close selected pane  | `Ctrl+Shift+W` |
+[Default shortcuts and customization](docs/FEATURES.md#default-keyboard-shortcuts)
 
 ## Requirements
 
@@ -84,9 +62,7 @@ VINTAGE can optionally use [Jev](https://docs.typesafe.ai/sdk/javascript) to cla
 
 ## Optional CodexBar usage panel
 
-VINTAGE can show AI provider usage limits — remaining quota per window, reset times, credits, and recent cost — in a right-pane **Usage** tab for CLIs such as Codex, Claude Code, OpenCode Go, and Grok. This optional feature requires the [CodexBar CLI](https://github.com/steipete/codexbar) to be installed and configured so that the `codexbar` command runs in a terminal.
-
-Enable it in **Settings → Usage**: turn the panel on, optionally point VINTAGE at the `codexbar` binary (it is auto-detected on `PATH` and in common install locations when the path is empty), and choose a refresh interval. Which providers appear follows the enabled flags in `~/.config/codexbar/config.json`; to add Claude Code, run `codexbar config enable --provider claude`. See the [features and screen guide](docs/FEATURES.md#usage-limits-codexbar) for details.
+Show AI CLI quotas and reset times in the Usage tab with the optional [CodexBar CLI](https://github.com/steipete/codexbar). See the [usage limits guide](docs/FEATURES.md#usage-limits-codexbar) for installation and configuration.
 
 ## Documentation
 
@@ -116,22 +92,10 @@ Build artifacts are written to `release/`. Code signing, including macOS notariz
 
 ## Security and limitations
 
-VINTAGE isolates the Renderer from Node.js and limits operating-system access to typed IPC exposed by the Preload process. Projects are added through the folder picker, and file previews are read-only. Shell event detection can be less accurate when shell integration is unavailable, such as in some remote SSH environments. The built-in browser does not support downloads, extensions, or saved login credentials.
+VINTAGE isolates the Renderer from Node.js and limits operating-system access to typed IPC exposed by the Preload process. Projects are added through the folder picker. File operations stay within registered workspaces, and previews other than Markdown are read-only. Shell event detection can be less accurate when shell integration is unavailable, such as in some remote SSH environments. The built-in browser does not support downloads, extensions, or saved login credentials.
 
 For more detail, see [Architecture](docs/ARCHITECTURE.md) and the [features and screen guide](docs/FEATURES.md).
 
 ## License
 
 This project is available under the **Apache License 2.0**. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md) for details.
-
-## Markdown editing and notes
-
-Markdown files opened from Files support Preview and Edit. Save explicitly with Save or `Ctrl+S` (`⌘S` on macOS). Saving rejects files changed externally; Reload reads the current file and asks before discarding a dirty draft. Files over 1 MB cannot be edited. Automatic preview refresh runs only for clean previews, never while editing or with unsaved changes.
-
-Open the workspace Scratchpad from the Notes tab, Open Notes pane in the command palette, or `Ctrl+Shift+M` (`⌘Shift+M` on macOS), configurable in Settings. Notes autosave as you type. Save as .md exports to a new Markdown file inside the workspace; existing files are not overwritten. Notes and unfinished Markdown drafts are stored as plain text in the app’s local storage and restored after closing panes or restarting the app.
-
-Use Settings → Notes → Show Notes tab to show or hide Notes (On by default). While Off, its shortcut does not open the pane. Saved notes are retained, and the preference persists across restarts.
-
-Notes and Board are separate tabs, ordered Files → Review → Notes → Board → Browser. Each workspace has a Kanban board with To do, Doing, and Done columns. Create cards with a title and notes, move them by drag-and-drop, click to edit, and undo a deletion immediately afterward. Scroll horizontally in narrow panes. In Notes editing mode, select text and use Create card from note to open a card form; without a selection, it uses the current line. The original memo stays intact. Cards are saved as JSON in VINTAGE’s app data directory, keyed by the canonical workspace path. Both restore after restarting. Unsubmitted card form inputs are not restored after restarting. Settings → Notes provides separate Show Notes tab and Show Board tab switches; hiding either preserves its data.
-
-The AI icons on the board and each card copy the JSON path, task instructions, and a parameterized Python helper command to the clipboard for pasting into your CLI agent. No files or environment variables are added to the project. Visible boards check for external edits every three seconds; an open card draft is retained and outdated saves are rejected. Legacy local cards migrate on first use, with the original local data retained as a backup. See [AI integration and storage format](docs/KANBAN.md).

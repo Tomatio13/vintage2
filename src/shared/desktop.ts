@@ -28,6 +28,9 @@ export const DesktopChannels = {
   workspaceStateLoad: "workspace:state-load",
   workspaceStateSave: "workspace:state-save",
   workspaceLocate: "workspace:locate",
+  workspaceCopyEntry: "workspace:copy-entry",
+  workspaceRenameEntry: "workspace:rename-entry",
+  workspaceCopyEntryText: "workspace:copy-entry-text",
   workspaceListFiles: "workspace:list-files",
   workspaceKanbanCopy: "workspace:kanban-copy",
   workspaceKanbanRead: "workspace:kanban-read",
@@ -445,6 +448,18 @@ export interface DesktopBridge {
   saveWorkspaceState(state: WorkspaceStateSnapshot): Promise<void>;
   locateWorkspace(workspaceId: string): Promise<RegisteredWorkspace | null>;
   listWorkspaceFiles(workspaceId: string, directoryPath?: string): Promise<WorkspaceFileEntry[]>;
+  copyWorkspaceEntry(
+    sourceWorkspaceId: string,
+    sourcePath: string,
+    targetWorkspaceId: string,
+    directoryPath: string,
+  ): Promise<void>;
+  renameWorkspaceEntry(workspaceId: string, path: string, name: string): Promise<void>;
+  copyWorkspaceEntryText(
+    workspaceId: string,
+    path: string,
+    kind: "name" | "relative" | "full",
+  ): Promise<void>;
   getWorkspaceFileVersion(workspaceId: string, path: string): Promise<string | null>;
   copyWorkspaceKanbanInstructions(workspaceId: string, cardId?: string): Promise<void>;
   readWorkspaceKanban(workspaceId: string, initial?: KanbanDocument): Promise<KanbanSnapshot>;

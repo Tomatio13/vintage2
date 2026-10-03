@@ -50,6 +50,9 @@ export const shortcutActions = [
   "toggle-sidebar",
   "toggle-side-pane",
   "open-notes",
+  "open-board",
+  "toggle-notes",
+  "toggle-board",
   "open-files",
   "open-review",
   "open-usage",
@@ -79,6 +82,9 @@ export const defaultShortcuts: ShortcutBinding[] = [
   { action: "toggle-sidebar", key: "b", ctrl: true, alt: false, shift: false },
   { action: "toggle-side-pane", key: "s", ctrl: true, alt: false, shift: true },
   { action: "open-notes", key: "m", ctrl: true, alt: false, shift: true },
+  { action: "open-board", key: "k", ctrl: true, alt: false, shift: true },
+  { action: "toggle-notes", key: "m", ctrl: true, alt: true, shift: false },
+  { action: "toggle-board", key: "k", ctrl: true, alt: true, shift: false },
   { action: "open-files", key: "e", ctrl: true, alt: false, shift: true },
   { action: "open-review", key: "g", ctrl: true, alt: false, shift: true },
   { action: "open-usage", key: "u", ctrl: true, alt: false, shift: true },
@@ -121,6 +127,8 @@ interface UiState extends VintageSettings {
   setUsagePanelEnabled(enabled: boolean): void;
   toggleSidebar(): void;
   toggleSidePane(): void;
+  toggleNotesPanel(): void;
+  toggleBoardPanel(): void;
   toggleActivity(): void;
   setSettingsOpen(open: boolean): void;
   setSidebarWidth(width: number): void;
@@ -174,6 +182,22 @@ export const useUiStore = create<UiState>()(
       saveSettings: (settings) => set(settings),
       setUsagePanelEnabled: (usagePanelEnabled) => set({ usagePanelEnabled }),
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+      toggleNotesPanel: () =>
+        set((state) => ({
+          notesPanelEnabled: !state.notesPanelEnabled,
+          activeSidePaneTabId:
+            state.notesPanelEnabled && state.activeSidePaneTabId === "notes"
+              ? "files"
+              : state.activeSidePaneTabId,
+        })),
+      toggleBoardPanel: () =>
+        set((state) => ({
+          boardPanelEnabled: !state.boardPanelEnabled,
+          activeSidePaneTabId:
+            state.boardPanelEnabled && state.activeSidePaneTabId === "board"
+              ? "files"
+              : state.activeSidePaneTabId,
+        })),
       toggleSidePane: () => set((state) => ({ sidePaneOpen: !state.sidePaneOpen })),
       toggleActivity: () => set((state) => ({ activityOpen: !state.activityOpen })),
       setSettingsOpen: (settingsOpen) => set({ settingsOpen }),

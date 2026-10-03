@@ -4,25 +4,27 @@
 
 VINTAGEの主な画面と機能を詳しく説明します。概要とセットアップは[README](../README_JP.md)をご覧ください。
 
+キャプチャーは現在のElectron開発版を撮影したものです。Workspace、ファイル、ターミナル出力、メモ、カードには撮影用のサンプルを使っています。
+
 ## メイン画面
 
 VINTAGEの画面は、大きく3つの作業エリアに分かれています。
 
 - **サイドバー**: ワークスペース、Spaceの一覧と、対応が必要なターミナルを示すAttention一覧
 - **中央**: Spaceのタブとターミナルペイン。Space内のターミナルは左右または上下に分割できます。
-- **右ペイン**: Files、Review、Usage、Browserを切り替えて使えます。中央のターミナル配置はそのまま保たれます。
+- **右ペイン**: Files、Review、Notes、Board、Usage、Browserを切り替えて使えます。中央のターミナル配置はそのまま保たれます。
 
-![Attention一覧、ターミナル、Filesペインを表示したVINTAGEの画面](../assets/readme/vintage-background-attention.png)
+![最新のVINTAGEでAttention通知とFilesペインを表示した画面](../assets/readme/vintage-background-attention.png)
 
-_別のSpaceで発生したAttentionと、Filesペインで言語ごとのアイコンを表示したサンプル画面です。_
+_別のSpaceで発生したAttention通知と、Filesペインを表示したサンプル画面です。_
 
 ### バックグラウンドのターミナルに戻る
 
 Attention項目を選ぶと、対象のワークスペース、Space、ターミナルが開きます。通知の原因となった変更を確認するときは、Reviewペインも表示できます。
 
-![Attention項目から対象のTerminalへ移動し、ReviewでGit変更を確認する画面](../assets/readme/vintage-attention-routing.png)
+![Attention通知から対応が必要なChecksのターミナルへ移動した画面](../assets/readme/vintage-attention-routing.png)
 
-_対応が必要なターミナルへ移動した状態のサンプル画面です。_
+_Attention通知のOpen terminalからChecksのターミナルへ移動した画面です。_
 
 ## ワークスペース、Space、ターミナル
 
@@ -45,15 +47,54 @@ SpaceタブとサイドバーのWorkspace/Tab行には、配下ペインの認�
 
 ショートカットは **Settings → Shortcuts** から変更できます。移動先や操作ごとに個別のキーを覚えなくても、パレットを入口にして検索できます。
 
+## 既定のキーボードショートカット
+
+ショートカットは **Settings → Shortcuts** から変更できます。設定は `Ctrl+S` で保存します。
+
+| 操作                   | ショートカット |
+| :--------------------- | :------------- |
+| コマンドパレットを開く | `Ctrl+Shift+P` |
+| 前のSpace              | `Ctrl+Shift+←` |
+| 次のSpace              | `Ctrl+Shift+→` |
+| 前のペイン             | `Ctrl+Shift+↑` |
+| 次のペイン             | `Ctrl+Shift+↓` |
+| 前のワークスペース     | `Alt+←`        |
+| 次のワークスペース     | `Alt+→`        |
+| 新しいSpace            | `Ctrl+Shift+N` |
+| 右へ分割               | `Ctrl+Shift+D` |
+| 下へ分割               | `Ctrl+Shift+T` |
+| サイドバー表示切り替え | `Ctrl+B`       |
+| 右ペイン表示切り替え   | `Ctrl+Shift+S` |
+| Notesペインを開く      | `Ctrl+Shift+M` |
+| Boardペインを開く      | `Ctrl+Shift+K` |
+| NotesタブのON/OFF      | `Ctrl+Alt+M`   |
+| BoardタブのON/OFF      | `Ctrl+Alt+K`   |
+| Filesペインを開く      | `Ctrl+Shift+E` |
+| Reviewペインを開く     | `Ctrl+Shift+G` |
+| Usageペインを開く      | `Ctrl+Shift+U` |
+| Browserペインを開く    | `Ctrl+Shift+B` |
+| ターミナル内検索       | `Ctrl+F`       |
+| 選択中のペインを閉じる | `Ctrl+Shift+W` |
+
+![ショートカット設定でBoardとNotes・BoardのON/OFFを表示した画面](../assets/readme/vintage-shortcuts.png)
+
+_Open Board pane、Toggle Notes tab、Toggle Board tabもSettings → Shortcutsから変更できます。_
+
 ## 右ペイン
 
-右ペインの Files・Review・Usage・Browser はキーボードからすぐに開けます。`Ctrl+Shift+E`、`Ctrl+Shift+G`、`Ctrl+Shift+U`、`Ctrl+Shift+B` でそれぞれ Files・Review・Usage・Browser を開き、`Ctrl+Shift+S` で右ペインの表示を切り替えます。どの項目もコマンドパレットからも呼び出せ、ショートカットは **Settings → Shortcuts** で変更できます。
+右ペインにはFiles、Review、Notes、Board、Usage、Browserがあります。NotesとBoardはSettings → Notes、UsageはSettings → Usageで表示を切り替えられます。`Ctrl+Shift+S`で右ペイン全体の表示を切り替えます。各タブはコマンドパレットからも開け、ショートカットは **Settings → Shortcuts** で変更できます。
 
 ### Filesとファイルプレビュー
 
 **Files** で選択中のワークスペースを閲覧できます。ファイルをダブルクリックすると、ターミナル領域の横にプレビューが開きます。
 
-- **Markdown** はワークスペース内の画像と表に対応し、**Preview** と **Source** を切り替えられます。Preview ではリンクも動作します。相対パスのリンクはワークスペース内の別ファイルをビューアーで開き、`#見出し` へのアンカーはドキュメント内をスクロールし、HTTP(S) のリンクは内蔵 Browser で開きます(`Ctrl+クリック` / `⌘+クリック` で新しい Browser タブ)。`mailto:` は OS のメールアプリで開きます。
+Filesのファイル・フォルダを右クリックすると、コピー、リネーム、名前・相対パス・フルパスのコピーができます。フォルダのメニューから貼り付けるか、空白部分を右クリックしてWorkspace直下へ貼り付けます。コピー＆ペーストはVINTAGE内専用で、フォルダや別Workspaceへのコピーにも対応します。同名の項目とシンボリックリンクはエラーになります。
+
+![Filesのコピー・リネーム・パスコピーの右クリックメニュー](../assets/readme/vintage-file-actions.png)
+
+_Filesの右クリックメニュー。貼り付けはFiles内で項目をコピーすると利用できます。_
+
+- **Markdown** はワークスペース内の画像と表に対応し、**Preview** と **Edit** を切り替えられます。Preview ではリンクも動作します。相対パスのリンクはワークスペース内の別ファイルをビューアーで開き、`#見出し` へのアンカーはドキュメント内をスクロールし、HTTP(S) のリンクは内蔵 Browser で開きます(`Ctrl+クリック` / `⌘+クリック` で新しい Browser タブ)。`mailto:` は OS のメールアプリで開きます。
 - **JSON** は整形表示またはソース表示、**CSV/TSV** は検索可能な表またはソース表示に対応します。
 - **HTML** はスクリプトと外部リソースをブロックした隔離プレビューで表示し、ソース表示にも切り替えられます。
 - **画像**にはズーム操作があります。**PDF**は組み込みビューアーで表示し、音声・動画には再生コントロールがあります。
@@ -66,6 +107,14 @@ FilesとReviewは、右ペインの対象タブを表示している間、読み
 
 Filesから開いたドキュメントも、ペインを表示している間は3秒ごとにファイルの変更を確認し、変更時だけ再読み込みします。Markdownの自動更新はPreview表示中のみです。非表示中の変更は再表示時に反映され、手動のReloadも利用できます。
 
+#### Markdown編集
+
+Filesから開いたMarkdownはPreview／Editを切り替えて編集できます。Saveまたは`Ctrl+S`（macOSは`⌘S`）で保存します。外部で変更されたファイルは上書きせず、Reloadで読み直せます（編集中は破棄の確認があります）。1 MBを超えるファイルは編集できません。Previewの自動更新は未編集の文書のみで、Edit表示中と未保存の変更がある間は停止します。
+
+![MarkdownをEdit表示で編集中の画面](../assets/readme/vintage-markdown-editing.png)
+
+_MarkdownのEdit表示。未保存の変更を示し、SaveとReloadを利用できます。_
+
 ### Git Review
 
 **Review** は、選択中のワークスペースの未ステージ変更と未追跡ファイルを一覧表示します。ファイルを選ぶと、追加行と削除行を色分けした差分が表示されます。Reviewは閲覧専用で、Stage / Unstageはできません。表示中はGitの状態を自動更新し、更新ボタンでも再取得できます。
@@ -73,6 +122,32 @@ Filesから開いたドキュメントも、ペインを表示している間は
 ![VINTAGEのReviewタブでTypeScriptのGit差分を開いた画面](../assets/readme/vintage-git-review.png)
 
 _サンプルリポジトリの差分です。ファイル名には言語ごとのアイコンが付き、追加行と削除行を色分けして表示します。_
+
+### Notes（メモ）
+
+右ペインのNotes、コマンドパレットのOpen Notes pane、または`Ctrl+Shift+M`でWorkspaceのScratchpadを開けます。このショートカットはSettingsで変更できます。メモは入力時に自動保存され、Save as .mdでWorkspace内の新しいMarkdownファイルへ書き出せます（既存ファイルの上書きには対応しません）。メモとMarkdownの書きかけはアプリのローカルストレージに平文で保存され、ペインを閉じたりアプリを再起動しても復元されます。
+
+Settings → Notes → Show Notes tab、または`Ctrl+Alt+M`でNotesのON/OFFを切り替えます（既定はOn）。Offの間はOpen Notes paneからも開きません。表示中のNotesをOffにするとFilesへ戻ります。メモは保持され、設定は再起動後も維持されます。ショートカットはSettings → Shortcutsで変更できます。
+
+![WorkspaceのNotesにメモを入力した画面](../assets/readme/vintage-notes.png)
+
+_WorkspaceごとのScratchpad。入力時に自動保存され、カード作成とMarkdownへの書き出しに対応します。_
+
+### Board（Kanban）
+
+Boardタブ、コマンドパレットのOpen Board pane、または`Ctrl+Shift+K`でWorkspaceのKanbanボードを開きます。BoardではTo do・Doing・Doneの3列にタイトルとメモ付きのカードを作成し、ドラッグ＆ドロップで移動できます。カードをクリックすると編集でき、削除直後はUndoで戻せます。幅の狭いペインではボードを横スクロールしてください。
+
+Notesの編集画面で文章を選択し、Create card from noteアイコンを押すとカード作成フォームが開きます。未選択の場合はカーソルのある行を使い、元のメモは保持します。
+
+カードはVINTAGEのアプリ保存領域にJSON形式で、Workspaceの実パスごとに保存されます。メモとカードは再起動後に復元されます。カード編集フォームの未確定の入力は再起動時に復元されません。
+
+Settings → Notes → Show Board tab、または`Ctrl+Alt+K`でBoardのON/OFFを切り替えます（既定はOn）。Offの間はOpen Board paneからも開きません。表示中のBoardをOffにするとFilesへ戻ります。カードは保持され、設定は再起動後も維持されます。ショートカットはSettings → Shortcutsで変更できます。
+
+Board全体と各カードのAIアイコンから、JSONの保存先・作業指示・パラメータ指定のPython更新コマンドをクリップボードへコピーできます。好きなCLIエージェントに貼り付けて使います。プロジェクト内にファイルや環境変数は追加しません。Board表示中は3秒ごとに外部変更を読み込み、カードの編集中は下書きを保持して古い状態からの保存を拒否します。既存のローカル保存カードは初回に移行し、元のデータはバックアップとして残します。[AI連携と保存形式](KANBAN.md)をご覧ください。
+
+![BoardのTo do・Doing・DoneとAI指示コピーボタン](../assets/readme/vintage-board.png)
+
+_To do・Doing・Doneの3列と、Board全体・カードごとのAI指示コピーボタン。_
 
 ### Browser
 
@@ -136,15 +211,3 @@ Linuxでは、AppImageの更新はVINTAGEから適用できます。`.deb` 版�
 Attentionのしきい値・監視周期とターミナルごとの監視モードは、OSのユーザーデータ領域にある `attention-settings.json` に保存されます。監視モードの照合には、ワークスペースパス、Space名、ターミナル名から生成したハッシュを使います。このファイルにプロジェクトパスやログを平文で保存しません。その他のUI設定は別に保存されます。
 
 ワークスペース、Space、ペイン配置、開いているファイルのパスは `workspace-state.json` に保存されます。復元に使うProjectのパスと相対ファイルパスが含まれます。Projectフォルダーが見つからない場合もSpace情報は保持され、フォルダーを再指定するかProjectを削除できます。ターミナルのプロセスや出力内容は保存されません。
-
-## Markdown編集とメモ
-
-Filesから開いたMarkdownはPreview／Editを切り替えて編集できます。Saveまたは`Ctrl+S`（macOSは`⌘S`）で保存します。外部で変更されたファイルは上書きせず、Reloadで読み直せます（編集中は破棄の確認があります）。1 MBを超えるファイルは編集できません。Previewの自動更新は未編集の文書のみで、Edit表示中と未保存の変更がある間は停止します。
-
-右ペインのNotes、コマンドパレットのOpen Notes pane、または`Ctrl+Shift+M`（macOSは`⌘Shift+M`）でWorkspaceのScratchpadを開けます。このショートカットはSettingsで変更できます。メモは入力時に自動保存され、Save as .mdでWorkspace内の新しいMarkdownファイルへ書き出せます（既存ファイルの上書きには対応しません）。メモとMarkdownの書きかけはアプリのローカルストレージに平文で保存され、ペインを閉じたりアプリを再起動しても復元されます。
-
-Settings → Notes → Show Notes tabでNotesタブを表示／非表示にできます（既定はOn）。Offの間はショートカットからも開きません。メモは保持され、設定は再起動後も維持されます。
-
-NotesとBoardは独立したタブで、Files → Review → Notes → Board → Browserの順に並びます。BoardではTo do・Doing・Doneの3列にタイトルとメモ付きのカードを作成し、ドラッグ＆ドロップで移動できます。カードをクリックすると編集でき、削除直後はUndoで戻せます。幅の狭いペインではボードを横スクロールしてください。Notesの編集画面で文章を選択し、Create card from noteアイコンを押すとカード作成フォームが開きます。未選択の場合はカーソルのある行を使い、元のメモは保持します。カードはVINTAGEのアプリ保存領域にJSON形式で、Workspaceの実パスごとに保存されます。メモとカードは再起動後に復元されます。カード編集フォームの未確定の入力は再起動時に復元されません。Settings → NotesでShow Notes tabとShow Board tabを個別に切り替えられ、非表示でもデータは保持されます。
-
-Board全体と各カードのAIアイコンから、JSONの保存先・作業指示・パラメータ指定のPython更新コマンドをクリップボードへコピーできます。好きなCLIエージェントに貼り付けて使います。プロジェクト内にファイルや環境変数は追加しません。Board表示中は3秒ごとに外部変更を読み込み、カードの編集中は下書きを保持して古い状態からの保存を拒否します。既存のローカル保存カードは初回に移行し、元のデータはバックアップとして残します。[AI連携と保存形式](KANBAN.md)をご覧ください。

@@ -14,7 +14,8 @@ VINTAGEは、プロジェクト、Space、ターミナルをまとめて管理�
 - **コマンドパレット**: `Ctrl+Shift+P` で開き、操作やワークスペース、Space、ターミナルを検索できます。
 - **Attention監視**: バックグラウンドのターミナルで起きたコマンド完了、エラー、入力待ちを一覧で確認できます。
 - **エージェント状態の表示**: Spaceタブとサイドバーの色付きドットで、作業中・待機中・失敗などの状態を確認できます。
-- **FilesとGit Review**: よく使われるファイルをプレビューし、未追跡ファイルを含む未ステージのGit変更を確認できます。
+- **FilesとGit Review**: ファイルの閲覧・コピー・リネーム、Markdown編集、未ステージのGit差分確認に対応しています。
+- **NotesとBoard**: WorkspaceごとのメモとKanbanボードで、作業内容やタスクを管理できます。
 - **AI使用制限の表示**: CodexやClaude CodeなどのAI CLIの残りクォータ、リセット時刻、クレジットを右ペインで確認できます。任意の [CodexBar CLI](https://github.com/steipete/codexbar) が必要です。
 - **複数のシェルに対応**: zsh、bash、fish、またはOSの既定シェルを選べます。Windows ではコマンドプロンプト、Windows PowerShell、PowerShell 7、Git Bash に対応しています。
 - **テキストの自動コピー**: ターミナル出力をマウスで選択するとクリップボードへコピーします。
@@ -33,30 +34,7 @@ VINTAGEは、プロジェクト、Space、ターミナルをまとめて管理�
 3. Spaceを追加したり、ターミナルを分割したりして作業環境を整理します。
 4. コマンドパレット、またはAttention一覧から、目的のワークスペース、Space、ターミナルへ移動します。
 
-## 既定のキーボードショートカット
-
-ショートカットは **Settings → Shortcuts** から変更できます。設定は `Ctrl+S` で保存します。
-
-| 操作                   | ショートカット |
-| :--------------------- | :------------- |
-| コマンドパレットを開く | `Ctrl+Shift+P` |
-| 前のSpace              | `Ctrl+Shift+←` |
-| 次のSpace              | `Ctrl+Shift+→` |
-| 前のペイン             | `Ctrl+Shift+↑` |
-| 次のペイン             | `Ctrl+Shift+↓` |
-| 前のワークスペース     | `Alt+←`        |
-| 次のワークスペース     | `Alt+→`        |
-| 新しいSpace            | `Ctrl+Shift+N` |
-| 右へ分割               | `Ctrl+Shift+D` |
-| 下へ分割               | `Ctrl+Shift+T` |
-| サイドバー表示切り替え | `Ctrl+B`       |
-| 右ペイン表示切り替え   | `Ctrl+Shift+S` |
-| Filesペインを開く      | `Ctrl+Shift+E` |
-| Reviewペインを開く     | `Ctrl+Shift+G` |
-| Usageペインを開く      | `Ctrl+Shift+U` |
-| Browserペインを開く    | `Ctrl+Shift+B` |
-| ターミナル内検索       | `Ctrl+F`       |
-| 選択中のペインを閉じる | `Ctrl+Shift+W` |
+[既定のショートカット一覧と変更方法](docs/FEATURES_JP.md#既定のキーボードショートカット)
 
 ## 必要環境
 
@@ -84,9 +62,7 @@ pnpm start
 
 ## CodexBarによるUsageパネル（任意）
 
-右ペインの **Usage** タブに、Codex、Claude Code、OpenCode Go、GrokなどのAIプロバイダーの使用制限（ウィンドウごとの残りクォータ、リセット時刻、クレジット、取得できる場合は直近のコスト）を表示できます。この任意機能には [CodexBar CLI](https://github.com/steipete/codexbar) のインストールと設定が必要です。ターミナルで `codexbar` コマンドが実行できる状態にしてください。
-
-**Settings → Usage** でパネルを有効にし、必要なら `codexbar` へのパスを指定します（空欄の場合は `PATH` と一般的なインストール先から自動検出します）。表示されるプロバイダーは `~/.config/codexbar/config.json` の有効フラグに従い、Claude Codeを追加するには `codexbar config enable --provider claude` を実行します。詳細は[機能と画面のガイド](docs/FEATURES_JP.md)をご覧ください。
+AI CLIのクォータやリセット時刻をUsageタブに表示できます。任意の [CodexBar CLI](https://github.com/steipete/codexbar) が必要です。導入と設定は[Usage制限のガイド](docs/FEATURES_JP.md#usage制限codexbar)をご覧ください。
 
 ## ドキュメント
 
@@ -116,22 +92,10 @@ pnpm test:e2e
 
 ## セキュリティと制限事項
 
-RendererからNode.jsを利用できないよう分離し、OS機能へのアクセスをPreloadが公開する型付きIPCに限定しています。Projectはフォルダー選択ダイアログから追加します。ファイルプレビューは読み取り専用です。SSHなどShell Integrationが利用できない環境では、ターミナルイベントの検知精度が下がる場合があります。組み込みブラウザーはダウンロード、拡張機能、ログイン情報の保存に対応していません。
+RendererからNode.jsを利用できないよう分離し、OS機能へのアクセスをPreloadが公開する型付きIPCに限定しています。Projectはフォルダー選択ダイアログから追加します。ファイル操作はWorkspace内に限定され、Markdown以外のプレビューは読み取り専用です。SSHなどShell Integrationが利用できない環境では、ターミナルイベントの検知精度が下がる場合があります。組み込みブラウザーはダウンロード、拡張機能、ログイン情報の保存に対応していません。
 
 詳しくは[アーキテクチャ](docs/ARCHITECTURE.md)と[機能と画面のガイド](docs/FEATURES_JP.md)をご覧ください。
 
 ## ライセンス
 
 本プロジェクトは **Apache License 2.0** のもとで公開されています。[LICENSE](LICENSE) と [NOTICE.md](NOTICE.md) をご確認ください。
-
-## Markdown編集とメモ
-
-Filesから開いたMarkdownはPreview／Editを切り替えて編集できます。Saveまたは`Ctrl+S`（macOSは`⌘S`）で保存します。外部で変更されたファイルは上書きせず、Reloadで読み直せます（編集中は破棄の確認があります）。1 MBを超えるファイルは編集できません。Previewの自動更新は未編集の文書のみで、Edit表示中と未保存の変更がある間は停止します。
-
-右ペインのNotes、コマンドパレットのOpen Notes pane、または`Ctrl+Shift+M`（macOSは`⌘Shift+M`）でWorkspaceのScratchpadを開けます。このショートカットはSettingsで変更できます。メモは入力時に自動保存され、Save as .mdでWorkspace内の新しいMarkdownファイルへ書き出せます（既存ファイルの上書きには対応しません）。メモとMarkdownの書きかけはアプリのローカルストレージに平文で保存され、ペインを閉じたりアプリを再起動しても復元されます。
-
-Settings → Notes → Show Notes tabでNotesタブを表示／非表示にできます（既定はOn）。Offの間はショートカットからも開きません。メモは保持され、設定は再起動後も維持されます。
-
-NotesとBoardは独立したタブで、Files → Review → Notes → Board → Browserの順に並びます。BoardではTo do・Doing・Doneの3列にタイトルとメモ付きのカードを作成し、ドラッグ＆ドロップで移動できます。カードをクリックすると編集でき、削除直後はUndoで戻せます。幅の狭いペインではボードを横スクロールしてください。Notesの編集画面で文章を選択し、Create card from noteアイコンを押すとカード作成フォームが開きます。未選択の場合はカーソルのある行を使い、元のメモは保持します。カードはVINTAGEのアプリ保存領域にJSON形式で、Workspaceの実パスごとに保存されます。メモとカードは再起動後に復元されます。カード編集フォームの未確定の入力は再起動時に復元されません。Settings → NotesでShow Notes tabとShow Board tabを個別に切り替えられ、非表示でもデータは保持されます。
-
-Board全体と各カードのAIアイコンから、JSONの保存先・作業指示・パラメータ指定のPython更新コマンドをクリップボードへコピーできます。好きなCLIエージェントに貼り付けて使います。プロジェクト内にファイルや環境変数は追加しません。Board表示中は3秒ごとに外部変更を読み込み、カードの編集中は下書きを保持して古い状態からの保存を拒否します。既存のローカル保存カードは初回に移行し、元のデータはバックアップとして残します。[AI連携と保存形式](docs/KANBAN.md)をご覧ください。

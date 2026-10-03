@@ -71,6 +71,8 @@ describe("VINTAGE workspace shell", () => {
 
   beforeEach(() => {
     useUiStore.setState({
+      notesPanelEnabled: true,
+      boardPanelEnabled: true,
       sidebarOpen: true,
       sidePaneOpen: true,
       settingsOpen: false,
@@ -637,6 +639,45 @@ describe("VINTAGE workspace shell", () => {
     fireEvent.keyDown(window, { key: "g", ctrlKey: true, shiftKey: true });
     expect(screen.getByRole("button", { name: "Review" })).toHaveAttribute("aria-pressed", "true");
     expect(document.querySelector(".workspace-side-panel")).not.toHaveClass("invisible");
+  });
+
+  it("opens Board and independently toggles Notes and Board with shortcuts", () => {
+    renderApp();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true, shiftKey: true });
+    expect(screen.getByRole("button", { name: "Board" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true, altKey: true });
+    expect(screen.queryByRole("button", { name: "Board" })).not.toBeInTheDocument();
+    expect(useUiStore.getState().activeSidePaneTabId).toBe("files");
+    expect(useUiStore.getState().notesPanelEnabled).toBe(true);
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true, shiftKey: true });
+    expect(useUiStore.getState().activeSidePaneTabId).toBe("files");
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true, altKey: true });
+    expect(screen.getByRole("button", { name: "Board" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "m", ctrlKey: true, shiftKey: true });
+    expect(useUiStore.getState().activeSidePaneTabId).toBe("notes");
+    fireEvent.keyDown(window, { key: "m", ctrlKey: true, altKey: true });
+    expect(screen.queryByRole("button", { name: "Notes" })).not.toBeInTheDocument();
+    expect(useUiStore.getState().activeSidePaneTabId).toBe("files");
+    expect(useUiStore.getState().boardPanelEnabled).toBe(true);
+    expect(
+      JSON.parse(localStorage.getItem("ai-workspace-starter-ui")!).state.notesPanelEnabled,
+    ).toBe(false);
+    fireEvent.keyDown(window, { key: "m", ctrlKey: true, altKey: true });
+    expect(screen.getByRole("button", { name: "Notes" })).toBeInTheDocument();
+  });
+
+  it("lists Board and both toggles in shortcut settings and supports rebinding", () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Shortcuts" }));
+    expect(screen.getByLabelText("Set Open Board pane shortcut")).toHaveTextContent("Ctrl+Shift+K");
+    expect(screen.getByLabelText("Set Toggle Notes tab shortcut")).toHaveTextContent("Ctrl+Alt+M");
+    fireEvent.click(screen.getByLabelText("Set Toggle Board tab shortcut"));
+    fireEvent.keyDown(window, { key: "j", altKey: true });
+    expect(screen.getByLabelText("Set Toggle Board tab shortcut")).toHaveTextContent("Alt+J");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.keyDown(window, { key: "j", altKey: true });
+    expect(useUiStore.getState().boardPanelEnabled).toBe(false);
   });
 
   it("leaves the find-in-terminal shortcut for the terminal to handle", () => {

@@ -67,7 +67,17 @@ const shortcutGroups: Array<[string, ShortcutAction[]]> = [
   ["Navigation", ["open-command-palette"]],
   [
     "Side pane",
-    ["toggle-side-pane", "open-notes", "open-files", "open-review", "open-usage", "open-browser"],
+    [
+      "toggle-side-pane",
+      "open-notes",
+      "open-board",
+      "toggle-notes",
+      "toggle-board",
+      "open-files",
+      "open-review",
+      "open-usage",
+      "open-browser",
+    ],
   ],
   ["Terminal", ["find-in-terminal"]],
 ];
@@ -86,6 +96,9 @@ const shortcutLabels: Record<ShortcutAction, string> = {
   "toggle-sidebar": "Toggle sidebar",
   "toggle-side-pane": "Toggle side pane",
   "open-notes": "Open Notes pane",
+  "open-board": "Open Board pane",
+  "toggle-notes": "Toggle Notes tab",
+  "toggle-board": "Toggle Board tab",
   "open-files": "Open Files pane",
   "open-review": "Open Review pane",
   "open-usage": "Open Usage pane",
