@@ -1,4 +1,13 @@
-import { Code2, Eye, FileText, FileDown, LoaderCircle, RefreshCw, Save } from "lucide-react";
+import {
+  Code2,
+  Eye,
+  ListPlus,
+  FileText,
+  FileDown,
+  LoaderCircle,
+  RefreshCw,
+  Save,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { MarkdownPreview } from "./MarkdownPreview.js";
 
@@ -13,9 +22,11 @@ export function MarkdownEditor({
   visible = true,
   onOpenFile,
   targetLine,
+  onCreateCard,
 }: {
   workspaceId: string;
   path?: string;
+  onCreateCard?: ((text: string) => void) | undefined;
   targetLine?: number | undefined;
   visible?: boolean;
   onOpenFile?: ((path: string) => void) | undefined;
@@ -199,6 +210,32 @@ export function MarkdownEditor({
         >
           <Eye aria-hidden="true" className="size-4" />
         </button>
+        {!path && !preview && onCreateCard && (
+          <button
+            type="button"
+            aria-label="Create card from note"
+            title="Create card from selected text or current line"
+            className="grid size-7 shrink-0 place-items-center rounded-md text-foreground-subtle transition-colors hover:bg-hover hover:text-foreground disabled:opacity-40"
+            disabled={!draft?.content.trim()}
+            onClick={() => {
+              if (!draft) return;
+              const start = input.current?.selectionStart ?? 0;
+              const end = input.current?.selectionEnd ?? start;
+              const lineStart = draft.content.lastIndexOf("\n", start - 1) + 1;
+              const nextBreak = draft.content.indexOf("\n", start);
+              const text =
+                (start !== end
+                  ? draft.content.slice(start, end)
+                  : draft.content.slice(lineStart, nextBreak < 0 ? undefined : nextBreak)
+                ).trim() ||
+                draft.content.split("\n").find((line) => line.trim()) ||
+                "";
+              if (text.trim()) onCreateCard(text);
+            }}
+          >
+            <ListPlus aria-hidden="true" className="size-4" />
+          </button>
+        )}
         {path ? (
           <>
             <button

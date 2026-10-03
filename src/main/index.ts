@@ -26,6 +26,9 @@ import {
   type WorkspaceFileEntry,
   type WorkspaceStateSnapshot,
 } from "../shared/desktop.js";
+import { kanbanDirectory, readKanban, saveKanban } from "./kanbanStore.js";
+import { prepareKanbanCli } from "./kanbanCli.js";
+import { kanbanInstructions } from "./kanbanInstructions.js";
 import { saveMarkdown } from "./markdownSave.js";
 import { AttentionSettingsManager } from "./attentionSettings.js";
 import { fetchCodexbarUsage, probeCodexbarStatus } from "./codexbarClient.js";
@@ -613,6 +616,46 @@ function registerDesktopIpc(
         if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
         throw error;
       }
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceKanbanCopy,
+    async (event, workspaceId: unknown, cardId: unknown) => {
+      resolveSenderWindow(event);
+      if (cardId !== undefined && (typeof cardId !== "string" || cardId.length > 128))
+        throw new Error("Invalid card ID.");
+      const workspace = registeredWorkspace(workspaceId);
+      const dir = await kanbanDirectory(app.getPath("userData"), workspace.path);
+      const snapshot = await readKanban(dir);
+      const card =
+        typeof cardId === "string"
+          ? snapshot.board.cards.find((card) => card.id === cardId)
+          : undefined;
+      if (cardId !== undefined && !card)
+        throw new Error("Card no longer exists. Reload the board.");
+      await prepareKanbanCli(dir);
+      clipboard.writeText(kanbanInstructions(dir, workspace.path, card));
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceKanbanRead,
+    async (event, workspaceId: unknown, initial: unknown) => {
+      resolveSenderWindow(event);
+      return readKanban(
+        await kanbanDirectory(app.getPath("userData"), registeredWorkspace(workspaceId).path),
+        initial,
+      );
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceKanbanSave,
+    async (event, workspaceId: unknown, board: unknown, expected: unknown) => {
+      resolveSenderWindow(event);
+      return saveKanban(
+        await kanbanDirectory(app.getPath("userData"), registeredWorkspace(workspaceId).path),
+        board,
+        expected,
+      );
     },
   );
   ipcMain.handle(

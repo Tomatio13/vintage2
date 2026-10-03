@@ -32,6 +32,7 @@ export type SettingsSection =
   | "shortcuts"
   | "integrations"
   | "notes"
+  | "board"
   | "usage"
   | "updates";
 export const shortcutActions = [
@@ -95,6 +96,7 @@ export interface VintageSettings {
   browserDefaultUrl: string;
   desktopNotifications: boolean;
   notesPanelEnabled: boolean;
+  boardPanelEnabled: boolean;
   usagePanelEnabled: boolean;
   codexbarPath: string;
   usageRefreshSeconds: number;
@@ -151,6 +153,7 @@ export const useUiStore = create<UiState>()(
       browserDefaultUrl: DEFAULT_BROWSER_START_URL,
       desktopNotifications: true,
       notesPanelEnabled: true,
+      boardPanelEnabled: true,
       usagePanelEnabled: false,
       codexbarPath: "",
       usageRefreshSeconds: 120,
@@ -181,6 +184,7 @@ export const useUiStore = create<UiState>()(
       showSidePaneTab: (tabId) =>
         set((state) => {
           if (tabId === "notes" && !state.notesPanelEnabled) return state;
+          if (tabId === "board" && !state.boardPanelEnabled) return state;
           if (tabId === "usage" && !state.usagePanelEnabled) return state;
           return { activeSidePaneTabId: tabId, sidePaneOpen: true };
         }),
@@ -347,6 +351,7 @@ export const useUiStore = create<UiState>()(
         browserDefaultUrl,
         desktopNotifications,
         notesPanelEnabled,
+        boardPanelEnabled,
         usagePanelEnabled,
         codexbarPath,
         usageRefreshSeconds,
@@ -367,6 +372,7 @@ export const useUiStore = create<UiState>()(
         browserDefaultUrl,
         desktopNotifications,
         notesPanelEnabled,
+        boardPanelEnabled,
         usagePanelEnabled,
         codexbarPath,
         usageRefreshSeconds,

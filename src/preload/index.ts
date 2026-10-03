@@ -78,6 +78,12 @@ const bridge: DesktopBridge = {
     ),
   exportWorkspaceNote: (workspaceId, content) =>
     ipcRenderer.invoke(DesktopChannels.workspaceExportNote, workspaceId, content),
+  copyWorkspaceKanbanInstructions: (workspaceId, cardId) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceKanbanCopy, workspaceId, cardId),
+  readWorkspaceKanban: (workspaceId, initial) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceKanbanRead, workspaceId, initial),
+  saveWorkspaceKanban: (workspaceId, board, expectedRevision) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceKanbanSave, workspaceId, board, expectedRevision),
   readWorkspaceFile: (workspaceId, path) =>
     ipcRenderer.invoke(DesktopChannels.workspaceReadFile, workspaceId, path),
   readWorkspaceImage: (workspaceId, path) =>

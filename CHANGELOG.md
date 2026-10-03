@@ -4,6 +4,10 @@
 
 ### Added
 
+- Board and per-card AI buttons copy the JSON path, task instructions, and brief update instructions. Legacy boards migrate to app-data JSON; visible boards reflect external edits and reject stale saves while preserving card drafts.
+
+- Separate Notes and Board tabs ordered Files → Review → Notes → Board → Browser, with independent visibility settings. Workspace Kanban includes title-and-note cards, To do/Doing/Done columns, drag-and-drop moves, undoable deletion, and card creation from selected memo text. Cards persist as app-data JSON across restarts.
+
 - Optional Notes tab visibility in Settings, retained across restarts without deleting notes.
 
 - Markdown editing with explicit save, recoverable local drafts, and conflict detection for external file changes.

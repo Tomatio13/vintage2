@@ -1,3 +1,4 @@
+import type { KanbanDocument, KanbanSnapshot } from "./kanban.js";
 export const WORKSPACE_LIMITS = {
   spacesPerWorkspace: 256,
   panesPerSpace: 64,
@@ -28,6 +29,9 @@ export const DesktopChannels = {
   workspaceStateSave: "workspace:state-save",
   workspaceLocate: "workspace:locate",
   workspaceListFiles: "workspace:list-files",
+  workspaceKanbanCopy: "workspace:kanban-copy",
+  workspaceKanbanRead: "workspace:kanban-read",
+  workspaceKanbanSave: "workspace:kanban-save",
   workspaceWriteMarkdown: "workspace:write-markdown",
   workspaceExportNote: "workspace:export-note",
   workspaceReadFile: "workspace:read-file",
@@ -442,6 +446,13 @@ export interface DesktopBridge {
   locateWorkspace(workspaceId: string): Promise<RegisteredWorkspace | null>;
   listWorkspaceFiles(workspaceId: string, directoryPath?: string): Promise<WorkspaceFileEntry[]>;
   getWorkspaceFileVersion(workspaceId: string, path: string): Promise<string | null>;
+  copyWorkspaceKanbanInstructions(workspaceId: string, cardId?: string): Promise<void>;
+  readWorkspaceKanban(workspaceId: string, initial?: KanbanDocument): Promise<KanbanSnapshot>;
+  saveWorkspaceKanban(
+    workspaceId: string,
+    board: KanbanDocument,
+    expectedRevision: string,
+  ): Promise<KanbanSnapshot>;
   readWorkspaceFile(workspaceId: string, path: string): Promise<WorkspaceFileContent>;
   writeWorkspaceMarkdown(
     workspaceId: string,

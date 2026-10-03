@@ -144,3 +144,7 @@ Filesから開いたMarkdownはPreview／Editを切り替えて編集できま�
 右ペインのNotes、コマンドパレットのOpen Notes pane、または`Ctrl+Shift+M`（macOSは`⌘Shift+M`）でWorkspaceのScratchpadを開けます。このショートカットはSettingsで変更できます。メモは入力時に自動保存され、Save as .mdでWorkspace内の新しいMarkdownファイルへ書き出せます（既存ファイルの上書きには対応しません）。メモとMarkdownの書きかけはアプリのローカルストレージに平文で保存され、ペインを閉じたりアプリを再起動しても復元されます。
 
 Settings → Notes → Show Notes tabでNotesタブを表示／非表示にできます（既定はOn）。Offの間はショートカットからも開きません。メモは保持され、設定は再起動後も維持されます。
+
+NotesとBoardは独立したタブで、Files → Review → Notes → Board → Browserの順に並びます。BoardではTo do・Doing・Doneの3列にタイトルとメモ付きのカードを作成し、ドラッグ＆ドロップで移動できます。カードをクリックすると編集でき、削除直後はUndoで戻せます。幅の狭いペインではボードを横スクロールしてください。Notesの編集画面で文章を選択し、Create card from noteアイコンを押すとカード作成フォームが開きます。未選択の場合はカーソルのある行を使い、元のメモは保持します。カードはVINTAGEのアプリ保存領域にJSON形式で、Workspaceの実パスごとに保存されます。メモとカードは再起動後に復元されます。カード編集フォームの未確定の入力は再起動時に復元されません。Settings → NotesでShow Notes tabとShow Board tabを個別に切り替えられ、非表示でもデータは保持されます。
+
+Board全体と各カードのAIアイコンから、JSONの保存先・作業指示・パラメータ指定のPython更新コマンドをクリップボードへコピーできます。好きなCLIエージェントに貼り付けて使います。プロジェクト内にファイルや環境変数は追加しません。Board表示中は3秒ごとに外部変更を読み込み、カードの編集中は下書きを保持して古い状態からの保存を拒否します。既存のローカル保存カードは初回に移行し、元のデータはバックアップとして残します。[AI連携と保存形式](KANBAN.md)をご覧ください。

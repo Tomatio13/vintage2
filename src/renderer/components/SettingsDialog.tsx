@@ -243,6 +243,7 @@ export function SettingsDialog() {
       browserDefaultUrl: store.browserDefaultUrl,
       desktopNotifications: store.desktopNotifications,
       notesPanelEnabled: store.notesPanelEnabled,
+      boardPanelEnabled: store.boardPanelEnabled,
       usagePanelEnabled: store.usagePanelEnabled,
       codexbarPath: store.codexbarPath,
       usageRefreshSeconds: store.usageRefreshSeconds,
@@ -258,6 +259,7 @@ export function SettingsDialog() {
       store.browserDefaultUrl,
       store.desktopNotifications,
       store.notesPanelEnabled,
+      store.boardPanelEnabled,
       store.usagePanelEnabled,
       store.codexbarPath,
       store.usageRefreshSeconds,
@@ -1151,7 +1153,7 @@ export function SettingsDialog() {
           <div>
             <h2 className="text-2xl font-semibold">Notes</h2>
             <p className="mt-1 text-ui-base text-foreground-subtle">
-              Keep a scratchpad for each workspace.
+              Show or hide the workspace scratchpad and Kanban board independently.
             </p>
           </div>
           <Card>
@@ -1169,6 +1171,25 @@ export function SettingsDialog() {
                 <Choice
                   active={!draft.notesPanelEnabled}
                   onClick={() => change({ notesPanelEnabled: false })}
+                >
+                  Off
+                </Choice>
+              </div>
+            </Field>
+            <Field
+              label="Show Board tab"
+              description="Show Board in the side pane. Turning it off keeps your saved cards."
+            >
+              <div className="flex gap-2">
+                <Choice
+                  active={draft.boardPanelEnabled}
+                  onClick={() => change({ boardPanelEnabled: true })}
+                >
+                  On
+                </Choice>
+                <Choice
+                  active={!draft.boardPanelEnabled}
+                  onClick={() => change({ boardPanelEnabled: false })}
                 >
                   Off
                 </Choice>
