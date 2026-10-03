@@ -1,5 +1,20 @@
 # VINTAGE Changelog
 
+## [0.2.14] - 2026-10-03
+
+### Added
+
+- **Files context menu:** Copy and paste files or folders between registered workspaces, rename entries, and copy names, relative paths, or full paths to the system clipboard. File copy/paste is internal to VINTAGE; existing names, symbolic links, and recursive copies into the source folder are rejected.
+- **Board and visibility shortcuts:** Open Board with `Ctrl+Shift+K`, toggle Notes with `Ctrl+Alt+M`, and toggle Board with `Ctrl+Alt+K`. All bindings can be reassigned in Settings → Shortcuts, with matching command palette actions. Turning off the active Notes or Board tab returns to Files while preserving saved data.
+
+### Documentation
+
+- Keep README focused on the overview and setup, and move detailed feature descriptions and the shortcut reference into the English and Japanese feature guides.
+- Refresh the three existing screenshots and add five captures covering Files actions, Markdown editing, Notes, Board, and shortcut settings. Include a repeatable Electron capture script with an isolated profile and sample workspace.
+- Rewrite the architecture guide in Japanese to document current process boundaries, PTY reconnection, file operations, persistence, external integrations, and update behavior.
+
+**Full Changelog:** [v0.2.13...v0.2.14](https://github.com/Tomatio13/vintage2/compare/v0.2.13...v0.2.14)
+
 ## [0.2.13] - 2026-10-03
 
 ### Added
