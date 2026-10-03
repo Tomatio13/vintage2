@@ -1,10 +1,10 @@
 # VINTAGE Changelog
 
-## [Unreleased]
+## [0.2.13] - 2026-10-03
 
 ### Added
 
-- Board and per-card AI buttons copy the JSON path, task instructions, and brief update instructions. Legacy boards migrate to app-data JSON; visible boards reflect external edits and reject stale saves while preserving card drafts.
+- Board and per-card AI buttons copy the JSON path, task instructions, and commands to read cards and update their status or append notes through an automatically prepared Python helper. Legacy boards migrate to app-data JSON; visible boards reflect external edits and reject stale saves while preserving card drafts.
 
 - Separate Notes and Board tabs ordered Files → Review → Notes → Board → Browser, with independent visibility settings. Workspace Kanban includes title-and-note cards, To do/Doing/Done columns, drag-and-drop moves, undoable deletion, and card creation from selected memo text. Cards persist as app-data JSON across restarts.
 
@@ -12,6 +12,8 @@
 
 - Markdown editing with explicit save, recoverable local drafts, and conflict detection for external file changes.
 - Workspace Scratchpad with autosave, Markdown preview, export to a new workspace `.md` file, and a configurable Notes shortcut (`Ctrl+Shift+M`).
+
+**Full Changelog:** [v0.2.12...v0.2.13](https://github.com/Tomatio13/vintage2/compare/v0.2.12...v0.2.13)
 
 ## [0.2.12] - 2026-09-30
 
