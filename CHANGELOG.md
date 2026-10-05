@@ -1,5 +1,24 @@
 # VINTAGE Changelog
 
+## [0.2.17] - 2026-10-06
+
+### Added
+
+- **Document zoom and search:** Zoom documents from 50% to 300% with a reset to 100%. Find text with Ctrl/⌘+F, highlighted matches, match counts, and previous/next navigation.
+- **Find and replace:** Markdown Preview supports search only; Edit supports single and all-match replacement in the draft until Save. Text/code and HTML, JSON, and CSV/TSV source views support immediate replacement saves for complete UTF-8 files up to 1 MB, rejecting external changes and incomplete or binary files.
+- **Markdown editing tools:** Line numbers follow wrapped text, scrolling, pane resizing, and zoom. Jump to a line with the toolbar, cursor-position display, or Ctrl/⌘+G. Show the current line, column, and total line count. Highlight Markdown syntax and fenced code in supported languages. These tools are also available in Scratchpad.
+
+### Changed
+
+- **Editor toolbar:** Arrange Preview, Edit, Zoom in, percentage, Zoom out, Find, Go to line, Save, and Reload in that order.
+
+### Fixed
+
+- **Consistent zoom labels:** Use the same percentage font size across Markdown and other document types instead of inheriting different header sizes.
+- **Cursor position and line navigation:** Keep cursor-position feedback synchronized with search navigation and account for CRLF line endings when selecting source offsets.
+
+**Full Changelog:** [v0.2.16...v0.2.17](https://github.com/Tomatio13/vintage2/compare/v0.2.16...v0.2.17)
+
 ## [0.2.16] - 2026-10-04
 
 ### Added
