@@ -71,6 +71,9 @@ describe("VINTAGE workspace shell", () => {
 
   beforeEach(() => {
     useUiStore.setState({
+      filesPanelEnabled: true,
+      reviewPanelEnabled: true,
+      browserPanelEnabled: true,
       notesPanelEnabled: true,
       boardPanelEnabled: true,
       sidebarOpen: true,
@@ -672,12 +675,12 @@ describe("VINTAGE workspace shell", () => {
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
     fireEvent.click(screen.getByRole("button", { name: "Shortcuts" }));
-    expect(screen.getByLabelText("Set Open Board pane shortcut")).toHaveTextContent("Ctrl+Shift+K");
-    expect(screen.getByLabelText("Set Toggle Notes tab shortcut")).toHaveTextContent("Ctrl+Alt+M");
+    expect(screen.getByLabelText("Set Open Board pane shortcut")).toHaveTextContent("CtrlShiftK");
+    expect(screen.getByLabelText("Set Toggle Notes tab shortcut")).toHaveTextContent("CtrlAltM");
     fireEvent.click(screen.getByLabelText("Set Toggle Board tab shortcut"));
     fireEvent.keyDown(window, { key: "j", altKey: true });
-    expect(screen.getByLabelText("Set Toggle Board tab shortcut")).toHaveTextContent("Alt+J");
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(screen.getByLabelText("Set Toggle Board tab shortcut")).toHaveTextContent("AltJ");
+    fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
     fireEvent.keyDown(window, { key: "j", altKey: true });
     expect(useUiStore.getState().boardPanelEnabled).toBe(false);
   });
@@ -706,8 +709,8 @@ describe("VINTAGE workspace shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Shortcuts" }));
     fireEvent.click(screen.getByLabelText("Set Toggle sidebar shortcut"));
     fireEvent.keyDown(window, { key: "s", altKey: true });
-    expect(screen.getByLabelText("Set Toggle sidebar shortcut")).toHaveTextContent("Alt+S");
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(screen.getByLabelText("Set Toggle sidebar shortcut")).toHaveTextContent("AltS");
+    fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
     fireEvent.keyDown(window, { key: "s", altKey: true });
     expect(screen.queryByText("Workspace")).not.toBeInTheDocument();
   });
@@ -717,13 +720,13 @@ describe("VINTAGE workspace shell", () => {
     fireEvent.click(screen.getAllByLabelText("Open settings")[0]!);
     expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Graphite A neutral charcoal workspace/ }),
+      screen.getByRole("button", { name: /Graphite preview A neutral charcoal workspace/ }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Terminal" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Integrations" }));
-    expect(screen.getByText("Desktop notifications")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Desktop notifications" })).toBeInTheDocument();
     expect(screen.getByText(/Agent-specific hooks are not used/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
   });
 
   it("saves the default browser URL and uses it when opening the Browser pane", async () => {
@@ -735,9 +738,7 @@ describe("VINTAGE workspace shell", () => {
     const input = within(settings).getByRole("textbox", { name: "Default browser URL" });
     expect(input).toHaveValue(DEFAULT_BROWSER_START_URL);
     fireEvent.change(input, { target: { value: "example.org/docs" } });
-    const save = within(settings).getByRole("button", { name: "Save changes" });
-    await waitFor(() => expect(save).toBeEnabled());
-    fireEvent.click(save);
+    fireEvent.click(within(settings).getByRole("button", { name: "Workspace" }));
 
     const expectedUrl = "https://example.org/docs";
     await waitFor(() => expect(useUiStore.getState().browserDefaultUrl).toBe(expectedUrl));
@@ -760,9 +761,6 @@ describe("VINTAGE workspace shell", () => {
 
     const input = within(settings).getByRole("textbox", { name: "Default browser URL" });
     fireEvent.change(input, { target: { value: "javascript:alert(1)" } });
-    const save = within(settings).getByRole("button", { name: "Save changes" });
-    await waitFor(() => expect(save).toBeEnabled());
-    fireEvent.click(save);
 
     expect(await within(settings).findByRole("alert")).toHaveTextContent(
       "Only HTTP, HTTPS, and local file URLs are supported",
@@ -813,7 +811,6 @@ describe("VINTAGE workspace shell", () => {
     });
     expect(agentMonitorInterval).toHaveValue(10);
     fireEvent.change(agentMonitorInterval, { target: { value: "25" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
       expect(setAttentionSettings).toHaveBeenCalledWith({

@@ -1,15 +1,34 @@
 import {
   ArrowLeft,
+  Bell,
+  ChartNoAxesColumn,
+  Globe,
+  Keyboard,
+  PanelsTopLeft,
+  Palette,
+  Pencil,
+  Search,
+  Plug,
+  Terminal,
+  type LucideIcon,
   Check,
   ChevronDown,
-  Circle,
   CloudDownload,
   FolderOpen,
   Minus,
   Plus,
   RotateCcw,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useId,
+  useState,
+  type ReactNode,
+  type CSSProperties,
+} from "react";
 
 import {
   DEFAULT_ATTENTION_SETTINGS,
@@ -32,16 +51,16 @@ import {
   useUiStore,
 } from "../store/uiStore.js";
 
-const sections: Array<{ id: SettingsSection; label: string }> = [
-  { id: "appearance", label: "Appearance" },
-  { id: "terminal", label: "Terminal" },
-  { id: "browser", label: "Browser" },
-  { id: "attention", label: "Attention" },
-  { id: "shortcuts", label: "Shortcuts" },
-  { id: "integrations", label: "Integrations" },
-  { id: "notes", label: "Notes" },
-  { id: "usage", label: "Usage" },
-  { id: "updates", label: "Updates" },
+const sections: Array<{ id: SettingsSection; label: string; icon: LucideIcon }> = [
+  { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "terminal", label: "Terminal", icon: Terminal },
+  { id: "browser", label: "Browser", icon: Globe },
+  { id: "attention", label: "Attention", icon: Bell },
+  { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
+  { id: "integrations", label: "Integrations", icon: Plug },
+  { id: "notes", label: "Panels", icon: PanelsTopLeft },
+  { id: "usage", label: "Usage", icon: ChartNoAxesColumn },
+  { id: "updates", label: "Updates", icon: CloudDownload },
 ];
 const themes: Array<{ id: Theme; label: string; description: string }> = [
   { id: "system", label: "System", description: "Match your device" },
@@ -69,14 +88,18 @@ const shortcutGroups: Array<[string, ShortcutAction[]]> = [
     "Side pane",
     [
       "toggle-side-pane",
-      "open-notes",
-      "open-board",
-      "toggle-notes",
-      "toggle-board",
       "open-files",
+      "toggle-files",
       "open-review",
+      "toggle-review",
+      "open-notes",
+      "toggle-notes",
+      "open-board",
+      "toggle-board",
       "open-usage",
+      "toggle-usage",
       "open-browser",
+      "toggle-browser",
     ],
   ],
   ["Terminal", ["find-in-terminal"]],
@@ -99,6 +122,10 @@ const shortcutLabels: Record<ShortcutAction, string> = {
   "open-board": "Open Board pane",
   "toggle-notes": "Toggle Notes tab",
   "toggle-board": "Toggle Board tab",
+  "toggle-browser": "Toggle Browser tab",
+  "toggle-usage": "Toggle Usage tab",
+  "toggle-review": "Toggle Review tab",
+  "toggle-files": "Toggle Files tab",
   "open-files": "Open Files pane",
   "open-review": "Open Review pane",
   "open-usage": "Open Usage pane",
@@ -157,6 +184,137 @@ function ThemePreview({ theme }: { theme: Theme }) {
   return <MiniWindow tone={theme} />;
 }
 
+function SettingsSelect({
+  value,
+  onChange,
+  label,
+  options,
+}: {
+  value: string;
+  onChange(value: string): void;
+  label: string;
+  options: Array<{ id: string; label: string }>;
+}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const dismiss = (event: PointerEvent) => {
+      if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", dismiss);
+    root.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [open]);
+
+  return (
+    <div
+      className="relative"
+      ref={root}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+    >
+      <button
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        ref={trigger}
+        className="flex h-9 w-52 items-center justify-between rounded-lg border border-border bg-panel px-3 text-ui-sm text-foreground outline-none hover:bg-hover focus-visible:border-brand"
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            setOpen(true);
+          }
+        }}
+      >
+        {options.find((item) => item.id === value)?.label ?? value}
+        <ChevronDown aria-hidden="true" className="size-4 text-foreground-subtle" />
+      </button>
+      {open && (
+        <div
+          aria-label={`${label} options`}
+          id={menuId}
+          role="menu"
+          className="absolute right-0 top-full z-10 mt-1 min-w-full w-max max-w-80 rounded-xl border border-popover-border bg-popover p-1 text-foreground shadow-xl"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              setOpen(false);
+              trigger.current?.focus();
+              return;
+            }
+            if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+            event.preventDefault();
+            const items = Array.from(
+              event.currentTarget.querySelectorAll<HTMLButtonElement>("button"),
+            );
+            const current = items.indexOf(document.activeElement as HTMLButtonElement);
+            const next =
+              event.key === "Home"
+                ? 0
+                : event.key === "End"
+                  ? items.length - 1
+                  : (current + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+            items[next]?.focus();
+          }}
+        >
+          {options.map((item) => (
+            <button
+              aria-checked={value === item.id}
+              role="menuitemradio"
+              tabIndex={value === item.id ? 0 : -1}
+              key={item.id}
+              className={`flex w-full items-center justify-between gap-4 rounded-lg px-3 py-2.5 text-left text-ui-base outline-none hover:bg-hover focus-visible:bg-hover ${value === item.id ? "bg-selected" : ""}`}
+              onClick={() => {
+                onChange(item.id);
+                setOpen(false);
+                trigger.current?.focus();
+              }}
+            >
+              {item.label}
+              {value === item.id && (
+                <Check aria-hidden="true" className="size-4 text-foreground-subtle" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SettingsToggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange(checked: boolean): void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      aria-checked={checked}
+      role="switch"
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border border-transparent transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-panel ${checked ? "bg-foreground" : "bg-foreground-subtlest"}`}
+      onClick={() => onChange(!checked)}
+    >
+      <span
+        aria-hidden="true"
+        className={`size-4 rounded-full bg-background shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-1"}`}
+      />
+    </button>
+  );
+}
+
 function Card({ children }: { children: ReactNode }) {
   return <section className="rounded-xl border border-border bg-panel p-5">{children}</section>;
 }
@@ -181,25 +339,6 @@ function Field({
   );
 }
 
-function Choice({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean;
-  children: ReactNode;
-  onClick(): void;
-}) {
-  return (
-    <button
-      className={`rounded-md border px-3 py-2 text-ui-sm font-medium ${active ? "border-brand bg-hover text-foreground" : "border-border bg-background text-foreground-subtle hover:bg-hover"}`}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
-}
-
 function Stepper({
   value,
   min,
@@ -207,6 +346,7 @@ function Stepper({
   suffix,
   step,
   onChange,
+  surface = "background",
 }: {
   value: number;
   min: number;
@@ -214,9 +354,12 @@ function Stepper({
   suffix: string;
   step: number;
   onChange(value: number): void;
+  surface?: "background" | "panel";
 }) {
   return (
-    <div className="flex items-center rounded-md border border-input-border bg-background">
+    <div
+      className={`flex items-center rounded-lg border ${surface === "panel" ? "border-border bg-panel" : "border-input-border bg-background"}`}
+    >
       <Button
         aria-label={`Decrease value`}
         disabled={value <= min}
@@ -255,6 +398,9 @@ export function SettingsDialog() {
       shell: store.shell,
       browserDefaultUrl: store.browserDefaultUrl,
       desktopNotifications: store.desktopNotifications,
+      filesPanelEnabled: store.filesPanelEnabled,
+      reviewPanelEnabled: store.reviewPanelEnabled,
+      browserPanelEnabled: store.browserPanelEnabled,
       notesPanelEnabled: store.notesPanelEnabled,
       boardPanelEnabled: store.boardPanelEnabled,
       usagePanelEnabled: store.usagePanelEnabled,
@@ -271,6 +417,9 @@ export function SettingsDialog() {
       store.shell,
       store.browserDefaultUrl,
       store.desktopNotifications,
+      store.filesPanelEnabled,
+      store.reviewPanelEnabled,
+      store.browserPanelEnabled,
       store.notesPanelEnabled,
       store.boardPanelEnabled,
       store.usagePanelEnabled,
@@ -280,6 +429,7 @@ export function SettingsDialog() {
     ],
   );
   const [draft, setDraft] = useState<VintageSettings>(saved);
+  const [shortcutSearch, setShortcutSearch] = useState("");
   const [section, setSection] = useState<SettingsSection>("appearance");
   const [recording, setRecording] = useState<ShortcutAction | null>(null);
   const [shortcutError, setShortcutError] = useState<string | null>(null);
@@ -301,42 +451,54 @@ export function SettingsDialog() {
   const [updateStatus, setUpdateStatus] = useState<DesktopUpdateStatus | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
   const [updateActionError, setUpdateActionError] = useState<string | null>(null);
-  const save = useCallback(
-    async (closeAfterSave = true) => {
-      if (attentionLoading) return;
-      setAttentionMessage(null);
-      let browserDefaultUrl: string;
+  const attentionWriteQueue = useRef<Promise<void>>(Promise.resolve());
+  const attentionRevision = useRef(0);
+  const change = useCallback(
+    (patch: Partial<VintageSettings>) => {
+      const next = { ...draft, ...patch };
+      setDraft(next);
+      let browserDefaultUrl = saved.browserDefaultUrl;
       try {
-        browserDefaultUrl = normalizeBrowserUrl(draft.browserDefaultUrl);
+        browserDefaultUrl = normalizeBrowserUrl(next.browserDefaultUrl);
+        setBrowserUrlError(null);
       } catch (error) {
         setBrowserUrlError(error instanceof Error ? error.message : String(error));
-        setSection("browser");
-        return;
       }
-      setBrowserUrlError(null);
-      const normalizedDraft = { ...draft, browserDefaultUrl };
-      try {
-        const setAttentionSettings = window.desktop?.setAttentionSettings;
-        const savedAttention = setAttentionSettings
-          ? await setAttentionSettings(attentionDraft)
-          : attentionDraft;
-        setAttentionDraft(savedAttention);
-        setAttentionSaved(savedAttention);
-        store.saveSettings(normalizedDraft);
-        setDraft(normalizedDraft);
-        if (closeAfterSave) store.setSettingsOpen(false);
-      } catch (error) {
-        setAttentionMessage(error instanceof Error ? error.message : String(error));
-      }
+      store.saveSettings({ ...next, browserDefaultUrl });
     },
-    [attentionDraft, attentionLoading, draft, store],
+    [draft, saved.browserDefaultUrl, store],
   );
+  useEffect(() => {
+    if (attentionLoading || JSON.stringify(attentionDraft) === JSON.stringify(attentionSaved))
+      return;
+    const revision = ++attentionRevision.current;
+    const pending = { ...attentionDraft };
+    attentionWriteQueue.current = attentionWriteQueue.current.then(async () => {
+      try {
+        const result = window.desktop?.setAttentionSettings
+          ? await window.desktop.setAttentionSettings(pending)
+          : pending;
+        if (revision === attentionRevision.current) {
+          setAttentionSaved(result);
+          setAttentionDraft(result);
+          setAttentionMessage(null);
+        }
+      } catch (error) {
+        if (revision === attentionRevision.current)
+          setAttentionMessage(error instanceof Error ? error.message : String(error));
+      }
+    });
+  }, [attentionDraft, attentionLoading, attentionSaved]);
   useEffect(() => {
     if (store.settingsOpen) {
       setDraft(saved);
       setBrowserUrlError(null);
     }
-  }, [store.settingsOpen, saved]);
+  }, [store.settingsOpen]);
+  useEffect(() => {
+    if (!store.settingsOpen) return;
+    setDraft((current) => ({ ...saved, browserDefaultUrl: current.browserDefaultUrl }));
+  }, [saved, store.settingsOpen]);
   useEffect(() => {
     if (!store.settingsOpen) return;
     let cancelled = false;
@@ -490,27 +652,16 @@ export function SettingsDialog() {
       }
       if (event.ctrlKey && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        void save(false);
+        // Settings are saved as they change.
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [draft.shortcuts, recording, save, store]);
+  }, [draft.shortcuts, recording, change, store]);
   if (!store.settingsOpen) return null;
-  const dirty =
-    JSON.stringify(draft) !== JSON.stringify(saved) ||
-    JSON.stringify(attentionDraft) !== JSON.stringify(attentionSaved);
-  const change = (patch: Partial<VintageSettings>) => {
-    if (patch.browserDefaultUrl !== undefined) setBrowserUrlError(null);
-    setDraft((current) => ({ ...current, ...patch }));
-  };
-  const discard = () => {
-    setDraft(saved);
-    setAttentionDraft(attentionSaved);
+  const closeSettings = () => {
     setRecording(null);
     setShortcutError(null);
-    setBrowserUrlError(null);
-    setAttentionMessage(null);
     store.setSettingsOpen(false);
   };
   const chooseCodexbarExecutable = async () => {
@@ -610,7 +761,6 @@ export function SettingsDialog() {
     !window.desktop ||
     !updateStatus ||
     updateBusy ||
-    updateStatus?.status === "unsupported" ||
     updateStatus?.status === "checking" ||
     updateStatus?.status === "downloading";
   const runUpdateAction = async () => {
@@ -619,7 +769,9 @@ export function SettingsDialog() {
     setUpdateBusy(true);
     setUpdateActionError(null);
     try {
-      if (updateStatus.status === "available") {
+      if (updateStatus.status === "unsupported") {
+        await bridge.openExternal("https://github.com/Tomatio13/vintage2/releases/latest");
+      } else if (updateStatus.status === "available") {
         if (bridge.platform === "darwin") {
           const tag = updateStatus.availableVersion.replace(/^v/u, "");
           await bridge.openExternal(`https://github.com/Tomatio13/vintage2/releases/tag/v${tag}`);
@@ -642,114 +794,294 @@ export function SettingsDialog() {
     }
   };
 
+  const renderUsageSettings = () => (
+    <>
+      <h2 className="text-2xl font-semibold">Usage</h2>
+      <section className="mt-3" aria-labelledby="usage-display-heading">
+        <h3 className="text-ui-lg font-semibold" id="usage-display-heading">
+          Display settings
+        </h3>
+        <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+          Control how often AI provider quotas refresh. Enable the Usage tab in Panels.
+        </p>
+        <div className="rounded-xl border border-border bg-panel">
+          <div className="px-5 py-4">
+            <Field
+              label="Auto refresh interval"
+              description="Run CodexBar again at this interval while the Usage tab is visible."
+            >
+              <Stepper
+                surface="panel"
+                max={600}
+                min={60}
+                step={10}
+                suffix="s"
+                value={draft.usageRefreshSeconds}
+                onChange={(usageRefreshSeconds) => change({ usageRefreshSeconds })}
+              />
+            </Field>
+          </div>
+        </div>
+      </section>
+      <section className="mt-5" aria-labelledby="codexbar-settings-heading">
+        <h3 className="text-ui-lg font-semibold" id="codexbar-settings-heading">
+          CodexBar settings
+        </h3>
+        <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+          Connect the local CodexBar CLI used to retrieve provider usage limits.
+        </p>
+        <div className="rounded-xl border border-border bg-panel">
+          <div className="px-5 py-4">
+            <label className="text-ui-base font-medium" htmlFor="codexbar-executable">
+              CodexBar path
+            </label>
+            <p className="mt-1 text-ui-sm leading-5 text-foreground-subtle" id="codexbar-path-help">
+              Leave empty to detect codexbar on PATH or in known install locations.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <input
+                aria-label="codexbar path"
+                aria-describedby="codexbar-path-help"
+                id="codexbar-executable"
+                autoComplete="off"
+                className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-panel px-3 font-mono text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest focus:border-brand"
+                placeholder="Auto-detect (PATH)"
+                spellCheck={false}
+                type="text"
+                value={draft.codexbarPath}
+                onChange={(event) => change({ codexbarPath: event.target.value })}
+              />
+              <Button
+                disabled={codexbarProbing}
+                size="compact"
+                variant="outline"
+                onClick={() => void chooseCodexbarExecutable()}
+              >
+                <FolderOpen /> Browse…
+              </Button>
+            </div>
+          </div>
+          <div className="border-t border-border px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h4 className="text-ui-base font-medium">Detection status</h4>
+              <span
+                className={`rounded-md bg-hover px-2 py-1 text-ui-xs ${codexbarStatus?.found && !codexbarProbing ? "text-success" : "text-foreground-subtle"}`}
+              >
+                {codexbarProbing
+                  ? "Checking…"
+                  : codexbarStatus?.found
+                    ? "Detected"
+                    : "Not detected"}
+              </span>
+            </div>
+            <p aria-live="polite" className="mt-2 break-all text-ui-sm text-foreground-subtle">
+              {codexbarProbing
+                ? "Checking for codexbar…"
+                : codexbarStatus?.found
+                  ? `Detected ${codexbarStatus.version ?? "codexbar"} at ${codexbarStatus.resolvedPath}`
+                  : (codexbarStatus?.message ?? "")}
+            </p>
+          </div>
+        </div>
+      </section>
+      <p className="mt-2 text-ui-sm leading-5 text-foreground-subtle">
+        Which providers appear follows the enabled flags in ~/.config/codexbar/config.json. To add
+        Claude Code, run{" "}
+        <code className="rounded bg-panel px-1.5 py-0.5">
+          codexbar config enable --provider claude
+        </code>
+        .
+      </p>
+    </>
+  );
+  const renderUpdateSettings = () => (
+    <>
+      <div>
+        <h2 className="text-2xl font-semibold">About this edition</h2>
+        <p className="mt-1 text-ui-base text-foreground-subtle">
+          Version and update availability for VINTAGE.
+        </p>
+      </div>
+      <Card>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="grid size-14 place-items-center rounded-xl border border-input-border bg-background">
+            <img alt="" aria-hidden="true" className="size-10" src="./favicon.svg" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-ui-lg font-semibold">VINTAGE</h3>
+            <p className="mt-1 text-ui-sm text-foreground-subtle">
+              Version {updateStatus?.currentVersion ?? "…"}
+            </p>
+          </div>
+          <span className="rounded-full bg-hover px-2 py-1 text-ui-xs text-foreground-subtle">
+            Electron edition
+          </span>
+        </div>
+        <div className="mt-5 border-t border-border pt-4">
+          <h3 className="font-medium">You&apos;re using the Electron edition</h3>
+          <p aria-live="polite" className="mt-2 text-ui-sm text-foreground-subtle">
+            {updateStatusMessage}
+          </p>
+          <Button
+            className="mt-4"
+            disabled={updateDisabled}
+            onClick={() => void runUpdateAction()}
+            size="compact"
+            variant="ghost"
+          >
+            {updateStatus?.status === "downloaded" ? (
+              updateStatus.installMethod === "system-installer" ? (
+                <FolderOpen />
+              ) : (
+                <RotateCcw />
+              )
+            ) : (
+              <CloudDownload />
+            )}
+            {updateButtonLabel}
+          </Button>
+        </div>
+      </Card>
+    </>
+  );
   const content = (() => {
     if (section === "appearance")
       return (
         <>
-          <div>
-            <h2 className="text-2xl font-semibold">Appearance</h2>
-            <p className="mt-1 text-ui-base text-foreground-subtle">
-              Choose a color mode and a comfortable interface size.
+          <h2 className="text-2xl font-semibold">Appearance</h2>
+          <section className="mt-3" aria-labelledby="interface-settings-heading">
+            <h3 className="text-ui-lg font-semibold" id="interface-settings-heading">
+              Interface settings
+            </h3>
+            <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+              Choose the app theme and interface text size.
             </p>
-          </div>
-          <Card>
-            <h3 className="mb-4 text-ui-base font-semibold">Color mode</h3>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-border bg-panel">
+              <div className="px-5 py-4">
+                <Field
+                  label="App theme"
+                  description="Choose light, dark, graphite, or follow the system theme."
+                >
+                  <SettingsSelect
+                    label="App theme"
+                    options={themes}
+                    value={draft.theme}
+                    onChange={(theme) => change({ theme: theme as Theme })}
+                  />
+                </Field>
+              </div>
+              <div className="border-t border-border px-5 py-4">
+                <Field
+                  label="UI font size"
+                  description="Adjust the interface text size. Terminal text is configured separately."
+                >
+                  <Stepper
+                    surface="panel"
+                    value={draft.uiFontSize}
+                    min={12}
+                    max={18}
+                    step={1}
+                    suffix=" px"
+                    onChange={(uiFontSize) => change({ uiFontSize })}
+                  />
+                </Field>
+              </div>
+            </div>
+          </section>
+          <section className="mt-5" aria-labelledby="theme-preview-heading">
+            <h3 className="text-ui-lg font-semibold" id="theme-preview-heading">
+              Theme preview
+            </h3>
+            <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+              Compare the available themes. Select a preview to choose its theme.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
               {themes.map((item) => (
                 <button
+                  aria-pressed={draft.theme === item.id}
                   key={item.id}
-                  className={`rounded-xl border-2 bg-background p-3 text-left ${draft.theme === item.id ? "border-brand" : "border-border hover:border-pane-active-border"}`}
+                  className={`overflow-hidden rounded-xl border bg-panel text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${draft.theme === item.id ? "border-brand" : "border-border hover:border-pane-active-border"}`}
                   onClick={() => change({ theme: item.id })}
                 >
-                  <ThemePreview theme={item.id} />
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="font-medium">{item.label}</span>
-                    <Circle
-                      className={`size-4 ${draft.theme === item.id ? "fill-brand text-brand" : "text-input-border"}`}
-                    />
+                  <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+                    <div>
+                      <span className="text-ui-base font-semibold">{item.label} preview</span>
+                      <p className="mt-1 text-ui-sm text-foreground-subtle">{item.description}</p>
+                    </div>
+                    {draft.theme === item.id && (
+                      <span className="rounded-md bg-hover px-2 py-1 text-ui-xs font-medium text-brand">
+                        Selected
+                      </span>
+                    )}
                   </div>
-                  <p className="mt-1 text-ui-xs text-foreground-subtle">{item.description}</p>
+                  <div className="p-3">
+                    <ThemePreview theme={item.id} />
+                  </div>
                 </button>
               ))}
             </div>
-          </Card>
-          <Card>
-            <Field
-              label="Interface size"
-              description="Find a comfortable size for labels, menus and controls."
-            >
-              <Stepper
-                value={draft.uiFontSize}
-                min={12}
-                max={18}
-                step={1}
-                suffix=" px"
-                onChange={(uiFontSize) => change({ uiFontSize })}
-              />
-            </Field>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {[12, 14, 16, 18].map((value) => (
-                <Choice
-                  active={draft.uiFontSize === value}
-                  key={value}
-                  onClick={() => change({ uiFontSize: value })}
-                >
-                  {value}px
-                </Choice>
-              ))}
-            </div>
-            <div className="mt-4 rounded-md border border-border bg-background p-4">
-              <p className="text-ui-xs text-foreground-subtle">PREVIEW</p>
-              <p className="mt-2" style={{ fontSize: draft.uiFontSize }}>
-                Your workspace
-              </p>
+          </section>
+          <section className="mt-5" aria-labelledby="text-preview-heading">
+            <h3 className="text-ui-lg font-semibold" id="text-preview-heading">
+              Text preview
+            </h3>
+            <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+              Changes to interface text size are applied automatically.
+            </p>
+            <div className="rounded-xl border border-border bg-panel p-5">
+              <p style={{ fontSize: draft.uiFontSize }}>Your workspace</p>
               <p
-                className="mt-1 text-foreground-subtle"
+                className="mt-2 text-foreground-subtle"
                 style={{ fontSize: Math.max(11, draft.uiFontSize - 2) }}
               >
                 Workspace / Terminal / Files
               </p>
             </div>
-          </Card>
-          <p className="text-ui-sm text-foreground-subtle">
-            Terminal text has its own size control in the Terminal tab.
-          </p>
+          </section>
         </>
       );
     if (section === "terminal")
       return (
         <>
-          <div>
-            <h2 className="text-2xl font-semibold">Terminal</h2>
-            <p className="mt-1 text-ui-base text-foreground-subtle">
-              Fonts, shells and scrollback, with a live preview.
+          <h2 className="text-2xl font-semibold">Terminal</h2>
+          <section className="mt-3" aria-labelledby="terminal-text-heading">
+            <h3 className="text-ui-lg font-semibold" id="terminal-text-heading">
+              Text settings
+            </h3>
+            <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+              Choose the terminal font and text size independently of the interface.
             </p>
-          </div>
-          <Card>
-            <div className="space-y-5">
-              <Field label="Font family" description="Use a preset or choose a monospace font.">
-                <div className="relative">
-                  <select
-                    aria-label="Terminal font family"
-                    className="h-9 min-w-52 appearance-none rounded-md border border-input-border bg-background px-3 pr-9 text-ui-sm outline-none focus:border-brand"
+            <div className="rounded-xl border border-border bg-panel">
+              <div className="px-5 py-4">
+                <Field
+                  label="Font family"
+                  description="Choose a monospace font for terminal output."
+                >
+                  <SettingsSelect
+                    label="Terminal font family"
                     value={draft.terminalFontFamily}
-                    onChange={(event) => change({ terminalFontFamily: event.target.value })}
-                  >
-                    <option value={'"Cica", "HackGen", "JetBrains Mono", monospace'}>
-                      Default
-                    </option>
-                    <option value="Cica, monospace">Cica</option>
-                    <option value="HackGen, monospace">HackGen</option>
-                    <option value="JetBrains Mono, monospace">JetBrains Mono</option>
-                    <option value="monospace">System monospace</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2 top-2 size-4 text-foreground-subtle" />
-                </div>
-              </Field>
-              <div className="border-t border-border pt-5">
-                <Field label="Text size" description="Independent of the interface size.">
+                    onChange={(terminalFontFamily) => change({ terminalFontFamily })}
+                    options={[
+                      {
+                        id: '"Cica", "HackGen", "JetBrains Mono", monospace',
+                        label: "Default",
+                      },
+                      { id: "Cica, monospace", label: "Cica" },
+                      { id: "HackGen, monospace", label: "HackGen" },
+                      { id: "JetBrains Mono, monospace", label: "JetBrains Mono" },
+                      { id: "monospace", label: "System monospace" },
+                    ]}
+                  />
+                </Field>
+              </div>
+              <div className="border-t border-border px-5 py-4">
+                <Field
+                  label="Text size"
+                  description="Adjust terminal text without changing the interface size."
+                >
                   <div className="flex items-center gap-2">
                     <Stepper
+                      surface="panel"
                       value={draft.terminalFontSize}
                       min={8}
                       max={48}
@@ -770,13 +1102,74 @@ export function SettingsDialog() {
                 </Field>
               </div>
             </div>
-            <div className="mt-5 overflow-hidden rounded-md border border-input-border">
-              <div className="flex items-center justify-between bg-background px-3 py-2 text-ui-sm text-foreground-subtle">
-                <span>Terminal preview</span>
-                <span className="rounded-full bg-hover px-2 py-1">{draft.terminalFontSize} px</span>
+          </section>
+          <section className="mt-5" aria-labelledby="terminal-session-heading">
+            <h3 className="text-ui-lg font-semibold" id="terminal-session-heading">
+              Session settings
+            </h3>
+            <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+              Configure the shell and retained output.
+            </p>
+            <div className="rounded-xl border border-border bg-panel">
+              <div className="px-5 py-4">
+                <Field
+                  label="Default shell"
+                  description="Used for new terminals. Running sessions stay as they are."
+                >
+                  <SettingsSelect
+                    label="Default shell"
+                    value={draft.shell}
+                    onChange={(shell) => change({ shell: shell as TerminalShell })}
+                    options={[
+                      {
+                        id: "system",
+                        label:
+                          window.desktop?.platform === "win32"
+                            ? "System default (Command Prompt)"
+                            : "System default",
+                      },
+                      ...(window.desktop?.platform === "win32"
+                        ? windowsShellOptions
+                        : posixShellOptions),
+                    ]}
+                  />
+                </Field>
+              </div>
+              <div className="border-t border-border px-5 py-4">
+                <Field
+                  label="Scrollback"
+                  description="Lines retained per terminal. Fewer lines use less memory."
+                >
+                  <SettingsSelect
+                    label="Scrollback"
+                    value={String(draft.scrollback)}
+                    onChange={(value) => change({ scrollback: Number(value) })}
+                    options={[1000, 2500, 5000, 10000].map((value) => ({
+                      id: String(value),
+                      label: `${value.toLocaleString()} lines`,
+                    }))}
+                  />
+                </Field>
+                <p className="mt-3 text-ui-sm text-foreground-subtle">
+                  Reducing this limit removes the oldest retained lines when this setting changes.
+                </p>
+              </div>
+            </div>
+          </section>
+          <section className="mt-5" aria-labelledby="terminal-preview-heading">
+            <h3 className="text-ui-lg font-semibold" id="terminal-preview-heading">
+              Terminal preview
+            </h3>
+            <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+              Changes to terminal font and text size are applied automatically.
+            </p>
+            <div className="overflow-hidden rounded-xl border border-border bg-panel">
+              <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 text-ui-sm text-foreground-subtle">
+                <span>Terminal output</span>
+                <span className="rounded-md bg-hover px-2 py-1">{draft.terminalFontSize} px</span>
               </div>
               <pre
-                className="m-0 bg-terminal-surface p-4 text-foreground"
+                className="m-0 overflow-x-auto bg-terminal-surface p-5 text-foreground"
                 style={{
                   fontFamily: draft.terminalFontFamily,
                   fontSize: draft.terminalFontSize,
@@ -788,130 +1181,106 @@ export function SettingsDialog() {
                 <span className="text-foreground-subtle">Hello, 世界</span>
               </pre>
             </div>
-          </Card>
-          <Card>
-            <Field
-              label="Default shell"
-              description="Used for new terminals. Running sessions stay as they are."
-            >
-              <div className="relative">
-                <select
-                  aria-label="Default shell"
-                  className="h-9 min-w-52 appearance-none rounded-md border border-input-border bg-background px-3 pr-9 text-ui-sm outline-none focus:border-brand"
-                  value={draft.shell}
-                  onChange={(event) =>
-                    change({ shell: event.target.value as VintageSettings["shell"] })
-                  }
-                >
-                  <option value="system">
-                    {window.desktop?.platform === "win32"
-                      ? "System default (Command Prompt)"
-                      : "System default"}
-                  </option>
-                  {(window.desktop?.platform === "win32"
-                    ? windowsShellOptions
-                    : posixShellOptions
-                  ).map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-2 size-4 text-foreground-subtle" />
-              </div>
-            </Field>
-          </Card>
-          <Card>
-            <Field
-              label="Scrollback"
-              description="Lines retained per terminal. Fewer lines use less memory."
-            >
-              <div className="flex flex-wrap gap-2">
-                {[1000, 2500, 5000, 10000].map((value) => (
-                  <Choice
-                    active={draft.scrollback === value}
-                    key={value}
-                    onClick={() => change({ scrollback: value })}
-                  >
-                    {value.toLocaleString()}
-                  </Choice>
-                ))}
-              </div>
-            </Field>
-            <p className="mt-3 text-ui-sm text-foreground-subtle">
-              Reducing this limit removes the oldest retained lines when you save.
-            </p>
-          </Card>
+          </section>
         </>
       );
     if (section === "browser")
       return (
         <>
-          <div>
-            <h2 className="text-2xl font-semibold">Browser</h2>
-            <p className="mt-1 text-ui-base text-foreground-subtle">
-              Choose the page shown when you open the Browser pane.
+          <h2 className="text-2xl font-semibold">Browser</h2>
+          <section className="mt-3" aria-labelledby="browser-startup-heading">
+            <h3 className="text-ui-lg font-semibold" id="browser-startup-heading">
+              Startup settings
+            </h3>
+            <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+              Choose the start page for the Browser pane.
             </p>
-          </div>
-          <Card>
-            <Field
-              label="Default start URL"
-              description="HTTP, HTTPS, and local file URLs are supported. Leave empty to open a blank page."
-            >
-              <input
-                aria-label="Default browser URL"
-                autoComplete="url"
-                className="h-9 w-full rounded-md border border-input-border bg-background px-3 text-ui-sm text-foreground outline-none focus:border-brand"
-                inputMode="url"
-                spellCheck={false}
-                type="text"
-                value={draft.browserDefaultUrl}
-                onChange={(event) => change({ browserDefaultUrl: event.target.value })}
-              />
-            </Field>
-            {browserUrlError && (
-              <p className="mt-2 text-ui-sm text-destructive" role="alert">
-                {browserUrlError}
-              </p>
-            )}
-          </Card>
+            <div className="rounded-xl border border-border bg-panel">
+              <div className="flex flex-col gap-4 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
+                <div className="min-w-0 flex-1">
+                  <label className="text-ui-base font-medium" htmlFor="browser-start-url">
+                    Default start URL
+                  </label>
+                  <p
+                    className="mt-1 text-ui-sm leading-5 text-foreground-subtle"
+                    id="browser-start-url-help"
+                  >
+                    HTTP, HTTPS, and local file URLs are supported. Leave empty to open a blank
+                    page.
+                  </p>
+                </div>
+                <div className="w-full min-w-0 xl:w-80 xl:shrink-0">
+                  <input
+                    aria-label="Default browser URL"
+                    aria-describedby={
+                      browserUrlError
+                        ? "browser-start-url-help browser-start-url-error"
+                        : "browser-start-url-help"
+                    }
+                    aria-invalid={Boolean(browserUrlError)}
+                    id="browser-start-url"
+                    autoComplete="url"
+                    className="h-10 w-full rounded-lg border border-border bg-panel px-3 text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest hover:border-pane-active-border focus:border-brand"
+                    inputMode="url"
+                    placeholder="https://example.com"
+                    spellCheck={false}
+                    type="text"
+                    value={draft.browserDefaultUrl}
+                    onChange={(event) => change({ browserDefaultUrl: event.target.value })}
+                  />
+                  {browserUrlError && (
+                    <p
+                      className="mt-2 text-ui-sm text-destructive"
+                      id="browser-start-url-error"
+                      role="alert"
+                    >
+                      {browserUrlError}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
         </>
       );
     if (section === "attention")
       return (
         <>
-          <div>
-            <h2 className="text-2xl font-semibold">Attention</h2>
-            <p className="mt-1 text-ui-base text-foreground-subtle">
-              Tune terminal monitoring and when attention should be raised.
+          <h2 className="text-2xl font-semibold">Attention</h2>
+          <section className="mt-3" aria-labelledby="attention-monitoring-heading">
+            <h3 className="text-ui-lg font-semibold" id="attention-monitoring-heading">
+              Monitoring settings
+            </h3>
+            <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+              Control when terminal output is evaluated and how often agents are monitored.
             </p>
-          </div>
-          <Card>
-            <div className="space-y-5">
-              <Field
-                label="Output debounce"
-                description="Wait for output to settle before checking a running terminal."
-              >
-                <label className="flex items-center gap-2 text-ui-sm">
-                  <input
-                    aria-label="Attention debounce"
-                    className="h-9 w-24 rounded-md border border-input-border bg-background px-2 text-right outline-none focus:border-brand"
-                    max={5000}
-                    min={100}
-                    step={100}
-                    type="number"
-                    value={attentionDraft.debounceMs}
-                    onChange={(event) =>
-                      setAttentionDraft((current) => ({
-                        ...current,
-                        debounceMs: Number(event.target.value),
-                      }))
-                    }
-                  />
-                  ms
-                </label>
-              </Field>
-              <div className="border-t border-border pt-5">
+            <div className="rounded-xl border border-border bg-panel">
+              <div className="px-5 py-4">
+                <Field
+                  label="Output debounce"
+                  description="Wait for output to settle before checking a running terminal."
+                >
+                  <label className="flex items-center gap-2 text-ui-sm">
+                    <input
+                      aria-label="Attention debounce"
+                      className="h-9 w-24 rounded-lg border border-border bg-panel px-2 text-right outline-none focus:border-brand"
+                      max={5000}
+                      min={100}
+                      step={100}
+                      type="number"
+                      value={attentionDraft.debounceMs}
+                      onChange={(event) =>
+                        setAttentionDraft((current) => ({
+                          ...current,
+                          debounceMs: Number(event.target.value),
+                        }))
+                      }
+                    />
+                    ms
+                  </label>
+                </Field>
+              </div>
+              <div className="border-t border-border px-5 py-4">
                 <Field
                   label="Agent Monitor interval"
                   description="Ask Jev for an active agent's state at this interval."
@@ -919,7 +1288,7 @@ export function SettingsDialog() {
                   <label className="flex items-center gap-2 text-ui-sm">
                     <input
                       aria-label="Agent Monitor interval"
-                      className="h-9 w-24 rounded-md border border-input-border bg-background px-2 text-right outline-none focus:border-brand"
+                      className="h-9 w-24 rounded-lg border border-border bg-panel px-2 text-right outline-none focus:border-brand"
                       max={300}
                       min={5}
                       step={1}
@@ -936,111 +1305,107 @@ export function SettingsDialog() {
                   </label>
                 </Field>
               </div>
-              <div className="border-t border-border pt-5">
+            </div>
+          </section>
+          <section className="mt-5" aria-labelledby="attention-notifications-heading">
+            <h3 className="text-ui-lg font-semibold" id="attention-notifications-heading">
+              Notification settings
+            </h3>
+            <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+              Choose the minimum priority shown in Attention and desktop notifications.
+            </p>
+            <div className="rounded-xl border border-border bg-panel">
+              <div className="px-5 py-4">
                 <Field
                   label="Attention threshold"
                   description="Hide lower-priority attention from badges and the Attention list."
                 >
-                  <div className="relative">
-                    <select
-                      aria-label="Attention threshold"
-                      className="h-9 min-w-36 appearance-none rounded-md border border-input-border bg-background px-3 pr-9 text-ui-sm outline-none focus:border-brand"
-                      value={attentionDraft.attentionThreshold}
-                      onChange={(event) =>
-                        setAttentionDraft((current) => ({
-                          ...current,
-                          attentionThreshold: Number(event.target.value) as AttentionLevel,
-                        }))
-                      }
-                    >
-                      <option value={1}>LOW and above</option>
-                      <option value={2}>MEDIUM and above</option>
-                      <option value={3}>HIGH and above</option>
-                      <option value={4}>CRITICAL only</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2 top-2 size-4 text-foreground-subtle" />
-                  </div>
+                  <SettingsSelect
+                    label="Attention threshold"
+                    value={String(attentionDraft.attentionThreshold)}
+                    onChange={(value) =>
+                      setAttentionDraft((current) => ({
+                        ...current,
+                        attentionThreshold: Number(value) as AttentionLevel,
+                      }))
+                    }
+                    options={[
+                      { id: "1", label: "LOW and above" },
+                      { id: "2", label: "MEDIUM and above" },
+                      { id: "3", label: "HIGH and above" },
+                      { id: "4", label: "CRITICAL only" },
+                    ]}
+                  />
                 </Field>
               </div>
-              <div className="border-t border-border pt-5">
+              <div className="border-t border-border px-5 py-4">
                 <Field
                   label="Desktop notification threshold"
                   description="Native notifications require VINTAGE to be unfocused unless a terminal uses Always Notify."
                 >
-                  <div className="relative">
-                    <select
-                      aria-label="Desktop notification threshold"
-                      className="h-9 min-w-36 appearance-none rounded-md border border-input-border bg-background px-3 pr-9 text-ui-sm outline-none focus:border-brand"
-                      value={attentionDraft.notificationThreshold}
-                      onChange={(event) =>
-                        setAttentionDraft((current) => ({
-                          ...current,
-                          notificationThreshold: Number(event.target.value) as AttentionLevel,
-                        }))
-                      }
-                    >
-                      <option value={1}>LOW and above</option>
-                      <option value={2}>MEDIUM and above</option>
-                      <option value={3}>HIGH and above</option>
-                      <option value={4}>CRITICAL only</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2 top-2 size-4 text-foreground-subtle" />
-                  </div>
+                  <SettingsSelect
+                    label="Desktop notification threshold"
+                    value={String(attentionDraft.notificationThreshold)}
+                    onChange={(value) =>
+                      setAttentionDraft((current) => ({
+                        ...current,
+                        notificationThreshold: Number(value) as AttentionLevel,
+                      }))
+                    }
+                    options={[
+                      { id: "1", label: "LOW and above" },
+                      { id: "2", label: "MEDIUM and above" },
+                      { id: "3", label: "HIGH and above" },
+                      { id: "4", label: "CRITICAL only" },
+                    ]}
+                  />
                 </Field>
               </div>
             </div>
-          </Card>
+          </section>
           <p className="text-ui-sm text-foreground-subtle">
             Terminal-specific modes are available in each terminal header. Mute affects native
             notifications only; terminal input, output, and detection continue normally.
           </p>
         </>
       );
-    if (section === "shortcuts")
+    if (section === "shortcuts") {
+      const query = shortcutSearch.trim().toLowerCase();
+      const groups = shortcutGroups
+        .map(([title, actions]) => ({
+          title,
+          bindings: actions.flatMap((action) => {
+            const binding = draft.shortcuts.find((item) => item.action === action);
+            if (!binding) return [];
+            const searchable =
+              `${title} ${shortcutLabels[action]} ${shortcutLabel(binding)} ${shortcutLabel(binding).replaceAll("+", " ")}`.toLowerCase();
+            return !query || searchable.includes(query) ? [{ action, binding }] : [];
+          }),
+        }))
+        .filter((group) => group.bindings.length);
       return (
         <>
-          <div>
-            <h2 className="text-2xl font-semibold">Keyboard shortcuts</h2>
-            <p className="mt-1 text-ui-base text-foreground-subtle">
-              Click an assignment, then press the new key combination. Escape cancels recording.
-            </p>
-          </div>
-          {shortcutGroups.map(([title, actions]) => (
-            <Card key={title}>
-              <h3 className="mb-3 text-ui-sm font-semibold uppercase tracking-wider text-foreground-subtle">
-                {title}
-              </h3>
-              <div className="divide-y divide-border">
-                {actions.map((action) => {
-                  const binding = draft.shortcuts.find((item) => item.action === action);
-                  if (!binding) return null;
-                  const active = recording === action;
-                  return (
-                    <div className="flex items-center justify-between gap-3 py-3" key={action}>
-                      <span className="text-ui-base">{shortcutLabels[action]}</span>
-                      <button
-                        aria-label={`Set ${shortcutLabels[action]} shortcut`}
-                        className={`rounded border px-2 py-1 text-ui-sm ${active ? "border-brand bg-hover text-brand" : "border-input-border bg-background text-foreground hover:bg-hover"}`}
-                        onClick={() => {
-                          setRecording(action);
-                          setShortcutError(null);
-                        }}
-                      >
-                        {active ? "Press a shortcut…" : shortcutLabel(binding)}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          ))}
-          <div className="flex flex-wrap items-center justify-between gap-3 text-ui-sm text-foreground-subtle">
-            <div>
-              {shortcutError ? (
-                <span className="text-warning">{shortcutError}</span>
-              ) : (
-                <span>Ctrl+, opens settings · Ctrl+S saves changes</span>
-              )}
+          <h2 className="text-2xl font-semibold">Keyboard shortcuts</h2>
+          <p className="text-ui-base text-foreground-subtle">
+            Click a keybinding to record a new combination. Escape cancels recording.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <div className="relative min-w-0 flex-1">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-3 size-4 text-foreground-subtle"
+              />
+              <input
+                aria-label="Search shortcuts"
+                className="h-10 w-full rounded-lg border border-border bg-panel pl-9 pr-9 text-ui-base text-foreground outline-none placeholder:text-foreground-subtlest focus:border-brand"
+                placeholder="Search shortcuts"
+                value={shortcutSearch}
+                onChange={(event) => setShortcutSearch(event.target.value)}
+              />
+              <Keyboard
+                aria-hidden="true"
+                className="pointer-events-none absolute right-3 top-3 size-4 text-foreground-subtle"
+              />
             </div>
             <Button
               size="compact"
@@ -1054,106 +1419,216 @@ export function SettingsDialog() {
               <RotateCcw /> Restore defaults
             </Button>
           </div>
+          {groups.map(({ title, bindings }) => (
+            <section className="mt-4" key={title} aria-label={`${title} shortcuts`}>
+              <h3 className="mb-3 text-ui-sm font-semibold uppercase tracking-wider text-foreground-subtle">
+                {title}
+              </h3>
+              <div className="overflow-hidden rounded-xl border border-border">
+                <table className="w-full table-fixed text-left">
+                  <thead className="bg-panel text-ui-base text-foreground-subtle">
+                    <tr>
+                      <th className="w-1/2 px-5 py-3 font-medium" scope="col">
+                        Command
+                      </th>
+                      <th className="px-5 py-3 font-medium" scope="col">
+                        Keybinding
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bindings.map(({ action, binding }) => {
+                      const active = recording === action;
+                      return (
+                        <tr className="border-t border-border" key={action}>
+                          <th className="px-5 py-4 text-ui-base font-normal" scope="row">
+                            {shortcutLabels[action]}
+                          </th>
+                          <td className="px-5 py-3">
+                            <button
+                              aria-label={`Set ${shortcutLabels[action]} shortcut`}
+                              aria-pressed={active}
+                              className={`inline-flex max-w-full flex-wrap items-center gap-2 rounded-lg px-2 py-2 text-ui-sm outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-brand ${active ? "bg-hover text-brand" : "text-foreground"}`}
+                              onClick={() => {
+                                setRecording(action);
+                                setShortcutError(null);
+                              }}
+                            >
+                              <span className="flex flex-wrap items-center gap-2">
+                                {[
+                                  binding.ctrl && "Ctrl",
+                                  binding.alt && "Alt",
+                                  binding.shift && "Shift",
+                                  shortcutLabel({
+                                    ...binding,
+                                    ctrl: false,
+                                    alt: false,
+                                    shift: false,
+                                  }),
+                                ]
+                                  .filter(Boolean)
+                                  .map((key, index) => (
+                                    <kbd className="font-sans" key={index}>
+                                      {key}
+                                    </kbd>
+                                  ))}
+                              </span>
+                              <Pencil
+                                aria-hidden="true"
+                                className="size-3.5 text-foreground-subtle"
+                              />
+                            </button>
+                            {active && (
+                              <div className="mt-2">
+                                <div className="inline-flex items-center gap-2 rounded-lg bg-panel px-3 py-2 text-ui-sm">
+                                  <Keyboard
+                                    aria-hidden="true"
+                                    className="size-4 shrink-0 text-foreground-subtle"
+                                  />{" "}
+                                  Press new combination…
+                                </div>
+                                <p className="mt-2 text-ui-xs text-foreground-subtle">
+                                  Esc to cancel
+                                </p>
+                                {shortcutError && (
+                                  <p className="mt-2 text-ui-sm text-warning" role="alert">
+                                    {shortcutError}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ))}
+          {!groups.length && (
+            <p className="rounded-xl border border-border bg-panel p-5 text-ui-base text-foreground-subtle">
+              No shortcuts match your search.
+            </p>
+          )}
+          <p className="mt-2 text-ui-sm text-foreground-subtle">
+            Changes are saved automatically · Esc cancels recording
+          </p>
         </>
       );
+    }
     if (section === "integrations")
       return (
         <>
-          <div>
-            <h2 className="text-2xl font-semibold">Integrations</h2>
-            <p className="mt-1 text-ui-base text-foreground-subtle">
-              Configure semantic terminal judgment and attention notifications.
+          <h2 className="text-2xl font-semibold">Integrations</h2>
+          <section className="mt-3" aria-labelledby="jev-integration-heading">
+            <h3 className="text-ui-lg font-semibold" id="jev-integration-heading">
+              TypeSafe / Jev
+            </h3>
+            <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+              Use semantic analysis to help identify terminal activity and attention.
             </p>
-          </div>
-          <Card>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="text-ui-base font-semibold">TypeSafe / Jev</h3>
-                <p className="mt-1 text-ui-sm text-foreground-subtle">
-                  The key is encrypted by the operating system and is never returned to this page.
+            <div className="rounded-xl border border-border bg-panel">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                <div>
+                  <h4 className="text-ui-base font-medium">Connection status</h4>
+                  <p className="mt-1 text-ui-sm text-foreground-subtle">
+                    The key is encrypted by the operating system and is never returned to this page.
+                  </p>
+                </div>
+                <span className="rounded-md bg-hover px-2 py-1 text-ui-xs text-foreground-subtle">
+                  {jevStatus?.source === "saved"
+                    ? "Saved securely"
+                    : jevStatus?.source === "environment"
+                      ? "Environment variable"
+                      : jevStatus
+                        ? "Not configured"
+                        : "Loading…"}
+                </span>
+              </div>
+              <div className="border-t border-border px-5 py-4">
+                <label htmlFor="jev-api-key" className="text-ui-base font-medium">
+                  API key
+                </label>
+                <p className="mt-1 text-ui-sm leading-5 text-foreground-subtle">
+                  Enter a key to enable Jev. Saving or clearing a key takes effect immediately.
                 </p>
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                  <input
+                    aria-label="TypeSafe API key"
+                    id="jev-api-key"
+                    autoComplete="off"
+                    className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-panel px-3 font-mono text-ui-sm text-foreground outline-none placeholder:text-foreground-subtlest focus:border-brand disabled:opacity-50"
+                    disabled={jevBusy || jevStatus?.secureStorageAvailable === false}
+                    onChange={(event) => setJevApiKey(event.target.value)}
+                    placeholder={
+                      jevStatus?.configured ? "Enter a replacement key" : "Enter API key"
+                    }
+                    spellCheck={false}
+                    type="password"
+                    value={jevApiKey}
+                  />
+                  <Button
+                    disabled={
+                      jevBusy || !jevApiKey.trim() || jevStatus?.secureStorageAvailable === false
+                    }
+                    size="compact"
+                    variant="outline"
+                    onClick={() => void saveJevApiKey()}
+                  >
+                    Save API key
+                  </Button>
+                  {jevStatus?.source === "saved" && (
+                    <Button
+                      disabled={jevBusy}
+                      size="compact"
+                      variant="destructive"
+                      className="bg-[#ff575d] text-white hover:bg-[#ed484e]"
+                      onClick={() => void clearJevApiKey()}
+                    >
+                      Clear saved key
+                    </Button>
+                  )}
+                </div>
+                {jevStatus?.secureStorageAvailable === false && (
+                  <p className="mt-3 text-ui-sm text-warning">
+                    Secure OS credential storage is unavailable. Use TYPESAFE_API_KEY in the
+                    environment instead.
+                  </p>
+                )}
+                {jevStatus?.storageBackend && (
+                  <p className="mt-3 text-ui-xs text-foreground-subtle">
+                    Credential backend: {jevStatus.storageBackend}
+                  </p>
+                )}
+                {jevMessage && (
+                  <p aria-live="polite" className="mt-3 text-ui-sm text-foreground-subtle">
+                    {jevMessage}
+                  </p>
+                )}
               </div>
-              <span className="rounded-full bg-hover px-2 py-1 text-ui-xs text-foreground-subtle">
-                {jevStatus?.source === "saved"
-                  ? "Saved securely"
-                  : jevStatus?.source === "environment"
-                    ? "Environment variable"
-                    : jevStatus
-                      ? "Not configured"
-                      : "Loading…"}
-              </span>
             </div>
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-              <input
-                aria-label="TypeSafe API key"
-                autoComplete="off"
-                className="h-10 min-w-0 flex-1 rounded-md border border-input-border bg-background px-3 font-mono text-ui-sm outline-none focus:border-brand"
-                disabled={jevBusy || jevStatus?.secureStorageAvailable === false}
-                onChange={(event) => setJevApiKey(event.target.value)}
-                placeholder={jevStatus?.configured ? "Enter a replacement key" : "Enter API key"}
-                spellCheck={false}
-                type="password"
-                value={jevApiKey}
-              />
-              <Button
-                disabled={
-                  jevBusy || !jevApiKey.trim() || jevStatus?.secureStorageAvailable === false
-                }
-                size="compact"
-                variant="primary"
-                onClick={() => void saveJevApiKey()}
+          </section>
+          <section className="mt-5" aria-labelledby="integration-notifications-heading">
+            <h3 className="text-ui-lg font-semibold" id="integration-notifications-heading">
+              Desktop notifications
+            </h3>
+            <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+              Choose whether attention can send an operating system notification.
+            </p>
+            <div className="rounded-xl border border-border bg-panel px-5 py-4">
+              <Field
+                label="Desktop notifications"
+                description="Show a native OS notification for high-priority attention while VINTAGE is not focused."
               >
-                Save API key
-              </Button>
-              {jevStatus?.source === "saved" && (
-                <Button
-                  disabled={jevBusy}
-                  size="compact"
-                  variant="ghost"
-                  onClick={() => void clearJevApiKey()}
-                >
-                  Clear saved key
-                </Button>
-              )}
+                <SettingsToggle
+                  label="Desktop notifications"
+                  checked={draft.desktopNotifications}
+                  onChange={(desktopNotifications) => change({ desktopNotifications })}
+                />
+              </Field>
             </div>
-            {jevStatus?.secureStorageAvailable === false && (
-              <p className="mt-3 text-ui-sm text-warning">
-                Secure OS credential storage is unavailable. Use TYPESAFE_API_KEY in the environment
-                instead.
-              </p>
-            )}
-            {jevStatus?.storageBackend && (
-              <p className="mt-3 text-ui-xs text-foreground-subtle">
-                Credential backend: {jevStatus.storageBackend}
-              </p>
-            )}
-            {jevMessage && (
-              <p aria-live="polite" className="mt-3 text-ui-sm text-foreground-subtle">
-                {jevMessage}
-              </p>
-            )}
-          </Card>
-          <Card>
-            <Field
-              label="Desktop notifications"
-              description="Show a native OS notification for high-priority attention while VINTAGE is not focused."
-            >
-              <div className="flex gap-2">
-                <Choice
-                  active={draft.desktopNotifications}
-                  onClick={() => change({ desktopNotifications: true })}
-                >
-                  On
-                </Choice>
-                <Choice
-                  active={!draft.desktopNotifications}
-                  onClick={() => change({ desktopNotifications: false })}
-                >
-                  Off
-                </Choice>
-              </div>
-            </Field>
-          </Card>
+          </section>
           <p className="text-ui-sm text-foreground-subtle">
             Sidebar and pane badges remain available regardless of this setting. Agent-specific
             hooks are not used.
@@ -1163,247 +1638,115 @@ export function SettingsDialog() {
     if (section === "notes")
       return (
         <>
-          <div>
-            <h2 className="text-2xl font-semibold">Notes</h2>
-            <p className="mt-1 text-ui-base text-foreground-subtle">
-              Show or hide the workspace scratchpad and Kanban board independently.
+          <h2 className="text-2xl font-semibold">Panels</h2>
+          <section className="mt-3" aria-labelledby="panel-visibility-heading">
+            <h3 className="text-ui-lg font-semibold" id="panel-visibility-heading">
+              Side pane tabs
+            </h3>
+            <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
+              Choose which tabs appear in the side pane. Changes are saved automatically.
             </p>
-          </div>
-          <Card>
-            <Field
-              label="Show Notes tab"
-              description="Show Notes in the side pane. Turning it off keeps your saved notes."
-            >
-              <div className="flex gap-2">
-                <Choice
-                  active={draft.notesPanelEnabled}
-                  onClick={() => change({ notesPanelEnabled: true })}
-                >
-                  On
-                </Choice>
-                <Choice
-                  active={!draft.notesPanelEnabled}
-                  onClick={() => change({ notesPanelEnabled: false })}
-                >
-                  Off
-                </Choice>
-              </div>
-            </Field>
-            <Field
-              label="Show Board tab"
-              description="Show Board in the side pane. Turning it off keeps your saved cards."
-            >
-              <div className="flex gap-2">
-                <Choice
-                  active={draft.boardPanelEnabled}
-                  onClick={() => change({ boardPanelEnabled: true })}
-                >
-                  On
-                </Choice>
-                <Choice
-                  active={!draft.boardPanelEnabled}
-                  onClick={() => change({ boardPanelEnabled: false })}
-                >
-                  Off
-                </Choice>
-              </div>
-            </Field>
-          </Card>
+            <div className="rounded-xl border border-border bg-panel">
+              {(
+                [
+                  [
+                    "Files",
+                    "filesPanelEnabled",
+                    "Browse workspace files. Turning it off keeps open file panes.",
+                  ],
+                  ["Review", "reviewPanelEnabled", "Inspect local changes and branch diffs."],
+                  [
+                    "Notes",
+                    "notesPanelEnabled",
+                    "Show the workspace scratchpad. Turning it off keeps your saved notes.",
+                  ],
+                  [
+                    "Board",
+                    "boardPanelEnabled",
+                    "Show the Kanban board. Turning it off keeps your saved cards.",
+                  ],
+                  ["Usage", "usagePanelEnabled", "Show AI provider quotas from CodexBar."],
+                  [
+                    "Browser",
+                    "browserPanelEnabled",
+                    "Show the built-in browser. Turning it off keeps your tabs and pages.",
+                  ],
+                ] as const
+              ).map(([label, setting, description], index) => (
+                <div className={`px-5 py-4 ${index ? "border-t border-border" : ""}`} key={setting}>
+                  <Field label={`Show ${label} tab`} description={description}>
+                    <SettingsToggle
+                      label={`Show ${label} tab`}
+                      checked={draft[setting]}
+                      onChange={(enabled) => change({ [setting]: enabled })}
+                    />
+                  </Field>
+                </div>
+              ))}
+            </div>
+          </section>
         </>
       );
-    if (section === "usage")
-      return (
-        <>
-          <div>
-            <h2 className="text-2xl font-semibold">Usage</h2>
-            <p className="mt-1 text-ui-base text-foreground-subtle">
-              Show AI provider usage limits from the codexbar CLI in the side pane.
-            </p>
-          </div>
-          <Card>
-            <Field
-              label="Show usage panel"
-              description="Add a Usage tab to the side pane listing each provider's remaining quota."
-            >
-              <div className="flex gap-2">
-                <Choice
-                  active={draft.usagePanelEnabled}
-                  onClick={() => change({ usagePanelEnabled: true })}
-                >
-                  On
-                </Choice>
-                <Choice
-                  active={!draft.usagePanelEnabled}
-                  onClick={() => change({ usagePanelEnabled: false })}
-                >
-                  Off
-                </Choice>
-              </div>
-            </Field>
-          </Card>
-          <Card>
-            <Field
-              label="codexbar path"
-              description="Leave empty to detect codexbar on PATH or in known install locations."
-            >
-              <div className="flex w-full items-center justify-end gap-2">
-                <input
-                  aria-label="codexbar path"
-                  autoComplete="off"
-                  className="h-9 min-w-0 flex-1 rounded-md border border-input-border bg-background px-3 font-mono text-ui-sm outline-none focus:border-brand"
-                  placeholder="Auto-detect (PATH)"
-                  spellCheck={false}
-                  type="text"
-                  value={draft.codexbarPath}
-                  onChange={(event) => change({ codexbarPath: event.target.value })}
-                />
-                <Button
-                  disabled={codexbarProbing}
-                  size="compact"
-                  variant="ghost"
-                  onClick={() => void chooseCodexbarExecutable()}
-                >
-                  <FolderOpen /> Browse…
-                </Button>
-              </div>
-            </Field>
-            <p aria-live="polite" className="mt-2 text-ui-xs text-foreground-subtle">
-              {codexbarProbing
-                ? "Checking for codexbar…"
-                : codexbarStatus?.found
-                  ? `Detected ${codexbarStatus.version ?? "codexbar"} at ${codexbarStatus.resolvedPath}`
-                  : (codexbarStatus?.message ?? "")}
-            </p>
-          </Card>
-          <Card>
-            <Field
-              label="Auto refresh interval"
-              description="Run codexbar again at this interval while the Usage tab is visible."
-            >
-              <Stepper
-                max={600}
-                min={60}
-                step={10}
-                suffix="s"
-                value={draft.usageRefreshSeconds}
-                onChange={(value) => change({ usageRefreshSeconds: value })}
-              />
-            </Field>
-          </Card>
-          <p className="text-ui-sm text-foreground-subtle">
-            Which providers appear follows the enabled flags in ~/.config/codexbar/config.json. To
-            add Claude Code, run `codexbar config enable --provider claude`.
-          </p>
-        </>
-      );
-    return (
-      <>
-        <div>
-          <h2 className="text-2xl font-semibold">About this edition</h2>
-          <p className="mt-1 text-ui-base text-foreground-subtle">
-            Version and update availability for VINTAGE.
-          </p>
-        </div>
-        <Card>
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="grid size-14 place-items-center rounded-xl border border-input-border bg-background">
-              <img alt="" aria-hidden="true" className="size-10" src="./favicon.svg" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-ui-lg font-semibold">VINTAGE</h3>
-              <p className="mt-1 text-ui-sm text-foreground-subtle">
-                Version {updateStatus?.currentVersion ?? "…"}
-              </p>
-            </div>
-            <span className="rounded-full bg-hover px-2 py-1 text-ui-xs text-foreground-subtle">
-              Electron edition
-            </span>
-          </div>
-          <div className="mt-5 border-t border-border pt-4">
-            <h3 className="font-medium">You&apos;re using the Electron edition</h3>
-            <p aria-live="polite" className="mt-2 text-ui-sm text-foreground-subtle">
-              {updateStatusMessage}
-            </p>
-            <Button
-              className="mt-4"
-              disabled={updateDisabled}
-              onClick={() => void runUpdateAction()}
-              size="compact"
-              variant="ghost"
-            >
-              {updateStatus?.status === "downloaded" ? (
-                updateStatus.installMethod === "system-installer" ? (
-                  <FolderOpen />
-                ) : (
-                  <RotateCcw />
-                )
-              ) : (
-                <CloudDownload />
-              )}
-              {updateButtonLabel}
-            </Button>
-          </div>
-        </Card>
-      </>
-    );
+    if (section === "usage") return renderUsageSettings();
+    return renderUpdateSettings();
   })();
 
   return (
     <section
       aria-label="Settings"
+      style={
+        {
+          "--color-brand": "var(--color-foreground)",
+          "--color-primary": "var(--color-foreground)",
+          "--color-primary-foreground": "var(--color-background)",
+        } as CSSProperties
+      }
       aria-modal="true"
       className="fixed inset-0 z-50 flex min-h-0 flex-col bg-background text-foreground"
       role="dialog"
     >
-      <header className="shrink-0 border-b border-border px-5 pt-4">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Settings</h1>
-          <Button variant="ghost" onClick={discard}>
-            <ArrowLeft /> Workspace
-          </Button>
-        </div>
-        <nav
-          aria-label="Settings sections"
-          className="mx-auto mt-2 flex w-full max-w-5xl flex-wrap gap-1 py-2"
-        >
-          {sections.map((item) => (
-            <button
-              className={`rounded-md px-4 py-2 text-ui-sm font-medium ${section === item.id ? "bg-hover text-brand" : "text-foreground-subtle hover:bg-hover"}`}
-              key={item.id}
-              onClick={() => setSection(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
-      </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">{content}</div>
-      </div>
-      <footer className="shrink-0 border-t border-border bg-panel px-5 py-3">
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3">
-          <span className={`text-ui-sm ${dirty ? "text-brand" : "text-foreground-subtle"}`}>
-            {attentionMessage ??
-              (attentionLoading
-                ? "Loading attention settings…"
-                : dirty
-                  ? "Unsaved changes"
-                  : "All changes saved")}
-          </span>
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={discard}>
-              Discard
-            </Button>
+      <div className="flex min-h-0 flex-1">
+        <aside className="flex w-44 shrink-0 flex-col border-r border-border bg-panel sm:w-56">
+          <div className="shrink-0 px-3 py-4">
             <Button
-              disabled={!dirty || attentionLoading}
-              variant="primary"
-              onClick={() => void save()}
+              className="window-no-drag w-full justify-start text-foreground"
+              variant="ghost"
+              type="button"
+              disabled={false}
+              onClick={closeSettings}
             >
-              <Check /> Save changes
+              <ArrowLeft /> Workspace
             </Button>
+            <h1 className="px-3 pb-1 pt-5 text-ui-lg font-semibold">Settings</h1>
+          </div>
+          <nav
+            aria-label="Settings sections"
+            className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4"
+          >
+            {sections.map((item) => (
+              <button
+                aria-current={section === item.id ? "page" : undefined}
+                className={`flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-left text-ui-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${section === item.id ? "bg-hover text-brand" : "text-foreground-subtle hover:bg-hover hover:text-foreground"}`}
+                key={item.id}
+                onClick={() => setSection(item.id)}
+              >
+                <item.icon aria-hidden="true" className="size-4 shrink-0" />
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </aside>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8" key={section}>
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+            {content}
+            {section === "attention" && attentionMessage && (
+              <p className="text-ui-sm text-destructive" role="alert">
+                {attentionMessage}
+              </p>
+            )}
           </div>
         </div>
-      </footer>
+      </div>
     </section>
   );
 }

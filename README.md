@@ -66,6 +66,8 @@ VINTAGE can optionally use [Jev](https://docs.typesafe.ai/sdk/javascript) to cla
 
 Show AI CLI quotas and reset times in the Usage tab with the optional [CodexBar CLI](https://github.com/steipete/codexbar). See the [usage limits guide](docs/FEATURES.md#usage-limits-codexbar) for installation and configuration.
 
+Show or hide Files, Review, Notes, Board, Usage, and Browser in **Settings → Panels**. Changes save automatically; tab visibility also has configurable shortcuts.
+
 ## Documentation
 
 - [Features and screen guide](docs/FEATURES.md) — detailed UI and behavior, with screenshots

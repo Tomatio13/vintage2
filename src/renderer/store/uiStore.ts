@@ -61,6 +61,10 @@ export const shortcutActions = [
   "open-board",
   "toggle-notes",
   "toggle-board",
+  "toggle-browser",
+  "toggle-usage",
+  "toggle-review",
+  "toggle-files",
   "open-files",
   "open-review",
   "open-usage",
@@ -93,6 +97,10 @@ export const defaultShortcuts: ShortcutBinding[] = [
   { action: "open-board", key: "k", ctrl: true, alt: false, shift: true },
   { action: "toggle-notes", key: "m", ctrl: true, alt: true, shift: false },
   { action: "toggle-board", key: "k", ctrl: true, alt: true, shift: false },
+  { action: "toggle-browser", key: "b", ctrl: true, alt: true, shift: false },
+  { action: "toggle-usage", key: "u", ctrl: true, alt: true, shift: false },
+  { action: "toggle-review", key: "g", ctrl: true, alt: true, shift: false },
+  { action: "toggle-files", key: "e", ctrl: true, alt: true, shift: false },
   { action: "open-files", key: "e", ctrl: true, alt: false, shift: true },
   { action: "open-review", key: "g", ctrl: true, alt: false, shift: true },
   { action: "open-usage", key: "u", ctrl: true, alt: false, shift: true },
@@ -109,6 +117,9 @@ export interface VintageSettings {
   shell: TerminalShell;
   browserDefaultUrl: string;
   desktopNotifications: boolean;
+  filesPanelEnabled: boolean;
+  reviewPanelEnabled: boolean;
+  browserPanelEnabled: boolean;
   notesPanelEnabled: boolean;
   boardPanelEnabled: boolean;
   usagePanelEnabled: boolean;
@@ -144,6 +155,8 @@ interface UiState extends VintageSettings {
   setUsagePanelEnabled(enabled: boolean): void;
   toggleSidebar(): void;
   toggleSidePane(): void;
+  togglePanel(panel: PanelName): void;
+  setPanelEnabled(panel: PanelName, enabled: boolean): void;
   toggleNotesPanel(): void;
   toggleBoardPanel(): void;
   toggleActivity(): void;
@@ -164,11 +177,51 @@ interface UiState extends VintageSettings {
   consumeBrowserNavigateRequest(nonce: number): void;
 }
 
+export const panelSettingKeys = {
+  files: "filesPanelEnabled",
+  review: "reviewPanelEnabled",
+  notes: "notesPanelEnabled",
+  board: "boardPanelEnabled",
+  usage: "usagePanelEnabled",
+  browser: "browserPanelEnabled",
+} as const;
+export type PanelName = keyof typeof panelSettingKeys;
+
+export function isSidePaneTabEnabled(state: VintageSettings, tabId: string): boolean {
+  if (tabId.startsWith("browser-")) return state.browserPanelEnabled;
+  const key = panelSettingKeys[tabId as PanelName];
+  return key !== undefined && state[key];
+}
+
+export function firstEnabledSidePaneTab(state: UiState): string {
+  for (const name of ["files", "review", "notes", "board", "usage"] as const) {
+    if (state[panelSettingKeys[name]]) return name;
+  }
+  return state.browserPanelEnabled ? (visibleBrowserTabs(state)[0]?.id ?? "") : "";
+}
+
+function reconcilePanelSelection(state: UiState): Partial<UiState> {
+  if (isSidePaneTabEnabled(state, state.activeSidePaneTabId)) return {};
+  const activeSidePaneTabId = firstEnabledSidePaneTab(state);
+  return {
+    activeSidePaneTabId,
+    ...(activeSidePaneTabId.startsWith("browser-")
+      ? {
+          browserTabs: state.browserTabs.map((tab) =>
+            tab.id === activeSidePaneTabId
+              ? { ...tab, mounted: true, initialUrl: tab.initialUrl ?? state.browserDefaultUrl }
+              : tab,
+          ),
+        }
+      : {}),
+  };
+}
+
 const BROWSER_TAB_PREFIX = "browser-";
 
 export const useUiStore = create<UiState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       theme: "system",
       uiFontSize: 14,
       terminalFontSize: 13,
@@ -177,6 +230,9 @@ export const useUiStore = create<UiState>()(
       shell: "system",
       browserDefaultUrl: DEFAULT_BROWSER_START_URL,
       desktopNotifications: true,
+      filesPanelEnabled: true,
+      reviewPanelEnabled: true,
+      browserPanelEnabled: true,
       notesPanelEnabled: true,
       boardPanelEnabled: true,
       usagePanelEnabled: false,
@@ -312,41 +368,37 @@ export const useUiStore = create<UiState>()(
       browserNavigateRequest: null,
       setTheme: (theme) => set({ theme }),
       setUiFontSize: (uiFontSize) => set({ uiFontSize: Math.min(18, Math.max(12, uiFontSize)) }),
-      saveSettings: (settings) => set(settings),
-      setUsagePanelEnabled: (usagePanelEnabled) => set({ usagePanelEnabled }),
+      saveSettings: (settings) =>
+        set((state) => ({ ...settings, ...reconcilePanelSelection({ ...state, ...settings }) })),
+      setUsagePanelEnabled: (usagePanelEnabled) =>
+        get().setPanelEnabled("usage", usagePanelEnabled),
+      setPanelEnabled: (panel, enabled) =>
+        set((state) => {
+          const next = { ...state, [panelSettingKeys[panel]]: enabled };
+          return { [panelSettingKeys[panel]]: enabled, ...reconcilePanelSelection(next) };
+        }),
+      togglePanel: (panel) => get().setPanelEnabled(panel, !get()[panelSettingKeys[panel]]),
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-      toggleNotesPanel: () =>
-        set((state) => ({
-          notesPanelEnabled: !state.notesPanelEnabled,
-          activeSidePaneTabId:
-            state.notesPanelEnabled && state.activeSidePaneTabId === "notes"
-              ? "files"
-              : state.activeSidePaneTabId,
-        })),
-      toggleBoardPanel: () =>
-        set((state) => ({
-          boardPanelEnabled: !state.boardPanelEnabled,
-          activeSidePaneTabId:
-            state.boardPanelEnabled && state.activeSidePaneTabId === "board"
-              ? "files"
-              : state.activeSidePaneTabId,
-        })),
+      toggleNotesPanel: () => get().togglePanel("notes"),
+      toggleBoardPanel: () => get().togglePanel("board"),
       toggleSidePane: () => set((state) => ({ sidePaneOpen: !state.sidePaneOpen })),
       toggleActivity: () => set((state) => ({ activityOpen: !state.activityOpen })),
       setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
       setSidebarWidth: (sidebarWidth) => set({ sidebarWidth }),
       setSidePaneWidth: (sidePaneWidth) => set({ sidePaneWidth }),
       setActivityHeight: (activityHeight) => set({ activityHeight }),
-      activateSidePaneTab: (activeSidePaneTabId) => set({ activeSidePaneTabId }),
+      activateSidePaneTab: (activeSidePaneTabId) =>
+        set((state) =>
+          isSidePaneTabEnabled(state, activeSidePaneTabId) ? { activeSidePaneTabId } : state,
+        ),
       showSidePaneTab: (tabId) =>
         set((state) => {
-          if (tabId === "notes" && !state.notesPanelEnabled) return state;
-          if (tabId === "board" && !state.boardPanelEnabled) return state;
-          if (tabId === "usage" && !state.usagePanelEnabled) return state;
+          if (!isSidePaneTabEnabled(state, tabId)) return state;
           return { activeSidePaneTabId: tabId, sidePaneOpen: true };
         }),
       openBrowserPane: () =>
         set((state) => {
+          if (!state.browserPanelEnabled) return state;
           const visibleTabs = visibleBrowserTabs(state);
           if (visibleTabs.length === 0) {
             const number = state.browserTabCounter;
@@ -383,20 +435,25 @@ export const useUiStore = create<UiState>()(
           };
         }),
       activateBrowserTab: (tabId) =>
-        set((state) => ({
-          activeSidePaneTabId: tabId,
-          browserTabs: state.browserTabs.map((browserTab) =>
-            browserTab.id === tabId
-              ? {
-                  ...browserTab,
-                  initialUrl: browserTab.initialUrl ?? state.browserDefaultUrl,
-                  mounted: true,
-                }
-              : browserTab,
-          ),
-        })),
+        set((state) =>
+          state.browserPanelEnabled
+            ? {
+                activeSidePaneTabId: tabId,
+                browserTabs: state.browserTabs.map((browserTab) =>
+                  browserTab.id === tabId
+                    ? {
+                        ...browserTab,
+                        initialUrl: browserTab.initialUrl ?? state.browserDefaultUrl,
+                        mounted: true,
+                      }
+                    : browserTab,
+                ),
+              }
+            : state,
+        ),
       addBrowserTab: () =>
         set((state) => {
+          if (!state.browserPanelEnabled) return state;
           const number = state.browserTabCounter;
           const newTab: BrowserTabState = {
             id: `${BROWSER_TAB_PREFIX}${number}`,
@@ -430,6 +487,7 @@ export const useUiStore = create<UiState>()(
           };
         }),
       openInBrowserTab: (url, options) => {
+        if (!get().browserPanelEnabled) return false;
         let normalizedUrl: string;
         try {
           normalizedUrl = normalizeBrowserUrl(url);
@@ -520,6 +578,9 @@ export const useUiStore = create<UiState>()(
         browserSelections,
         activeSidePaneTabId,
         desktopNotifications,
+        filesPanelEnabled,
+        reviewPanelEnabled,
+        browserPanelEnabled,
         notesPanelEnabled,
         boardPanelEnabled,
         usagePanelEnabled,
@@ -546,6 +607,9 @@ export const useUiStore = create<UiState>()(
         browserSelections,
         activeSidePaneTabId,
         desktopNotifications,
+        filesPanelEnabled,
+        reviewPanelEnabled,
+        browserPanelEnabled,
         notesPanelEnabled,
         boardPanelEnabled,
         usagePanelEnabled,
@@ -574,12 +638,14 @@ export const useUiStore = create<UiState>()(
             ["files", "review", "notes", "board", "usage"].includes(persisted.activeSidePaneTabId))
             ? persisted.activeSidePaneTabId
             : "files";
-        return {
+        const restored: UiState = {
           ...currentState,
           ...persisted,
           browserTabs: browserTabs.map((tab) => ({
             ...tab,
-            mounted: tab.id === activeSidePaneTabId,
+            mounted:
+              (persisted.browserPanelEnabled ?? currentState.browserPanelEnabled) &&
+              tab.id === activeSidePaneTabId,
           })),
           browserTabCounter: Math.max(1, ...browserTabs.map((tab) => Number(tab.id.slice(8)))) + 1,
           activeSidePaneTabId,
@@ -591,6 +657,7 @@ export const useUiStore = create<UiState>()(
             : currentState.shell,
           shortcuts: mergeShortcutBindings(persisted.shortcuts),
         };
+        return { ...restored, ...reconcilePanelSelection(restored) };
       },
     },
   ),

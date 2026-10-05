@@ -1,5 +1,26 @@
 # VINTAGE Changelog
 
+## [0.2.18] - 2026-10-06
+
+### Added
+
+- **Panel visibility controls:** Enable or hide Files, Review, Notes, Board, Usage, and Browser individually in Settings → Panels. Disabled tabs cannot be opened through shortcuts or the command palette. Select another enabled tab when the active tab is hidden, and show an empty state when all tabs are off. Keep Browser tabs and running pages while hidden.
+- **Panel toggle shortcuts:** Add configurable Files, Review, Usage, and Browser toggles, defaulting to Ctrl+Alt+E/G/U/B. Arrange Side pane shortcuts in Files, Review, Notes, Board, Usage, and Browser order, with each open action beside its toggle.
+- **Shortcut search:** Search commands, categories, and keybindings while retaining category sections, with inline editing and conflict feedback.
+
+### Changed
+
+- **Settings layout:** Use a vertical category menu with a persistent Workspace return button. Restyle Appearance, Terminal, Browser, Attention, Integrations, Panels, and Usage with consistent grouped rows, rounded menus, previews, and neutral accents.
+- **Automatic settings saves:** Apply and save settings as they change, removing the Discard and Save changes footer. Invalid browser URLs retain the previous saved value; Attention saves are serialized. Jev API keys retain explicit save and clear actions.
+- **Panel settings:** Rename Notes to Panels and move the Usage visibility switch into the shared panel list.
+
+### Fixed
+
+- **Development update screen:** Show the project version instead of Electron's development version, and let development builds open GitHub Releases to check for updates. Installed builds retain their existing updater behavior.
+- **Settings navigation:** Keep Updates separate from Usage and retain an enabled Workspace return action in every section.
+
+**Full Changelog:** [v0.2.17...v0.2.18](https://github.com/Tomatio13/vintage2/compare/v0.2.17...v0.2.18)
+
 ## [0.2.17] - 2026-10-06
 
 ### Added

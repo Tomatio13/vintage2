@@ -6,6 +6,9 @@ import { useUiStore } from "../src/renderer/store/uiStore.js";
 
 afterEach(() => {
   useUiStore.setState({
+    filesPanelEnabled: true,
+    reviewPanelEnabled: true,
+    browserPanelEnabled: true,
     notesPanelEnabled: true,
     boardPanelEnabled: true,
     settingsOpen: false,
@@ -15,10 +18,9 @@ afterEach(() => {
 it("saves the Notes visibility preference through Settings", () => {
   useUiStore.setState({ notesPanelEnabled: true, settingsOpen: true });
   render(<SettingsDialog />);
-  fireEvent.click(screen.getByRole("button", { name: "Notes" }));
-  fireEvent.click(screen.getAllByRole("button", { name: "Off" })[0]!);
-  expect(useUiStore.getState().notesPanelEnabled).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Panels" }));
+  fireEvent.click(screen.getByRole("switch", { name: "Show Notes tab" }));
+  expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
   expect(useUiStore.getState().notesPanelEnabled).toBe(false);
   expect(JSON.parse(localStorage.getItem("ai-workspace-starter-ui")!).state.notesPanelEnabled).toBe(
     false,
@@ -45,9 +47,8 @@ it("hides active Notes, blocks its shortcut route and restores the tab without d
 it("saves Board visibility independently and falls back from a hidden Board", () => {
   useUiStore.setState({ notesPanelEnabled: true, boardPanelEnabled: true, settingsOpen: true });
   const settings = render(<SettingsDialog />);
-  fireEvent.click(screen.getByRole("button", { name: "Notes" }));
-  fireEvent.click(screen.getAllByRole("button", { name: "Off" })[1]!);
-  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Panels" }));
+  fireEvent.click(screen.getByRole("switch", { name: "Show Board tab" }));
   expect(useUiStore.getState().boardPanelEnabled).toBe(false);
   expect(useUiStore.getState().notesPanelEnabled).toBe(true);
   expect(JSON.parse(localStorage.getItem("ai-workspace-starter-ui")!).state.boardPanelEnabled).toBe(
@@ -63,4 +64,54 @@ it("saves Board visibility independently and falls back from a hidden Board", ()
   expect(useUiStore.getState().activeSidePaneTabId).toBe("files");
   act(() => useUiStore.getState().showSidePaneTab("board"));
   expect(useUiStore.getState().activeSidePaneTabId).toBe("files");
+});
+
+it("keeps Updates separate from Usage settings", () => {
+  useUiStore.setState({ settingsOpen: true });
+  render(<SettingsDialog />);
+  fireEvent.click(screen.getByRole("button", { name: "Usage" }));
+  expect(screen.getByRole("textbox", { name: "codexbar path" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Updates" }));
+  expect(screen.getByRole("heading", { name: "About this edition" })).toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: "codexbar path" })).not.toBeInTheDocument();
+});
+
+it("autosaves valid browser URLs and keeps the last valid value on invalid input", () => {
+  useUiStore.setState({ settingsOpen: true, browserDefaultUrl: "" });
+  render(<SettingsDialog />);
+  fireEvent.click(screen.getByRole("button", { name: "Browser" }));
+  const input = screen.getByRole("textbox", { name: "Default browser URL" });
+  fireEvent.change(input, { target: { value: "https://example.com" } });
+  const savedUrl = useUiStore.getState().browserDefaultUrl;
+  expect(savedUrl).toContain("https://example.com");
+  fireEvent.change(input, { target: { value: "javascript:alert(1)" } });
+  expect(screen.getByRole("alert")).toBeInTheDocument();
+  expect(useUiStore.getState().browserDefaultUrl).toBe(savedUrl);
+  fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
+  expect(useUiStore.getState().browserDefaultUrl).toBe(savedUrl);
+  expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument();
+});
+
+it("keeps the Workspace return button enabled in every settings section", () => {
+  for (const section of [
+    "Appearance",
+    "Terminal",
+    "Browser",
+    "Attention",
+    "Shortcuts",
+    "Integrations",
+    "Panels",
+    "Usage",
+    "Updates",
+  ]) {
+    useUiStore.setState({ settingsOpen: true });
+    const view = render(<SettingsDialog />);
+    fireEvent.click(screen.getByRole("button", { name: section }));
+    const back = screen.getByRole("button", { name: "Workspace" });
+    expect(back).toBeEnabled();
+    fireEvent.click(back);
+    expect(useUiStore.getState().settingsOpen).toBe(false);
+    expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
+    view.unmount();
+  }
 });

@@ -66,6 +66,8 @@ pnpm start
 
 AI CLIのクォータやリセット時刻をUsageタブに表示できます。任意の [CodexBar CLI](https://github.com/steipete/codexbar) が必要です。導入と設定は[Usage制限のガイド](docs/FEATURES_JP.md#usage制限codexbar)をご覧ください。
 
+**Settings → Panels**でFiles・Review・Notes・Board・Usage・Browserを個別にON/OFFできます。変更は自動保存され、タブ表示の切り替えにはショートカットも設定できます。
+
 ## ドキュメント
 
 - [機能と画面のガイド](docs/FEATURES_JP.md) — UIと各機能の説明、スクリーンショット

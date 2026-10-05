@@ -1,3 +1,6 @@
+import { URL } from "node:url";
+import { readFileSync } from "node:fs";
+
 import { spawn } from "node:child_process";
 
 import { app, BrowserWindow, shell } from "electron";
@@ -8,13 +11,27 @@ import { DesktopChannels, type DesktopUpdateStatus } from "../shared/desktop.js"
 
 const { autoUpdater } = electronUpdater;
 
+function currentVersion(): string {
+  if (app.isPackaged) return app.getVersion();
+  try {
+    const metadata = JSON.parse(
+      readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+    ) as { version?: unknown };
+    if (typeof metadata.version === "string") return metadata.version;
+  } catch {
+    // Fall back to Electron metadata if the development manifest is unavailable.
+  }
+  return app.getVersion();
+}
+
 export class UpdateManager {
   #status: DesktopUpdateStatus = app.isPackaged
-    ? { status: "idle", currentVersion: app.getVersion() }
+    ? { status: "idle", currentVersion: currentVersion() }
     : {
         status: "unsupported",
-        currentVersion: app.getVersion(),
-        message: "Update checks are available in installed VINTAGE builds.",
+        currentVersion: currentVersion(),
+        message:
+          "Development build. Open GitHub Releases to check for updates; automatic updates require an installed build.",
       };
   #checking = false;
   #downloading = false;
@@ -26,24 +43,24 @@ export class UpdateManager {
     autoUpdater.autoInstallOnAppQuit = false;
 
     autoUpdater.on("checking-for-update", () => {
-      this.#setStatus({ status: "checking", currentVersion: app.getVersion() });
+      this.#setStatus({ status: "checking", currentVersion: currentVersion() });
     });
     autoUpdater.on("update-available", (info) => {
       this.#setStatus({
         status: "available",
-        currentVersion: app.getVersion(),
+        currentVersion: currentVersion(),
         availableVersion: info.version,
       });
     });
     autoUpdater.on("update-not-available", () => {
-      this.#setStatus({ status: "up-to-date", currentVersion: app.getVersion() });
+      this.#setStatus({ status: "up-to-date", currentVersion: currentVersion() });
     });
     autoUpdater.on("download-progress", (progress) => {
       const availableVersion = this.#availableVersion();
       if (!availableVersion) return;
       this.#setStatus({
         status: "downloading",
-        currentVersion: app.getVersion(),
+        currentVersion: currentVersion(),
         availableVersion,
         percent: progress.percent,
         bytesPerSecond: progress.bytesPerSecond,
@@ -53,7 +70,7 @@ export class UpdateManager {
       this.#downloadedFile = info.downloadedFile;
       this.#setStatus({
         status: "downloaded",
-        currentVersion: app.getVersion(),
+        currentVersion: currentVersion(),
         availableVersion: info.version,
         installMethod: info.downloadedFile.toLowerCase().endsWith(".deb")
           ? "system-installer"
@@ -63,14 +80,14 @@ export class UpdateManager {
     autoUpdater.on("update-cancelled", (info) => {
       this.#setStatus({
         status: "available",
-        currentVersion: app.getVersion(),
+        currentVersion: currentVersion(),
         availableVersion: info.version,
       });
     });
     autoUpdater.on("error", (error) => {
       this.#setStatus({
         status: "error",
-        currentVersion: app.getVersion(),
+        currentVersion: currentVersion(),
         message: error.message,
       });
     });
@@ -85,13 +102,13 @@ export class UpdateManager {
     if (this.#checking) return this.getStatus();
 
     this.#checking = true;
-    this.#setStatus({ status: "checking", currentVersion: app.getVersion() });
+    this.#setStatus({ status: "checking", currentVersion: currentVersion() });
     try {
       await autoUpdater.checkForUpdates();
     } catch (error) {
       this.#setStatus({
         status: "error",
-        currentVersion: app.getVersion(),
+        currentVersion: currentVersion(),
         message: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -111,7 +128,7 @@ export class UpdateManager {
     const availableVersion = this.#status.availableVersion;
     this.#setStatus({
       status: "downloading",
-      currentVersion: app.getVersion(),
+      currentVersion: currentVersion(),
       availableVersion,
       percent: 0,
       bytesPerSecond: 0,
@@ -121,7 +138,7 @@ export class UpdateManager {
     } catch (error) {
       this.#setStatus({
         status: "error",
-        currentVersion: app.getVersion(),
+        currentVersion: currentVersion(),
         message: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -153,7 +170,7 @@ export class UpdateManager {
     if (outcome.kind === "installed") {
       this.#setStatus({
         status: "downloaded",
-        currentVersion: app.getVersion(),
+        currentVersion: currentVersion(),
         availableVersion,
         installMethod: "installed",
       });
@@ -168,7 +185,7 @@ export class UpdateManager {
       const quotedPath = `'${downloadedFile.replaceAll("'", "'\\''")}'`;
       this.#setStatus({
         status: "error",
-        currentVersion: app.getVersion(),
+        currentVersion: currentVersion(),
         message:
           `${failureHint}Could not open the downloaded .deb package (${openError}). ` +
           `Install it from a terminal with: sudo apt install -- ${quotedPath}. Then restart VINTAGE.`,
@@ -178,7 +195,7 @@ export class UpdateManager {
 
     this.#setStatus({
       status: "downloaded",
-      currentVersion: app.getVersion(),
+      currentVersion: currentVersion(),
       availableVersion,
       installMethod: "system-installer",
       ...(outcome.kind === "failed" ? { message: outcome.reason } : {}),

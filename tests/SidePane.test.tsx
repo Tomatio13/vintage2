@@ -8,6 +8,9 @@ import type { DesktopBridge } from "../src/shared/desktop.js";
 afterEach(() => {
   delete window.desktop;
   useUiStore.setState({
+    filesPanelEnabled: true,
+    reviewPanelEnabled: true,
+    browserPanelEnabled: true,
     usagePanelEnabled: false,
     codexbarPath: "",
     activeSidePaneTabId: "files",

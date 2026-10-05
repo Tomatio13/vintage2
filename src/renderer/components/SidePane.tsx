@@ -17,7 +17,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { FileActions } from "./FileActions.js";
 import type { WorkspaceFileEntry } from "../../shared/desktop.js";
-import { useUiStore } from "../store/uiStore.js";
+import { firstEnabledSidePaneTab, isSidePaneTabEnabled, useUiStore } from "../store/uiStore.js";
 import { BrowserScopePicker } from "./BrowserScopePicker.js";
 import { BrowserPane } from "./BrowserPane.js";
 import { Button } from "./Button.js";
@@ -71,6 +71,9 @@ export function SidePane({
   const browserTabs = useUiStore((state) => state.browserTabs);
   const browserNavigateRequest = useUiStore((state) => state.browserNavigateRequest);
   const consumeBrowserNavigateRequest = useUiStore((state) => state.consumeBrowserNavigateRequest);
+  const filesPanelEnabled = useUiStore((state) => state.filesPanelEnabled);
+  const reviewPanelEnabled = useUiStore((state) => state.reviewPanelEnabled);
+  const browserPanelEnabled = useUiStore((state) => state.browserPanelEnabled);
   const boardPanelEnabled = useUiStore((state) => state.boardPanelEnabled);
   const notesPanelEnabled = useUiStore((state) => state.notesPanelEnabled);
   const usagePanelEnabled = useUiStore((state) => state.usagePanelEnabled);
@@ -148,18 +151,22 @@ export function SidePane({
   }, [activeTabId]);
 
   useEffect(() => {
-    if (!usagePanelEnabled && activeTabId === "usage") {
-      activateSidePaneTab("files");
-    }
-  }, [activeTabId, activateSidePaneTab, usagePanelEnabled]);
-
-  useEffect(() => {
-    if (
-      (!notesPanelEnabled && activeTabId === "notes") ||
-      (!boardPanelEnabled && activeTabId === "board")
-    )
-      activateSidePaneTab("files");
-  }, [notesPanelEnabled, boardPanelEnabled, activeTabId, activateSidePaneTab]);
+    const state = useUiStore.getState();
+    if (isSidePaneTabEnabled(state, activeTabId)) return;
+    const next = firstEnabledSidePaneTab(state);
+    if (next.startsWith("browser-")) state.activateBrowserTab(next);
+    else if (next) activateSidePaneTab(next);
+    else if (activeTabId) useUiStore.setState({ activeSidePaneTabId: "" });
+  }, [
+    filesPanelEnabled,
+    reviewPanelEnabled,
+    browserPanelEnabled,
+    notesPanelEnabled,
+    boardPanelEnabled,
+    usagePanelEnabled,
+    activeTabId,
+    activateSidePaneTab,
+  ]);
 
   const refreshFilesButton = (
     <Button
@@ -179,32 +186,36 @@ export function SidePane({
   return (
     <aside className="flex h-full min-w-0 flex-col bg-panel">
       <div className="flex h-11 shrink-0 items-center gap-1 border-b border-border px-2">
-        <button
-          aria-pressed={activeTabId === "files"}
-          className={`flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${
-            activeTabId === "files"
-              ? "bg-selected text-foreground"
-              : "text-foreground-subtle hover:bg-hover hover:text-foreground"
-          }`}
-          onClick={() => activateSidePaneTab("files")}
-          type="button"
-        >
-          <FolderOpen aria-hidden="true" className="size-3.5" />
-          <span>Files</span>
-        </button>
-        <button
-          aria-pressed={activeTabId === "review"}
-          className={`flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${
-            activeTabId === "review"
-              ? "bg-selected text-foreground"
-              : "text-foreground-subtle hover:bg-hover hover:text-foreground"
-          }`}
-          onClick={() => activateSidePaneTab("review")}
-          type="button"
-        >
-          <GitBranch aria-hidden="true" className="size-3.5" />
-          <span>Review</span>
-        </button>
+        {filesPanelEnabled && (
+          <button
+            aria-pressed={activeTabId === "files"}
+            className={`flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${
+              activeTabId === "files"
+                ? "bg-selected text-foreground"
+                : "text-foreground-subtle hover:bg-hover hover:text-foreground"
+            }`}
+            onClick={() => activateSidePaneTab("files")}
+            type="button"
+          >
+            <FolderOpen aria-hidden="true" className="size-3.5" />
+            <span>Files</span>
+          </button>
+        )}
+        {reviewPanelEnabled && (
+          <button
+            aria-pressed={activeTabId === "review"}
+            className={`flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${
+              activeTabId === "review"
+                ? "bg-selected text-foreground"
+                : "text-foreground-subtle hover:bg-hover hover:text-foreground"
+            }`}
+            onClick={() => activateSidePaneTab("review")}
+            type="button"
+          >
+            <GitBranch aria-hidden="true" className="size-3.5" />
+            <span>Review</span>
+          </button>
+        )}
         {notesPanelEnabled && (
           <button
             type="button"
@@ -240,77 +251,81 @@ export function SidePane({
             <span>Usage</span>
           </button>
         )}
-        <div
-          aria-label="Browser tabs"
-          className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]"
-          role="group"
-        >
-          {browserTabs
-            .filter((tab) => !tab.workspaceId || tab.workspaceId === workspaceId)
-            .map((browserTab) => {
-              const active = activeTabId === browserTab.id;
-              return (
-                <div
-                  key={browserTab.id}
-                  ref={(element) => {
-                    if (element) browserTabElements.current.set(browserTab.id, element);
-                    else browserTabElements.current.delete(browserTab.id);
-                  }}
-                  className={`group flex h-7 min-w-0 max-w-36 shrink-0 items-center rounded-lg transition-colors ${
-                    active
-                      ? "bg-selected text-foreground"
-                      : "text-foreground-subtle hover:bg-hover hover:text-foreground"
-                  }`}
-                >
-                  <button
-                    aria-pressed={active}
-                    className="flex h-full min-w-0 items-center gap-1.5 overflow-hidden pl-2 text-left text-ui-sm font-medium"
-                    onClick={() => activateBrowserTab(browserTab.id)}
-                    title={`${browserTab.title} · ${browserTab.workspaceId ? (workspaceName ?? "This project") : "Common"}`}
-                    onContextMenu={(event) => {
-                      event.preventDefault();
-                      setTabMenu({
-                        id: browserTab.id,
-                        x: Math.min(event.clientX, window.innerWidth - 220),
-                        y: Math.min(event.clientY, window.innerHeight - 100),
-                      });
-                    }}
-                    type="button"
-                  >
-                    {browserTab.workspaceId ? (
-                      <Folder aria-hidden="true" className="size-3.5 shrink-0" />
-                    ) : (
-                      <Globe2 aria-hidden="true" className="size-3.5 shrink-0" />
-                    )}
-                    <span className="truncate">{browserTab.title}</span>
-                  </button>
-                  <button
-                    aria-label={`Close ${browserTab.title} tab`}
-                    className={`mr-1 flex size-5 shrink-0 items-center justify-center rounded-md text-foreground-subtlest transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand ${
-                      active
-                        ? "opacity-100"
-                        : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-                    }`}
-                    onClick={() => closeBrowserTab(browserTab.id)}
-                    type="button"
-                  >
-                    <X aria-hidden="true" className="size-3.5" />
-                  </button>
-                </div>
-              );
-            })}
-        </div>
-        <Button
-          aria-label="New browser tab"
-          className="size-7 px-0"
-          size="icon"
-          title="New browser tab"
-          variant="ghost"
-          onClick={addBrowserTab}
-        >
-          <Plus aria-hidden="true" className="size-4" />
-        </Button>
-        {workspaceName === "Home" && (
+        {browserPanelEnabled && (
+          <>
+            <div
+              aria-label="Browser tabs"
+              className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]"
+              role="group"
+            >
+              {browserTabs
+                .filter((tab) => !tab.workspaceId || tab.workspaceId === workspaceId)
+                .map((browserTab) => {
+                  const active = activeTabId === browserTab.id;
+                  return (
+                    <div
+                      key={browserTab.id}
+                      ref={(element) => {
+                        if (element) browserTabElements.current.set(browserTab.id, element);
+                        else browserTabElements.current.delete(browserTab.id);
+                      }}
+                      className={`group flex h-7 min-w-0 max-w-36 shrink-0 items-center rounded-lg transition-colors ${
+                        active
+                          ? "bg-selected text-foreground"
+                          : "text-foreground-subtle hover:bg-hover hover:text-foreground"
+                      }`}
+                    >
+                      <button
+                        aria-pressed={active}
+                        className="flex h-full min-w-0 items-center gap-1.5 overflow-hidden pl-2 text-left text-ui-sm font-medium"
+                        onClick={() => activateBrowserTab(browserTab.id)}
+                        title={`${browserTab.title} · ${browserTab.workspaceId ? (workspaceName ?? "This project") : "Common"}`}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          setTabMenu({
+                            id: browserTab.id,
+                            x: Math.min(event.clientX, window.innerWidth - 220),
+                            y: Math.min(event.clientY, window.innerHeight - 100),
+                          });
+                        }}
+                        type="button"
+                      >
+                        {browserTab.workspaceId ? (
+                          <Folder aria-hidden="true" className="size-3.5 shrink-0" />
+                        ) : (
+                          <Globe2 aria-hidden="true" className="size-3.5 shrink-0" />
+                        )}
+                        <span className="truncate">{browserTab.title}</span>
+                      </button>
+                      <button
+                        aria-label={`Close ${browserTab.title} tab`}
+                        className={`mr-1 flex size-5 shrink-0 items-center justify-center rounded-md text-foreground-subtlest transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand ${
+                          active
+                            ? "opacity-100"
+                            : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                        }`}
+                        onClick={() => closeBrowserTab(browserTab.id)}
+                        type="button"
+                      >
+                        <X aria-hidden="true" className="size-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+            </div>
+            <Button
+              aria-label="New browser tab"
+              className="size-7 px-0"
+              size="icon"
+              title="New browser tab"
+              variant="ghost"
+              onClick={addBrowserTab}
+            >
+              <Plus aria-hidden="true" className="size-4" />
+            </Button>
+          </>
+        )}
+        {filesPanelEnabled && activeTabId === "files" && workspaceName === "Home" && (
           <Button
             aria-label={revealHiddenFiles ? "Hide hidden files" : "Show hidden files"}
             aria-pressed={revealHiddenFiles}
@@ -329,10 +344,15 @@ export function SidePane({
         )}
       </div>
       <div className="relative min-h-0 flex-1 overflow-hidden">
+        {!activeTabId && (
+          <div className="p-5 text-ui-sm text-foreground-subtle">
+            All panels are hidden. Enable a tab in Settings → Panels.
+          </div>
+        )}
         <div
-          aria-hidden={activeTabId !== "files"}
+          aria-hidden={!filesPanelEnabled || activeTabId !== "files"}
           className="absolute inset-0"
-          hidden={activeTabId !== "files"}
+          hidden={!filesPanelEnabled || activeTabId !== "files"}
         >
           <div
             className="h-full overflow-y-auto p-2"
@@ -387,12 +407,12 @@ export function SidePane({
           </div>
         </div>
         <div
-          aria-hidden={activeTabId !== "review"}
+          aria-hidden={!reviewPanelEnabled || activeTabId !== "review"}
           className="absolute inset-0"
-          hidden={activeTabId !== "review"}
+          hidden={!reviewPanelEnabled || activeTabId !== "review"}
         >
           <ReviewPane
-            active={visible && activeTabId === "review"}
+            active={reviewPanelEnabled && visible && activeTabId === "review"}
             refreshVersion={reviewRefreshVersion}
             workspaceId={workspaceId}
             onOpenFile={onOpenFile}
@@ -423,6 +443,7 @@ export function SidePane({
         )}
         {browserTabs.map((browserTab) => {
           const active =
+            browserPanelEnabled &&
             activeTabId === browserTab.id &&
             (!browserTab.workspaceId || browserTab.workspaceId === workspaceId);
           return (

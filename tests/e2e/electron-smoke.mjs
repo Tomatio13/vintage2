@@ -1,5 +1,5 @@
 import { _electron as electron } from "playwright-core";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -130,7 +130,12 @@ try {
   }
   await window.getByRole("button", { name: "Open settings" }).click();
   await window.getByRole("dialog", { name: "Settings" }).waitFor();
-  await window.getByRole("button", { name: /Graphite A neutral charcoal workspace/ }).waitFor();
+  await window
+    .getByRole("button", { name: /Graphite preview A neutral charcoal workspace/ })
+    .waitFor();
+  await window.getByRole("button", { name: "App theme", exact: true }).click();
+  await window.getByRole("menuitemradio", { name: "Graphite", exact: true }).click();
+  await window.waitForFunction(() => document.documentElement.classList.contains("graphite"));
   await window.getByRole("button", { name: "Attention" }).click();
   await window.getByLabel("Attention debounce").waitFor();
   await window.getByLabel("Attention threshold").waitFor();
@@ -139,7 +144,31 @@ try {
   await window.getByText("TypeSafe / Jev").waitFor();
   await window.getByText(/Saved securely|Environment variable|Not configured/).waitFor();
   await window.getByLabel("TypeSafe API key").waitFor();
-  console.log("electron smoke: Home terminal, appearance, attention, and Jev settings OK");
+  const settings = window.getByRole("dialog", { name: "Settings" });
+  await settings.getByRole("button", { name: "Panels" }).click();
+  await settings.getByRole("switch", { name: "Show Files tab" }).click();
+  await settings.getByRole("switch", { name: "Show Browser tab" }).click();
+  await settings.getByRole("button", { name: "Workspace", exact: true }).click();
+  if (await window.getByRole("button", { name: "Files", exact: true }).count())
+    throw new Error("disabled Files tab remained visible");
+  if (await window.getByRole("button", { name: "New browser tab" }).count())
+    throw new Error("disabled Browser remained accessible");
+  await window.getByRole("button", { name: "Open settings" }).click();
+  await settings.getByRole("button", { name: "Panels" }).click();
+  await settings.getByRole("switch", { name: "Show Files tab" }).click();
+  await settings.getByRole("switch", { name: "Show Browser tab" }).click();
+  await settings.getByRole("button", { name: "Updates" }).click();
+  const update = await window.evaluate(() => window.desktop.getUpdateStatus());
+  if (update.currentVersion !== JSON.parse(readFileSync("package.json", "utf8")).version)
+    throw new Error("development version was incorrect: " + update.currentVersion);
+  if (!(await settings.getByRole("button", { name: "Check for updates" }).isEnabled()))
+    throw new Error("development update check was disabled");
+  await settings.getByRole("button", { name: "Shortcuts" }).click();
+  await window.screenshot({ path: "/tmp/vintage-v0.2.18-settings.png" });
+  await settings.getByRole("button", { name: "Workspace", exact: true }).click();
+  console.log(
+    "electron smoke: Home terminal, settings, autosaved panel visibility, Workspace return, and development version OK",
+  );
 } finally {
   await app.close();
 }

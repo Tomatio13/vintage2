@@ -966,6 +966,14 @@ export function App() {
         return ui.showSidePaneTab("board");
       case "toggle-notes":
         return ui.toggleNotesPanel();
+      case "toggle-files":
+        return ui.togglePanel("files");
+      case "toggle-review":
+        return ui.togglePanel("review");
+      case "toggle-usage":
+        return ui.togglePanel("usage");
+      case "toggle-browser":
+        return ui.togglePanel("browser");
       case "toggle-board":
         return ui.toggleBoardPanel();
       case "open-files":
@@ -1182,6 +1190,10 @@ export function App() {
   const openBoardShortcut = shortcutText(ui.shortcuts, "open-board");
   const toggleNotesShortcut = shortcutText(ui.shortcuts, "toggle-notes");
   const toggleBoardShortcut = shortcutText(ui.shortcuts, "toggle-board");
+  const toggleFilesShortcut = shortcutText(ui.shortcuts, "toggle-files");
+  const toggleReviewShortcut = shortcutText(ui.shortcuts, "toggle-review");
+  const toggleUsageShortcut = shortcutText(ui.shortcuts, "toggle-usage");
+  const toggleBrowserShortcut = shortcutText(ui.shortcuts, "toggle-browser");
   const openFilesShortcut = shortcutText(ui.shortcuts, "open-files");
   const openReviewShortcut = shortcutText(ui.shortcuts, "open-review");
   const openUsageShortcut = shortcutText(ui.shortcuts, "open-usage");
@@ -1337,6 +1349,7 @@ export function App() {
           kind: "action",
           section: "actions",
           title: "Open Files pane",
+          disabled: !ui.filesPanelEnabled,
           keywords: ["show", "files", "explorer", "preview", "side", "panel"],
           icon: "file",
           ...(openFilesShortcut ? { shortcut: openFilesShortcut } : {}),
@@ -1365,6 +1378,36 @@ export function App() {
           onSelect: () => ui.showSidePaneTab("board"),
         },
         {
+          id: "action:toggle-files",
+          kind: "action",
+          section: "actions",
+          title: "Toggle Files tab",
+          keywords: ["files", "enable", "disable", "show", "hide"],
+          icon: "file",
+          ...(toggleFilesShortcut ? { shortcut: toggleFilesShortcut } : {}),
+          onSelect: () => ui.togglePanel("files"),
+        },
+        {
+          id: "action:toggle-review",
+          kind: "action",
+          section: "actions",
+          title: "Toggle Review tab",
+          keywords: ["review", "enable", "disable", "show", "hide"],
+          icon: "review",
+          ...(toggleReviewShortcut ? { shortcut: toggleReviewShortcut } : {}),
+          onSelect: () => ui.togglePanel("review"),
+        },
+        {
+          id: "action:toggle-browser",
+          kind: "action",
+          section: "actions",
+          title: "Toggle Browser tab",
+          keywords: ["browser", "enable", "disable", "show", "hide"],
+          icon: "browser",
+          ...(toggleBrowserShortcut ? { shortcut: toggleBrowserShortcut } : {}),
+          onSelect: () => ui.togglePanel("browser"),
+        },
+        {
           id: "action:toggle-notes",
           kind: "action",
           section: "actions",
@@ -1389,6 +1432,7 @@ export function App() {
           kind: "action",
           section: "actions",
           title: "Open Review pane",
+          disabled: !ui.reviewPanelEnabled,
           keywords: ["show", "git", "diff", "changes", "review", "side", "panel"],
           icon: "review",
           ...(openReviewShortcut ? { shortcut: openReviewShortcut } : {}),
@@ -1410,6 +1454,7 @@ export function App() {
           kind: "action",
           section: "actions",
           title: "Open Browser pane",
+          disabled: !ui.browserPanelEnabled,
           keywords: ["show", "browser", "web", "preview", "side", "panel"],
           icon: "browser",
           ...(openBrowserShortcut ? { shortcut: openBrowserShortcut } : {}),
@@ -1432,14 +1477,11 @@ export function App() {
           id: "action:toggle-usage",
           kind: "action",
           section: "actions",
-          title: "Toggle usage panel",
+          title: "Toggle Usage tab",
           keywords: ["show", "hide", "usage", "quota", "limits", "codexbar"],
           icon: "usage",
-          onSelect: () => {
-            const next = !ui.usagePanelEnabled;
-            ui.setUsagePanelEnabled(next);
-            if (next && !ui.sidePaneOpen) ui.toggleSidePane();
-          },
+          ...(toggleUsageShortcut ? { shortcut: toggleUsageShortcut } : {}),
+          onSelect: () => ui.togglePanel("usage"),
         },
         {
           id: "action:close-pane",

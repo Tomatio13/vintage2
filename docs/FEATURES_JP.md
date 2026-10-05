@@ -49,7 +49,7 @@ SpaceタブとサイドバーのWorkspace/Tab行には、配下ペインの認�
 
 ## 既定のキーボードショートカット
 
-ショートカットは **Settings → Shortcuts** から変更できます。設定は `Ctrl+S` で保存します。
+ショートカットは **Settings → Shortcuts** から変更できます。設定の変更は自動保存されます。
 
 | 操作                   | ショートカット |
 | :--------------------- | :------------- |
@@ -65,14 +65,18 @@ SpaceタブとサイドバーのWorkspace/Tab行には、配下ペインの認�
 | 下へ分割               | `Ctrl+Shift+T` |
 | サイドバー表示切り替え | `Ctrl+B`       |
 | 右ペイン表示切り替え   | `Ctrl+Shift+S` |
-| Notesペインを開く      | `Ctrl+Shift+M` |
-| Boardペインを開く      | `Ctrl+Shift+K` |
-| NotesタブのON/OFF      | `Ctrl+Alt+M`   |
-| BoardタブのON/OFF      | `Ctrl+Alt+K`   |
-| Filesペインを開く      | `Ctrl+Shift+E` |
-| Reviewペインを開く     | `Ctrl+Shift+G` |
-| Usageペインを開く      | `Ctrl+Shift+U` |
-| Browserペインを開く    | `Ctrl+Shift+B` |
+| Filesペインを開く | `Ctrl+Shift+E` |
+| FilesタブのON/OFF | `Ctrl+Alt+E` |
+| Reviewペインを開く | `Ctrl+Shift+G` |
+| ReviewタブのON/OFF | `Ctrl+Alt+G` |
+| Notesペインを開く | `Ctrl+Shift+M` |
+| NotesタブのON/OFF | `Ctrl+Alt+M` |
+| Boardペインを開く | `Ctrl+Shift+K` |
+| BoardタブのON/OFF | `Ctrl+Alt+K` |
+| Usageペインを開く | `Ctrl+Shift+U` |
+| UsageタブのON/OFF | `Ctrl+Alt+U` |
+| Browserペインを開く | `Ctrl+Shift+B` |
+| BrowserタブのON/OFF | `Ctrl+Alt+B` |
 | ターミナル内検索       | `Ctrl+F`       |
 | 選択中のペインを閉じる | `Ctrl+Shift+W` |
 
@@ -82,7 +86,7 @@ _Open Board pane、Toggle Notes tab、Toggle Board tabもSettings → Shortcuts�
 
 ## 右ペイン
 
-右ペインにはFiles、Review、Notes、Board、Usage、Browserがあります。NotesとBoardはSettings → Notes、UsageはSettings → Usageで表示を切り替えられます。`Ctrl+Shift+S`で右ペイン全体の表示を切り替えます。各タブはコマンドパレットからも開け、ショートカットは **Settings → Shortcuts** で変更できます。
+右ペインにはFiles、Review、Notes、Board、Usage、Browserがあります。すべてのタブはSettings → Panelsで表示を切り替えられます。選択中のタブをOffにすると別の有効なタブへ移り、すべてOffなら案内を表示します。BrowserをOffにしても開いているタブは保持します。`Ctrl+Shift+S`で右ペイン全体の表示を切り替えます。各タブはコマンドパレットからも開け、ショートカットは **Settings → Shortcuts** で変更できます。
 
 ターミナルと右ペインの境界をドラッグすると幅を調整できます。最大化時も含め、ターミナル用の領域を残しながらウィンドウ幅に応じて広げられます。指定した幅を保存し、ウィンドウを縮小すると表示幅を一時的に調整します。幅の変更中も実行中のターミナルセッションを保持します。
 
@@ -131,7 +135,7 @@ _サンプルリポジトリの差分です。ファイル名には言語ごと�
 
 右ペインのNotes、コマンドパレットのOpen Notes pane、または`Ctrl+Shift+M`でWorkspaceのScratchpadを開けます。このショートカットはSettingsで変更できます。メモは入力時に自動保存され、Save as .mdでWorkspace内の新しいMarkdownファイルへ書き出せます（既存ファイルの上書きには対応しません）。メモとMarkdownの書きかけはアプリのローカルストレージに平文で保存され、ペインを閉じたりアプリを再起動しても復元されます。
 
-Settings → Notes → Show Notes tab、または`Ctrl+Alt+M`でNotesのON/OFFを切り替えます（既定はOn）。Offの間はOpen Notes paneからも開きません。表示中のNotesをOffにするとFilesへ戻ります。メモは保持され、設定は再起動後も維持されます。ショートカットはSettings → Shortcutsで変更できます。
+Settings → Panels → Show Notes tab、または`Ctrl+Alt+M`でNotesのON/OFFを切り替えます（既定はOn）。Offの間はOpen Notes paneからも開きません。表示中のNotesをOffにすると別の有効なタブへ移ります。メモは保持され、設定は再起動後も維持されます。ショートカットはSettings → Shortcutsで変更できます。
 
 ![WorkspaceのNotesにメモを入力した画面](../assets/readme/vintage-notes.png)
 
@@ -145,7 +149,7 @@ Notesの編集画面で文章を選択し、Create card from noteアイコンを
 
 カードはVINTAGEのアプリ保存領域にJSON形式で、Workspaceの実パスごとに保存されます。メモとカードは再起動後に復元されます。カード編集フォームの未確定の入力は再起動時に復元されません。
 
-Settings → Notes → Show Board tab、または`Ctrl+Alt+K`でBoardのON/OFFを切り替えます（既定はOn）。Offの間はOpen Board paneからも開きません。表示中のBoardをOffにするとFilesへ戻ります。カードは保持され、設定は再起動後も維持されます。ショートカットはSettings → Shortcutsで変更できます。
+Settings → Panels → Show Board tab、または`Ctrl+Alt+K`でBoardのON/OFFを切り替えます（既定はOn）。Offの間はOpen Board paneからも開きません。表示中のBoardをOffにすると別の有効なタブへ移ります。カードは保持され、設定は再起動後も維持されます。ショートカットはSettings → Shortcutsで変更できます。
 
 Board全体と各カードのAIアイコンから、JSONの保存先・作業指示・パラメータ指定のPython更新コマンドをクリップボードへコピーできます。好きなCLIエージェントに貼り付けて使います。プロジェクト内にファイルや環境変数は追加しません。Board表示中は3秒ごとに外部変更を読み込み、カードの編集中は下書きを保持して古い状態からの保存を拒否します。既存のローカル保存カードは初回に移行し、元のデータはバックアップとして残します。[AI連携と保存形式](KANBAN.md)をご覧ください。
 
@@ -198,10 +202,10 @@ Browserのページはサンドボックスと分離を有効にして実行し�
 
 **Usage** タブには、AIプロバイダーごとのクォータをひと目で確認できるように表示します。使用期間（ウィンドウ）ごとの残率バー、リセット時刻（ローカル時間の `YYYY/MM/DD HH:MM` 形式）、プランとアカウント、クレジット、取得できる場合は直近のコストです。バーは普段は無色で、残率が40%・10%を下回ったときだけ警告色・危険色に変わります。リセット時刻にカーソルを合わせるとカウントダウンを確認できます。
 
-このタブは **Settings → Usage** で有効にするまで表示されません。[CodexBar CLI](https://github.com/steipete/codexbar) のインストールが必要です。
+このタブは **Settings → Panels** で有効にするまで表示されません。[CodexBar CLI](https://github.com/steipete/codexbar) のインストールが必要です。
 
 1. CodexBar CLIをインストールし、プロバイダーの設定を済ませて、ターミナルで `codexbar` コマンドが実行できる状態にします。
-2. **Settings → Usage** でパネルを有効にします。**codexbar path** を空にすると `PATH` と一般的なインストール先から自動検出し、**Browse…** で明示指定もできます。検出できたパスとバージョンは入力欄の下に表示されます。
+2. **Settings → Panels** でUsageタブを有効にします。CodexBarは **Settings → Usage** で設定します。**codexbar path** を空にすると `PATH` と一般的なインストール先から自動検出し、**Browse…** で明示指定もできます。検出できたパスとバージョンは入力欄の下に表示されます。
 3. 表示されるプロバイダーは `~/.config/codexbar/config.json` の有効フラグに従います。VINTAGEは `codexbar dashboard` の結果をそのまま表示します。Claude Codeを追加するには `codexbar config enable --provider claude` を実行します。
 
 タブが表示されている間、設定した間隔（60〜600秒、設定画面で10秒刻みで変更可能）ごとに `codexbar dashboard` を再実行します。手動更新ボタンも常時利用できます。取得に失敗したプロバイダーは、使用率の代わりにエラーを表示し、CodexBarがアイドルと印づけたウィンドウ（使用実績のないモデルファミリー）は非表示になります。クォータデータはローカルのCodexBarから取得し、VINTAGE自身がプロバイダーのAPIと通信することはありません。
@@ -244,6 +248,10 @@ Jevへのリクエストには、秘密情報と思われる値をマスキン�
 判定ログを確認するには、VINTAGEを完全に終了し、`VINTAGE_JEV_DEBUG=1 pnpm dev` で起動します。ログには連携の有効状態、判定理由、評価を見送った理由が出力されますが、リクエスト本文とAPIキーは含まれません。
 
 ## 設定と保存データ
+
+PanelsではFiles・Review・Notes・Board・Usage・Browserを個別にON/OFFできます。Offのタブは開くショートカットとコマンドパレットからも開きません。タブのON/OFFはSettings → Shortcutsで再割り当てでき、Filesは`Ctrl+Alt+E`、Reviewは`Ctrl+Alt+G`、Usageは`Ctrl+Alt+U`、Browserは`Ctrl+Alt+B`が既定です。
+
+設定の変更は自動保存されます。不正なURLは保存しません。JevのAPIキーは、専用のSave API keyまたはClear saved key操作で保存・削除します。
 
 設定では外観とUIサイズ、ターミナルのフォントとスクロールバック、シェル、Browser、Attention、ショートカット、Jev連携、Usageパネル（CodexBar）、アップデートを調整できます。テーマはSystem、Light、Dark、Graphiteの4種類です。
 

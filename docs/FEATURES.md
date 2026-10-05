@@ -49,7 +49,7 @@ The shortcut can be reassigned in **Settings → Shortcuts**. The palette is int
 
 ## Default keyboard shortcuts
 
-Shortcuts can be reassigned in **Settings → Shortcuts**. Press `Ctrl+S` to save settings.
+Shortcuts can be reassigned in **Settings → Shortcuts**. Changes save automatically.
 
 | Action               | Shortcut       |
 | :------------------- | :------------- |
@@ -65,14 +65,18 @@ Shortcuts can be reassigned in **Settings → Shortcuts**. Press `Ctrl+S` to sav
 | Split below          | `Ctrl+Shift+T` |
 | Toggle sidebar       | `Ctrl+B`       |
 | Toggle side pane     | `Ctrl+Shift+S` |
-| Open Notes pane      | `Ctrl+Shift+M` |
-| Open Board pane      | `Ctrl+Shift+K` |
-| Toggle Notes tab     | `Ctrl+Alt+M`   |
-| Toggle Board tab     | `Ctrl+Alt+K`   |
-| Open Files pane      | `Ctrl+Shift+E` |
-| Open Review pane     | `Ctrl+Shift+G` |
-| Open Usage pane      | `Ctrl+Shift+U` |
-| Open Browser pane    | `Ctrl+Shift+B` |
+| Open Files pane | `Ctrl+Shift+E` |
+| Toggle Files tab | `Ctrl+Alt+E` |
+| Open Review pane | `Ctrl+Shift+G` |
+| Toggle Review tab | `Ctrl+Alt+G` |
+| Open Notes pane | `Ctrl+Shift+M` |
+| Toggle Notes tab | `Ctrl+Alt+M` |
+| Open Board pane | `Ctrl+Shift+K` |
+| Toggle Board tab | `Ctrl+Alt+K` |
+| Open Usage pane | `Ctrl+Shift+U` |
+| Toggle Usage tab | `Ctrl+Alt+U` |
+| Open Browser pane | `Ctrl+Shift+B` |
+| Toggle Browser tab | `Ctrl+Alt+B` |
 | Find in terminal     | `Ctrl+F`       |
 | Close selected pane  | `Ctrl+Shift+W` |
 
@@ -82,7 +86,7 @@ _Open Board pane, Toggle Notes tab, and Toggle Board tab can all be reassigned i
 
 ## Right pane
 
-The right pane contains Files, Review, Notes, Board, Usage, and Browser. Show or hide Notes and Board in Settings → Notes, and enable Usage in Settings → Usage. Press `Ctrl+Shift+S` to show or hide the entire pane. Each tab is also a command palette action, and shortcuts can be reassigned in **Settings → Shortcuts**.
+The right pane contains Files, Review, Notes, Board, Usage, and Browser. Show or hide any tab in Settings → Panels. Disabling the active tab selects another enabled tab; disabling every tab shows an empty-state message. Browser tabs and pages are retained while hidden. Press `Ctrl+Shift+S` to show or hide the entire pane. Each tab is also a command palette action, and shortcuts can be reassigned in **Settings → Shortcuts**.
 
 Drag the divider between the terminals and the right pane to adjust its width. The pane can expand with the window, including when maximized, while leaving room for terminals. Your preferred width is saved; shrinking the window temporarily reduces the displayed width. Resizing retains running terminal sessions.
 
@@ -131,7 +135,7 @@ _Sample repository diff. File names have language-specific icons, and added and 
 
 Open the workspace Scratchpad from the Notes tab, Open Notes pane in the command palette, or `Ctrl+Shift+M`, configurable in Settings. Notes autosave as you type. Save as .md exports to a new Markdown file inside the workspace; existing files are not overwritten. Notes and unfinished Markdown drafts are stored as plain text in the app’s local storage and restored after closing panes or restarting the app.
 
-Use Settings → Notes → Show Notes tab or `Ctrl+Alt+M` to turn Notes on or off (On by default). While Off, Open Notes pane does not open it. Turning off an active Notes tab returns to Files. Saved notes are retained, and the preference persists across restarts. Reassign the shortcut in Settings → Shortcuts.
+Use Settings → Panels → Show Notes tab or `Ctrl+Alt+M` to turn Notes on or off (On by default). While Off, Open Notes pane does not open it. Turning off an active Notes tab selects another enabled tab. Saved notes are retained, and the preference persists across restarts. Reassign the shortcut in Settings → Shortcuts.
 
 ![Workspace notes in the Scratchpad editor](../assets/readme/vintage-notes.png)
 
@@ -145,7 +149,7 @@ In Notes editing mode, select text and use Create card from note to open a card 
 
 Cards are saved as JSON in VINTAGE’s app data directory, keyed by the canonical workspace path. Notes and cards restore after restarting. Unsubmitted card form inputs are not restored after restarting.
 
-Use Settings → Notes → Show Board tab or `Ctrl+Alt+K` to turn Board on or off (On by default). While Off, Open Board pane does not open it. Turning off an active Board tab returns to Files. Cards are retained, and the preference persists across restarts. Reassign the shortcut in Settings → Shortcuts.
+Use Settings → Panels → Show Board tab or `Ctrl+Alt+K` to turn Board on or off (On by default). While Off, Open Board pane does not open it. Turning off an active Board tab selects another enabled tab. Cards are retained, and the preference persists across restarts. Reassign the shortcut in Settings → Shortcuts.
 
 The AI icons on the board and each card copy the JSON path, task instructions, and a parameterized Python helper command to the clipboard for pasting into your CLI agent. No files or environment variables are added to the project. Visible boards check for external edits every three seconds; an open card draft is retained and outdated saves are rejected. Legacy local cards migrate on first use, with the original local data retained as a backup. See [AI integration and storage format](KANBAN.md).
 
@@ -198,10 +202,10 @@ Downloads, extensions, and saved login credentials are not supported.
 
 The **Usage** tab shows each AI provider's quota at a glance: usage windows with a remaining percentage, the reset time in local `YYYY/MM/DD HH:MM` format, plan and account, credits, and recent cost when a provider reports them. Bars stay neutral and only take the warning or danger color once the remaining quota drops to 40% or 10%. Hovering a reset time shows the countdown.
 
-The tab is hidden until it is enabled in **Settings → Usage**. It requires the [CodexBar CLI](https://github.com/steipete/codexbar):
+The tab is hidden until it is enabled in **Settings → Panels**. It requires the [CodexBar CLI](https://github.com/steipete/codexbar):
 
 1. Install the CodexBar CLI and complete its provider setup so that the `codexbar` command runs in a terminal.
-2. In **Settings → Usage**, turn the panel on. Leave **codexbar path** empty to auto-detect the binary on `PATH` and in common install locations, or pick it with **Browse…**. The detected binary and version are shown under the field.
+2. In **Settings → Panels**, turn the Usage tab on. Configure CodexBar in **Settings → Usage**. Leave **codexbar path** empty to auto-detect the binary on `PATH` and in common install locations, or pick it with **Browse…**. The detected binary and version are shown under the field.
 3. Which providers appear follows the enabled flags in `~/.config/codexbar/config.json` — VINTAGE displays whatever `codexbar dashboard` reports. To add Claude Code, run `codexbar config enable --provider claude`.
 
 While the tab is visible, VINTAGE re-runs `codexbar dashboard` at the configured interval (60–600 seconds, adjusted in 10-second steps in Settings). A refresh control is always available. A provider that fails to report shows its error in place of its usage, and windows that CodexBar marks as idle (model families without usage) are hidden. Quota data comes from the local CodexBar installation; VINTAGE does not talk to provider APIs itself.
@@ -244,6 +248,10 @@ The key is encrypted using the operating system’s secure credential store, suc
 For classification logs, fully quit VINTAGE and run `VINTAGE_JEV_DEBUG=1 pnpm dev`. Logs show whether the integration is enabled, classification reasons, and skipped evaluations; they do not include the request body or API key.
 
 ## Settings and saved data
+
+Panels independently enables Files, Review, Notes, Board, Usage, and Browser. Disabled tabs cannot be opened through shortcuts or the command palette. Tab toggles can be reassigned in Settings → Shortcuts: Files defaults to `Ctrl+Alt+E`, Review to `Ctrl+Alt+G`, Usage to `Ctrl+Alt+U`, and Browser to `Ctrl+Alt+B`.
+
+Settings changes are saved automatically. Invalid URLs are not saved. Jev API keys still require the dedicated Save API key or Clear saved key action.
 
 Settings cover appearance and UI size, terminal font and scrollback, shell, browser, Attention, shortcuts, Jev integration, the usage panel (CodexBar), and updates. Four themes are available: System, Light, Dark, and Graphite.
 
