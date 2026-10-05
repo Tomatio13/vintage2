@@ -295,6 +295,11 @@ button {
   cursor: default;
 }
 
+.document-zoom-percentage {
+  font-size: var(--text-ui-sm);
+  line-height: 1.5;
+}
+
 .window-drag {
   -webkit-app-region: drag;
 }
@@ -452,4 +457,40 @@ button {
   border: 3px solid var(--color-background);
   border-radius: 999px;
   background: var(--color-foreground-subtlest);
+}
+
+/* Identical font metrics keep the native textarea caret aligned with the syntax mirror. */
+.markdown-source-mirror,
+.markdown-source-textarea {
+  font-family: inherit;
+  font-weight: normal;
+  letter-spacing: normal;
+  tab-size: 4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.markdown-source-line {
+  min-height: 1lh;
+}
+
+.markdown-source-mirror span {
+  font-style: normal;
+  font-weight: normal;
+}
+
+.markdown-source-textarea {
+  color: transparent;
+  caret-color: var(--color-foreground);
+  overflow: auto;
+}
+
+.markdown-source-textarea::selection {
+  background: color-mix(in srgb, var(--color-brand) 30%, transparent);
+  color: transparent;
+}
+
+.markdown-source-textarea::placeholder {
+  color: var(--color-foreground-subtlest);
 }

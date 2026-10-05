@@ -7,10 +7,10 @@ import {
   RefreshCw,
   Search,
   WrapText,
-  X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { DocumentSearch, ZoomControls } from "./DocumentTools.js";
 import { MarkdownEditor } from "./MarkdownEditor.js";
 
 import type { WorkspaceFileContent } from "../../shared/desktop.js";
@@ -45,9 +45,14 @@ export function FileViewer({
   const [view, setView] = useState<"preview" | "source">("preview");
   const [wrap, setWrap] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [search, setSearch] = useState("");
+  const contentRoot = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  const [replacing, setReplacing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [reloadVersion, setReloadVersion] = useState(0);
+  const identity = `${workspaceId}:${path}`;
+  const currentIdentity = useRef(identity);
+  currentIdentity.current = identity;
   const kind = getFilePreviewKind(path);
   const needsText =
     kind === "code" || kind === "json" || kind === "csv" || (kind === "html" && view === "source");
@@ -106,7 +111,8 @@ export function FileViewer({
   // A fresh baseline reload also catches edits made while this pane was hidden.
   useEffect(() => {
     const getVersion = window.desktop?.getWorkspaceFileVersion;
-    if (!visible || kind === "unsupported" || kind === "markdown" || !getVersion) return;
+    if (replacing || !visible || kind === "unsupported" || kind === "markdown" || !getVersion)
+      return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let previousVersion: string | null | undefined;
@@ -129,12 +135,13 @@ export function FileViewer({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [visible, kind, view, workspaceId, path]);
+  }, [replacing, visible, kind, view, workspaceId, path]);
 
   useEffect(() => {
+    setReplacing(false);
     setView("preview");
     setWrap(true);
-    setSearch("");
+    setZoom(1);
     setSearchOpen(false);
   }, [workspaceId, path]);
 
@@ -182,8 +189,17 @@ export function FileViewer({
     );
 
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-col bg-panel">
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4 pr-10">
+    <section
+      className="flex h-full min-h-0 min-w-0 flex-col bg-panel"
+      onKeyDown={(event) => {
+        if (supportsSearch && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+          event.preventDefault();
+          event.stopPropagation();
+          setSearchOpen(true);
+        }
+      }}
+    >
+      <div className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-2 py-2 border-b border-border px-4 pr-10">
         <div className="flex min-w-0 items-center gap-2">
           <FileText className="size-4 text-foreground" />
           <span className="truncate text-ui-base font-medium" title={path}>
@@ -194,48 +210,19 @@ export function FileViewer({
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {kind !== "image" && kind !== "unsupported" && kind !== "audio" ? (
+            <ZoomControls zoom={zoom} onChange={setZoom} />
+          ) : null}
           {supportsSearch ? (
-            searchOpen ? (
-              <>
-                <input
-                  aria-label="Find in file"
-                  autoFocus
-                  className="h-7 w-28 rounded-md border border-border bg-background px-2 text-ui-xs outline-none focus:border-brand sm:w-40"
-                  onChange={(event) => setSearch(event.currentTarget.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      setSearch("");
-                      setSearchOpen(false);
-                    }
-                  }}
-                  placeholder="Find in file"
-                  type="search"
-                  value={search}
-                />
-                <button
-                  aria-label="Close search"
-                  className="grid size-7 place-items-center rounded-md text-foreground-subtle transition-colors hover:bg-hover"
-                  onClick={() => {
-                    setSearch("");
-                    setSearchOpen(false);
-                  }}
-                  title="Close search"
-                  type="button"
-                >
-                  <X aria-hidden="true" className="size-4" />
-                </button>
-              </>
-            ) : (
-              <button
-                aria-label="Find in file"
-                className="grid size-7 place-items-center rounded-md text-foreground-subtle transition-colors hover:bg-hover hover:text-foreground"
-                onClick={() => setSearchOpen(true)}
-                title="Find in file"
-                type="button"
-              >
-                <Search aria-hidden="true" className="size-4" />
-              </button>
-            )
+            <button
+              type="button"
+              aria-label="Find in file"
+              title="Find in file (Ctrl/⌘+F)"
+              className="grid size-7 place-items-center rounded-md hover:bg-hover"
+              onClick={() => setSearchOpen((current) => !current)}
+            >
+              <Search className="size-4" />
+            </button>
           ) : null}
           {supportsViewToggle ? (
             <div
@@ -280,7 +267,7 @@ export function FileViewer({
           <button
             aria-label="Reload file"
             className="grid size-7 place-items-center rounded-md text-foreground-subtle transition-colors hover:bg-hover disabled:opacity-50"
-            disabled={loading}
+            disabled={loading || replacing}
             onClick={() => {
               setFile(null);
               setError(null);
@@ -302,9 +289,39 @@ export function FileViewer({
           </button>
         </div>
       </div>
+      <DocumentSearch
+        key={`${workspaceId}:${path}`}
+        root={contentRoot}
+        content={file?.content}
+        replaceHint="Replacements are saved to the file immediately."
+        revision={view}
+        open={searchOpen && supportsSearch}
+        onClose={() => setSearchOpen(false)}
+        canReplace={Boolean(
+          file && !file.truncated && !replacing && (kind === "code" || view === "source"),
+        )}
+        onReplace={(content) => {
+          if (!file || !window.desktop || replacing) return;
+          const original = file;
+          setReplacing(true);
+          setActionError(null);
+          void window.desktop
+            .writeWorkspaceText(workspaceId, path, content, original.content)
+            .then(() => {
+              if (currentIdentity.current === identity) setFile({ ...original, content });
+            })
+            .catch((cause: unknown) => {
+              if (currentIdentity.current === identity)
+                setActionError(cause instanceof Error ? cause.message : "Could not replace text.");
+            })
+            .finally(() => {
+              if (currentIdentity.current === identity) setReplacing(false);
+            });
+        }}
+      />
       <div
         data-testid="file-viewer-scroll"
-        className="file-viewer-content flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-scroll p-4"
+        className="file-viewer-content flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll p-4"
       >
         {actionError ? (
           <p className="mb-2 shrink-0 text-ui-sm text-destructive">{actionError}</p>
@@ -321,7 +338,7 @@ export function FileViewer({
             Opening {name}…
           </div>
         ) : (
-          <div className="min-h-0 flex-1">
+          <div ref={contentRoot} className="min-h-0 flex-1" style={{ zoom }}>
             {kind === "image" ? (
               <ImageFilePreview
                 path={path}
@@ -336,7 +353,7 @@ export function FileViewer({
                   path={path}
                   targetLine={targetLine}
                   wrap={wrap}
-                  search={search}
+                  showAll={searchOpen}
                 />
               ) : previewUrl ? (
                 <WorkspaceHtmlPreview url={previewUrl} />
@@ -348,27 +365,27 @@ export function FileViewer({
             ) : null}
             {kind === "json" && file ? (
               view === "preview" ? (
-                <FormattedJsonPreview content={file.content} path={path} search={search} />
+                <FormattedJsonPreview content={file.content} path={path} showAll={searchOpen} />
               ) : (
                 <CodeSourcePreview
                   content={file.content}
                   path={path}
                   targetLine={targetLine}
                   wrap={wrap}
-                  search={search}
+                  showAll={searchOpen}
                 />
               )
             ) : null}
             {kind === "csv" && file ? (
               view === "preview" ? (
-                <DelimitedPreview content={file.content} path={path} search={search} />
+                <DelimitedPreview content={file.content} path={path} />
               ) : (
                 <CodeSourcePreview
                   content={file.content}
                   path={path}
                   targetLine={targetLine}
                   wrap={wrap}
-                  search={search}
+                  showAll={searchOpen}
                 />
               )
             ) : null}
@@ -378,7 +395,7 @@ export function FileViewer({
                 path={path}
                 targetLine={targetLine}
                 wrap={wrap}
-                search={search}
+                showAll={searchOpen}
               />
             ) : null}
             {kind === "unsupported" ? (

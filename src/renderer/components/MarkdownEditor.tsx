@@ -7,8 +7,13 @@ import {
   LoaderCircle,
   RefreshCw,
   Save,
+  Search,
+  ListOrdered,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { DocumentSearch, ZoomControls } from "./DocumentTools.js";
+import { MarkdownSourceInput } from "./MarkdownSourceInput.js";
+import { cursorPosition, lineStarts, scrollEditorToOffset } from "../lib/editorPosition.js";
 import { MarkdownPreview } from "./MarkdownPreview.js";
 
 interface Draft {
@@ -38,20 +43,39 @@ export function MarkdownEditor({
   const [saving, setSaving] = useState(false);
   const [truncated, setTruncated] = useState(false);
   const [status, setStatus] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const previewRoot = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ line: 1, column: 1 });
+  const [goToOpen, setGoToOpen] = useState(false);
+  const [requestedLine, setRequestedLine] = useState("1");
+  const goToInput = useRef<HTMLInputElement>(null);
+  const goToId = useId();
+  const starts = useMemo(
+    () => lineStarts((draft?.content ?? "").replace(/\r\n?/gu, "\n")),
+    [draft?.content],
+  );
+  useEffect(() => {
+    if (goToOpen) {
+      goToInput.current?.focus();
+      goToInput.current?.select();
+    }
+  }, [goToOpen]);
   const ready = Boolean(draft);
   const input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (targetLine) setPreview(false);
   }, [targetLine]);
   useEffect(() => {
-    if (!visible || preview || !ready) return;
+    if (!visible || preview || !ready || goToOpen || searchOpen) return;
     input.current?.focus();
     if (targetLine && draft && input.current) {
-      const offset = draft.content
-        .split("\n")
-        .slice(0, Math.max(0, targetLine - 1))
-        .reduce((total, line) => total + line.length + 1, 0);
+      const currentStarts = lineStarts(input.current.value);
+      const offset =
+        currentStarts[Math.min(Math.max(1, targetLine), currentStarts.length) - 1] ?? 0;
       input.current.setSelectionRange(offset, offset);
+      scrollEditorToOffset(input.current, input.current.value, offset);
+      setPosition(cursorPosition(input.current.value, offset));
     }
   }, [visible, preview, ready, targetLine]);
   const current = useRef(draft);
@@ -173,10 +197,42 @@ export function MarkdownEditor({
       setError("Could not reload the file. Your draft has been kept.");
     }
   };
+  const openGoTo = () => {
+    setPreview(false);
+    setRequestedLine(String(position.line));
+    setGoToOpen(true);
+  };
+  const goTo = () => {
+    const requested = Number(requestedLine);
+    if (
+      !draft ||
+      !Number.isInteger(requested) ||
+      requested < 1 ||
+      requested > starts.length ||
+      !input.current
+    )
+      return;
+    const offset = starts[requested - 1] ?? 0;
+    input.current.focus();
+    input.current.setSelectionRange(offset, offset);
+    scrollEditorToOffset(input.current, input.current.value, offset);
+    setPosition(cursorPosition(input.current.value, offset));
+    setGoToOpen(false);
+  };
   return (
     <section
       className="flex h-full min-h-0 flex-col bg-panel"
       onKeyDown={(event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "g") {
+          event.preventDefault();
+          event.stopPropagation();
+          openGoTo();
+        }
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+          event.preventDefault();
+          event.stopPropagation();
+          setSearchOpen(true);
+        }
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
           event.preventDefault();
           event.stopPropagation();
@@ -192,6 +248,19 @@ export function MarkdownEditor({
         </span>
         <button
           type="button"
+          aria-label="Preview"
+          title="Preview"
+          className={`grid size-7 shrink-0 place-items-center rounded-md transition-colors hover:bg-hover ${preview ? "bg-selected text-foreground" : "text-foreground-subtle"}`}
+          aria-pressed={preview}
+          onClick={() => {
+            setGoToOpen(false);
+            setPreview(true);
+          }}
+        >
+          <Eye aria-hidden="true" className="size-4" />
+        </button>
+        <button
+          type="button"
           aria-label="Edit"
           title="Edit"
           className={`grid size-7 shrink-0 place-items-center rounded-md transition-colors hover:bg-hover ${!preview ? "bg-selected text-foreground" : "text-foreground-subtle"}`}
@@ -200,15 +269,25 @@ export function MarkdownEditor({
         >
           <Code2 aria-hidden="true" className="size-4" />
         </button>
+        <ZoomControls zoom={zoom} onChange={setZoom} />
         <button
           type="button"
-          aria-label="Preview"
-          title="Preview"
-          className={`grid size-7 shrink-0 place-items-center rounded-md transition-colors hover:bg-hover ${preview ? "bg-selected text-foreground" : "text-foreground-subtle"}`}
-          aria-pressed={preview}
-          onClick={() => setPreview(true)}
+          aria-label="Find in file"
+          title="Find in file (Ctrl/⌘+F)"
+          className="grid size-7 shrink-0 place-items-center rounded-md hover:bg-hover"
+          onClick={() => setSearchOpen((value) => !value)}
         >
-          <Eye aria-hidden="true" className="size-4" />
+          <Search className="size-4" />
+        </button>
+        <button
+          type="button"
+          aria-label="Go to line"
+          title="Go to line (Ctrl/⌘+G)"
+          className="grid size-7 shrink-0 place-items-center rounded-md hover:bg-hover disabled:opacity-40"
+          disabled={!ready}
+          onClick={openGoTo}
+        >
+          <ListOrdered className="size-4" />
         </button>
         {!path && !preview && onCreateCard && (
           <button
@@ -292,6 +371,71 @@ export function MarkdownEditor({
           </button>
         )}
       </div>
+      {goToOpen && (
+        <form
+          className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border p-2 text-ui-xs"
+          onSubmit={(event) => {
+            event.preventDefault();
+            goTo();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              setGoToOpen(false);
+              input.current?.focus();
+            }
+          }}
+        >
+          <label htmlFor={goToId}>Line (1–{starts.length})</label>
+          <input
+            ref={goToInput}
+            id={goToId}
+            aria-label="Line number"
+            type="number"
+            min={1}
+            max={starts.length}
+            step={1}
+            value={requestedLine}
+            onChange={(event) => setRequestedLine(event.target.value)}
+            className="h-7 w-24 rounded-md border border-border bg-background px-2 outline-none focus:border-brand"
+          />
+          <button
+            type="submit"
+            className="rounded-md px-2 py-1 hover:bg-hover"
+            disabled={
+              !Number.isInteger(Number(requestedLine)) ||
+              Number(requestedLine) < 1 ||
+              Number(requestedLine) > starts.length
+            }
+          >
+            Go
+          </button>
+          <button
+            type="button"
+            className="rounded-md px-2 py-1 hover:bg-hover"
+            onClick={() => {
+              setGoToOpen(false);
+              input.current?.focus();
+            }}
+          >
+            Cancel
+          </button>
+        </form>
+      )}
+      <DocumentSearch
+        root={previewRoot}
+        editor={input}
+        content={draft?.content}
+        revision={preview}
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        canReplace={!preview && !truncated && ready}
+        onReplace={edit}
+        onEditorSelection={(offset) =>
+          setPosition(cursorPosition(input.current?.value ?? "", offset))
+        }
+      />
       {error && (
         <p role="alert" className="p-3 text-ui-sm text-destructive">
           {error}
@@ -300,24 +444,28 @@ export function MarkdownEditor({
       {truncated && <p className="p-3 text-ui-sm">This file exceeds 1 MB. Editing is disabled.</p>}
       {draft ? (
         preview ? (
-          <div data-testid="file-viewer-scroll" className="min-h-0 flex-1 overflow-y-scroll p-4">
-            <MarkdownPreview
-              content={draft.content}
-              workspaceId={workspaceId}
-              path={path ?? "notes.md"}
-              onOpenFile={onOpenFile ?? (() => {})}
-            />
+          <div
+            data-testid="file-viewer-scroll"
+            className="min-h-0 flex-1 overflow-x-auto overflow-y-scroll p-4"
+          >
+            <div ref={previewRoot} style={{ zoom }}>
+              <MarkdownPreview
+                content={draft.content}
+                workspaceId={workspaceId}
+                path={path ?? "notes.md"}
+                onOpenFile={onOpenFile ?? (() => {})}
+              />
+            </div>
           </div>
         ) : (
-          <textarea
-            ref={input}
-            aria-label={path ? "Markdown editor" : "Workspace notes"}
-            className="min-h-0 flex-1 resize-none bg-panel p-4 font-mono text-ui-sm leading-relaxed outline-none"
-            spellCheck={false}
+          <MarkdownSourceInput
+            inputRef={input}
+            label={path ? "Markdown editor" : "Workspace notes"}
+            content={draft.content}
+            zoom={zoom}
             disabled={truncated}
-            value={draft.content}
-            onChange={(event) => edit(event.target.value)}
-            placeholder="Write a note…"
+            onChange={edit}
+            onPosition={setPosition}
           />
         )
       ) : (
@@ -325,14 +473,27 @@ export function MarkdownEditor({
       )}
       <div
         role="status"
-        className="shrink-0 border-t border-border px-3 py-1 text-ui-xs text-foreground-subtle"
+        className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border px-3 py-1 text-ui-xs text-foreground-subtle"
       >
-        {status ||
-          (dirty
-            ? "Unsaved changes · Ctrl/⌘+S to save · Draft kept locally"
-            : path
-              ? "Markdown"
-              : "Notes are saved locally as you type")}
+        <span>
+          {status ||
+            (dirty
+              ? "Unsaved changes · Ctrl/⌘+S to save · Draft kept locally"
+              : path
+                ? "Markdown"
+                : "Notes are saved locally as you type")}
+        </span>
+        {!preview && draft && (
+          <button
+            type="button"
+            aria-label="Current cursor position"
+            title="Go to line"
+            onClick={openGoTo}
+            className="shrink-0 rounded hover:text-foreground"
+          >
+            Ln {position.line}, Col {position.column} · {starts.length} lines
+          </button>
+        )}
       </div>
     </section>
   );

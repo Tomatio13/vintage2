@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { saveMarkdown } from "../src/main/markdownSave.js";
+import { saveMarkdown, saveText } from "../src/main/markdownSave.js";
 
 const directories: string[] = [];
 afterEach(async () => {
@@ -40,5 +40,24 @@ describe("Markdown saves", () => {
     await expect(saveMarkdown(path.replace(".md", ".env"), "secret", "")).rejects.toThrow(
       "Only Markdown",
     );
+  });
+});
+
+describe("Text replacement saves", () => {
+  it("saves non-Markdown UTF-8 files and rejects stale replacements", async () => {
+    const markdownPath = await fixture();
+    const path = markdownPath.replace(".md", ".txt");
+    await writeFile(path, "original");
+    await saveText(path, "日本語", "original");
+    await expect(saveText(path, "stale", "original")).rejects.toThrow("File changed");
+    expect(await readFile(path, "utf8")).toBe("日本語");
+  });
+  it("rejects binary and invalid UTF-8 without changing their bytes", async () => {
+    const path = await fixture();
+    for (const bytes of [Buffer.from([65, 0, 66]), Buffer.from([0xff, 0xfe, 65])]) {
+      await writeFile(path, bytes);
+      await expect(saveText(path, "replacement", bytes.toString("utf8"))).rejects.toThrow("UTF-8");
+      expect(await readFile(path)).toEqual(bytes);
+    }
   });
 });

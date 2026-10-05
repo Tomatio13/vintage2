@@ -350,6 +350,12 @@ function highlightedLine(content: string, profile: CodeSyntaxProfile, search: st
   return nodes.length > 0 ? nodes : content;
 }
 
+export function highlightSourceLine(content: string, path: string): ReactNode {
+  return content.length <= maxHighlightedLineCharacters
+    ? highlightedLine(content, codeSyntaxProfile(path), "")
+    : content;
+}
+
 function highlightedPlainLine(content: string, search: string): ReactNode {
   return highlightSearchText(content, search);
 }
@@ -379,7 +385,9 @@ const CodeSourceLine = memo(function CodeSourceLine({
       <span className="sticky left-0 select-none border-r border-border bg-terminal-surface px-2 text-right text-foreground-subtlest">
         {index + 1}
       </span>
-      <span className="px-3">{value}</span>
+      <span data-file-search-text="true" className="px-3">
+        {value}
+      </span>
     </span>
   ) : (
     <Fragment>
@@ -396,12 +404,14 @@ export function CodeSourcePreview({
   search = "",
   lineNumbers = true,
   targetLine,
+  showAll = false,
 }: {
   content: string;
   path: string;
   wrap: boolean;
   search?: string;
   lineNumbers?: boolean;
+  showAll?: boolean;
   targetLine?: number | undefined;
 }) {
   const { hasMoreLines, lines } = useMemo(() => {
@@ -424,7 +434,7 @@ export function CodeSourcePreview({
   }, [lines, search]);
   const lineCountToShow = Math.min(
     lines.length,
-    Math.max(displayedLineCount, searchLineIndex + 1, targetLine ?? 0),
+    Math.max(showAll ? lines.length : displayedLineCount, searchLineIndex + 1, targetLine ?? 0),
   );
 
   useEffect(() => {
@@ -497,11 +507,13 @@ export function CodeSourcePreview({
 export function FormattedJsonPreview({
   content,
   path,
+  showAll = false,
   search,
 }: {
   content: string;
   path: string;
   search?: string;
+  showAll?: boolean;
 }) {
   const parsed = useMemo(() => {
     try {
@@ -522,6 +534,7 @@ export function FormattedJsonPreview({
         </p>
       ) : null}
       <CodeSourcePreview
+        showAll={showAll}
         content={parsed.formatted}
         path={path}
         wrap={false}
@@ -607,7 +620,10 @@ export function DelimitedPreview({
           {header ? (
             <thead className="sticky top-0 bg-panel">
               <tr>
-                <th className="border-b border-r border-border px-2 py-2 text-right font-medium text-foreground-subtlest">
+                <th
+                  data-document-search-ignore
+                  className="border-b border-r border-border px-2 py-2 text-right font-medium text-foreground-subtlest"
+                >
                   #
                 </th>
                 {header.map((cell, index) => (
@@ -621,7 +637,10 @@ export function DelimitedPreview({
           <tbody>
             {body.map((cells, rowIndex) => (
               <tr className="hover:bg-hover" key={rowIndex}>
-                <td className="border-b border-r border-border px-2 py-1 text-right text-foreground-subtlest">
+                <td
+                  data-document-search-ignore
+                  className="border-b border-r border-border px-2 py-1 text-right text-foreground-subtlest"
+                >
                   {rowIndex + 1}
                 </td>
                 {header?.map((_, columnIndex) => (

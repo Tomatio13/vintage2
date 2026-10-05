@@ -101,6 +101,14 @@ const bridge: DesktopBridge = {
     ipcRenderer.invoke(DesktopChannels.workspaceCopyEntryText, workspaceId, path, kind),
   getWorkspaceFileVersion: (workspaceId, path) =>
     ipcRenderer.invoke(DesktopChannels.workspaceFileVersion, workspaceId, path),
+  writeWorkspaceText: (workspaceId, path, content, expectedContent) =>
+    ipcRenderer.invoke(
+      DesktopChannels.workspaceWriteText,
+      workspaceId,
+      path,
+      content,
+      expectedContent,
+    ),
   writeWorkspaceMarkdown: (workspaceId, path, content, expectedContent) =>
     ipcRenderer.invoke(
       DesktopChannels.workspaceWriteMarkdown,

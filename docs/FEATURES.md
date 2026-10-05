@@ -103,15 +103,17 @@ _The Files context menu. Paste becomes available after copying an entry within F
 - Common source and text files use syntax highlighting. Search, line wrapping, copy, and reload controls depend on the file type and view.
 - Unsupported formats, including Office documents and ZIP archives, can be opened in the system app.
 
-Text previews are limited to 1 MB and the first 10,000 lines. Image previews are limited to 10 MB. HTML previews and their CSS resources are limited to 5 MB. Previews other than Markdown are read-only.
+Text previews are limited to 1 MB and the first 10,000 lines. Image previews are limited to 10 MB. HTML previews and their CSS resources are limited to 5 MB. Text and code views, and the Source/Raw views for HTML, JSON, and CSV/TSV, support replacement in complete UTF-8 files up to 1 MB. Replace and Replace all save immediately and reject files changed externally. Other preview formats are read-only.
 
 Files and Review automatically refresh every three seconds after the previous load finishes while their tab is visible in the side pane. Expanded folders and the selected diff are preserved. Periodic refresh stops when the side pane is closed or another tab is selected. Manual refresh remains available.
 
 Documents opened from Files also check for file changes every three seconds while their pane is visible and reload when changed. Markdown updates automatically only in Preview mode. Changes made while hidden are loaded when the pane is shown again. Manual Reload remains available.
 
+Document zoom buttons adjust the display from 50% to 300%; click the percentage to reset to 100%. Images retain their existing fit and zoom controls. In searchable text views, use Find in file or `Ctrl+F` (`⌘F` on macOS); matches are highlighted, the counter shows your position, and buttons or `Enter` / `Shift+Enter` move between matches. `Escape` closes search. Search is literal and case-insensitive, within the displayed preview limits. Markdown Preview supports search only; Edit also offers Replace and Replace all, which update the draft until you Save.
+
 #### Markdown editing
 
-Markdown files opened from Files support Preview and Edit. Save explicitly with Save or `Ctrl+S` (`⌘S` on macOS). Saving rejects files changed externally; Reload reads the current file and asks before discarding a dirty draft. Files over 1 MB cannot be edited. Automatic preview refresh runs only for clean previews, never while editing or with unsaved changes.
+Markdown files opened from Files support Preview and Edit. Edit shows line numbers (including blank lines) and highlights headings, lists, emphasis, links, inline code, and fenced code in supported languages. The status bar shows the current line and column and the total line count. Click Go to line, click the cursor position, or press `Ctrl+G` (`⌘G` on macOS) to jump to a line; `Enter` confirms and `Escape` cancels. These editing controls are also available in Scratchpad. Line numbers follow wrapped lines, scrolling, resizing, and zoom. Save explicitly with Save or `Ctrl+S` (`⌘S` on macOS). Saving rejects files changed externally; Reload reads the current file and asks before discarding a dirty draft. Files over 1 MB cannot be edited. Automatic preview refresh runs only for clean previews, never while editing or with unsaved changes.
 
 ![Editing a Markdown file with unsaved changes](../assets/readme/vintage-markdown-editing.png)
 

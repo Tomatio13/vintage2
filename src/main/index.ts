@@ -36,7 +36,7 @@ import {
   createEntry,
   trashEntry,
 } from "./workspaceFileOperations.js";
-import { saveMarkdown } from "./markdownSave.js";
+import { saveMarkdown, saveText } from "./markdownSave.js";
 import { AttentionSettingsManager } from "./attentionSettings.js";
 import { fetchCodexbarUsage, probeCodexbarStatus } from "./codexbarClient.js";
 import { JevCredentialStore, JevSettingsManager } from "./jevSettings.js";
@@ -700,6 +700,14 @@ function registerDesktopIpc(
         board,
         expected,
       );
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceWriteText,
+    async (event, workspaceId: unknown, rawPath: unknown, content: unknown, expected: unknown) => {
+      resolveSenderWindow(event);
+      const file = await resolveWorkspaceFile(workspaceId, rawPath);
+      await saveText(file, content, expected);
     },
   );
   ipcMain.handle(

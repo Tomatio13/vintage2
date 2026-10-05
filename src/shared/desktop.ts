@@ -39,6 +39,7 @@ export const DesktopChannels = {
   workspaceKanbanCopy: "workspace:kanban-copy",
   workspaceKanbanRead: "workspace:kanban-read",
   workspaceKanbanSave: "workspace:kanban-save",
+  workspaceWriteText: "workspace:write-text",
   workspaceWriteMarkdown: "workspace:write-markdown",
   workspaceExportNote: "workspace:export-note",
   workspaceReadFile: "workspace:read-file",
@@ -482,6 +483,12 @@ export interface DesktopBridge {
     expectedRevision: string,
   ): Promise<KanbanSnapshot>;
   readWorkspaceFile(workspaceId: string, path: string): Promise<WorkspaceFileContent>;
+  writeWorkspaceText(
+    workspaceId: string,
+    path: string,
+    content: string,
+    expectedContent: string,
+  ): Promise<void>;
   writeWorkspaceMarkdown(
     workspaceId: string,
     path: string,

@@ -14,7 +14,7 @@ VINTAGEは、プロジェクト、Space、ターミナルをまとめて管理�
 - **コマンドパレット**: `Ctrl+Shift+P` で開き、操作やワークスペース、Space、ターミナルを検索できます。
 - **Attention監視**: バックグラウンドのターミナルで起きたコマンド完了、エラー、入力待ちを一覧で確認できます。
 - **エージェント状態の表示**: Spaceタブとサイドバーの色付きドットで、作業中・待機中・失敗などの状態を確認できます。
-- **FilesとGit Review**: ファイルの閲覧・コピー・リネーム、Markdown編集、未ステージのGit差分確認に対応しています。
+- **FilesとGit Review**: ファイルの閲覧・コピー・リネーム、シンタックスハイライト・行番号・行移動に対応したMarkdown編集、ドキュメントの拡大・縮小、テキストの検索・置換、未ステージのGit差分確認に対応しています。
 - **NotesとBoard**: WorkspaceごとのメモとKanbanボードで、作業内容やタスクを管理できます。
 - **AI使用制限の表示**: CodexやClaude CodeなどのAI CLIの残りクォータ、リセット時刻、クレジットを右ペインで確認できます。任意の [CodexBar CLI](https://github.com/steipete/codexbar) が必要です。
 - **複数のシェルに対応**: zsh、bash、fish、またはOSの既定シェルを選べます。Windows ではコマンドプロンプト、Windows PowerShell、PowerShell 7、Git Bash に対応しています。
@@ -94,7 +94,7 @@ pnpm test:e2e
 
 ## セキュリティと制限事項
 
-RendererからNode.jsを利用できないよう分離し、OS機能へのアクセスをPreloadが公開する型付きIPCに限定しています。Projectはフォルダー選択ダイアログから追加します。ファイル操作はWorkspace内に限定され、Markdown以外のプレビューは読み取り専用です。SSHなどShell Integrationが利用できない環境では、ターミナルイベントの検知精度が下がる場合があります。組み込みブラウザーはダウンロード、拡張機能、ログイン情報の保存に対応していません。
+RendererからNode.jsを利用できないよう分離し、OS機能へのアクセスをPreloadが公開する型付きIPCに限定しています。Projectはフォルダー選択ダイアログから追加します。ファイル操作はWorkspace内に限定され、Markdown編集は明示的に保存し、ソース表示でのテキスト置換は即時保存します。外部変更との競合時は上書きしません。SSHなどShell Integrationが利用できない環境では、ターミナルイベントの検知精度が下がる場合があります。組み込みブラウザーはダウンロード、拡張機能、ログイン情報の保存に対応していません。
 
 詳しくは[アーキテクチャ](docs/ARCHITECTURE.md)と[機能と画面のガイド](docs/FEATURES_JP.md)をご覧ください。
 

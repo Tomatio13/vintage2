@@ -14,7 +14,7 @@ VINTAGE keeps projects, Spaces, and terminals together, then brings you back whe
 - **Command palette**: Press `Ctrl+Shift+P` to search actions and jump to a workspace, Space, or terminal.
 - **Attention monitoring**: See command completions, errors, and input requests from background terminals in one list.
 - **Agent status at a glance**: Color-coded dots in Space tabs and the sidebar surface agent activity, waits, and failures.
-- **Files and Git Review**: Browse, copy, and rename files, edit Markdown, and inspect unstaged Git changes.
+- **Files and Git Review**: Browse, copy, and rename files, edit Markdown with syntax highlighting, line numbers and line navigation, zoom documents, search and replace text, and inspect unstaged Git changes.
 - **Notes and Board**: Keep workspace notes and organize tasks on a Kanban board.
 - **AI usage limits**: See remaining quota, reset times, and credits for AI CLIs such as Codex and Claude Code in the right pane. Requires the optional [CodexBar CLI](https://github.com/steipete/codexbar).
 - **Flexible shells**: Choose zsh, bash, fish, or the operating system’s default shell. On Windows, Command Prompt, Windows PowerShell, PowerShell 7, and Git Bash are supported.
@@ -94,7 +94,7 @@ Build artifacts are written to `release/`. Code signing, including macOS notariz
 
 ## Security and limitations
 
-VINTAGE isolates the Renderer from Node.js and limits operating-system access to typed IPC exposed by the Preload process. Projects are added through the folder picker. File operations stay within registered workspaces, and previews other than Markdown are read-only. Shell event detection can be less accurate when shell integration is unavailable, such as in some remote SSH environments. The built-in browser does not support downloads, extensions, or saved login credentials.
+VINTAGE isolates the Renderer from Node.js and limits operating-system access to typed IPC exposed by the Preload process. Projects are added through the folder picker. File operations stay within registered workspaces, Markdown edits save explicitly; text replacement in source views saves immediately and rejects external changes. Shell event detection can be less accurate when shell integration is unavailable, such as in some remote SSH environments. The built-in browser does not support downloads, extensions, or saved login credentials.
 
 For more detail, see [Architecture](docs/ARCHITECTURE.md) and the [features and screen guide](docs/FEATURES.md).
 
