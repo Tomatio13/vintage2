@@ -1,5 +1,17 @@
 # VINTAGE Changelog
 
+## [0.2.19] - 2026-10-10
+
+### Added
+
+- **Browser context menu:** Right-click pages to copy selected text; undo, redo, cut, copy, paste, paste as plain text, and select all in editable fields; open links in new tabs and copy their addresses; and copy images or open them in new tabs. Page areas offer Back, Forward, and Reload, with Inspect element available in every context. New tabs retain the source tab's Project or Common scope.
+
+### Fixed
+
+- **Files folder expansion:** Remember expanded folders per Project across Project and Space switches, Files tab changes, and app restarts. Restore nested folders, preserve child expansion when their parent is collapsed, and fetch current folder contents on restoration.
+
+**Full Changelog:** [v0.2.18...v0.2.19](https://github.com/Tomatio13/vintage2/compare/v0.2.18...v0.2.19)
+
 ## [0.2.18] - 2026-10-06
 
 ### Added
