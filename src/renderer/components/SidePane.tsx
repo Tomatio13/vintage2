@@ -525,7 +525,10 @@ function FileTree({
   onContextMenu(event: ReactMouseEvent, entry: WorkspaceFileEntry): void;
   onSelect(path: string): void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const expanded = useUiStore(
+    (state) => state.expandedFileFolders[workspaceId]?.includes(entry.path) ?? false,
+  );
+  const setFileFolderExpanded = useUiStore((state) => state.setFileFolderExpanded);
   const [children, setChildren] = useState<WorkspaceFileEntry[] | null>(entry.children ?? null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -560,6 +563,15 @@ function FileTree({
   };
   loadChildrenRef.current = loadChildren;
   useEffect(() => {
+    if (expanded && entry.kind === "directory") loadChildrenRef.current();
+  }, [expanded, entry.kind]);
+  useEffect(
+    () => () => {
+      requestVersionRef.current += 1;
+    },
+    [],
+  );
+  useEffect(() => {
     if (refreshVersionRef.current === refreshVersion) return;
     refreshVersionRef.current = refreshVersion;
     if (expandedRef.current) loadChildrenRef.current(true);
@@ -585,8 +597,7 @@ function FileTree({
         className="flex w-full items-center gap-1 rounded-md px-1 py-1.5 text-left text-ui-sm hover:bg-hover"
         onClick={() => {
           const nextExpanded = !expanded;
-          setExpanded(nextExpanded);
-          if (nextExpanded) loadChildren();
+          setFileFolderExpanded(workspaceId, entry.path, nextExpanded);
         }}
       >
         {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}

@@ -1,8 +1,10 @@
-import { session, type BrowserWindow, type WebContents } from "electron";
+import { Menu, session, type BrowserWindow, type WebContents } from "electron";
 
 import { canNavigateBrowserGuest, isAllowedBrowserUrl } from "../shared/browserUrl.js";
 
 import { DesktopChannels } from "../shared/desktop.js";
+
+import { browserContextMenuItems } from "./browserContextMenu.js";
 
 export const BROWSER_PARTITION = "persist:starter-browser";
 
@@ -28,9 +30,15 @@ export function configureWebviewSecurity(window: BrowserWindow): void {
   });
 
   window.webContents.on("did-attach-webview", (_event, contents) => {
-    hardenGuest(contents, (url) => {
+    const openTab = (url: string) => {
       if (!window.webContents.isDestroyed())
         window.webContents.send(DesktopChannels.browserOpenTabRequested, contents.id, url);
+    };
+    hardenGuest(contents, openTab);
+    contents.on("context-menu", (event, params) => {
+      event.preventDefault();
+      if (contents.isDestroyed() || window.isDestroyed()) return;
+      Menu.buildFromTemplate(browserContextMenuItems(contents, params, openTab)).popup({ window });
     });
     contents.on("before-input-event", (event, input) => {
       if (

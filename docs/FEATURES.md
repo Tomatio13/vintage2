@@ -65,18 +65,18 @@ Shortcuts can be reassigned in **Settings → Shortcuts**. Changes save automati
 | Split below          | `Ctrl+Shift+T` |
 | Toggle sidebar       | `Ctrl+B`       |
 | Toggle side pane     | `Ctrl+Shift+S` |
-| Open Files pane | `Ctrl+Shift+E` |
-| Toggle Files tab | `Ctrl+Alt+E` |
-| Open Review pane | `Ctrl+Shift+G` |
-| Toggle Review tab | `Ctrl+Alt+G` |
-| Open Notes pane | `Ctrl+Shift+M` |
-| Toggle Notes tab | `Ctrl+Alt+M` |
-| Open Board pane | `Ctrl+Shift+K` |
-| Toggle Board tab | `Ctrl+Alt+K` |
-| Open Usage pane | `Ctrl+Shift+U` |
-| Toggle Usage tab | `Ctrl+Alt+U` |
-| Open Browser pane | `Ctrl+Shift+B` |
-| Toggle Browser tab | `Ctrl+Alt+B` |
+| Open Files pane      | `Ctrl+Shift+E` |
+| Toggle Files tab     | `Ctrl+Alt+E`   |
+| Open Review pane     | `Ctrl+Shift+G` |
+| Toggle Review tab    | `Ctrl+Alt+G`   |
+| Open Notes pane      | `Ctrl+Shift+M` |
+| Toggle Notes tab     | `Ctrl+Alt+M`   |
+| Open Board pane      | `Ctrl+Shift+K` |
+| Toggle Board tab     | `Ctrl+Alt+K`   |
+| Open Usage pane      | `Ctrl+Shift+U` |
+| Toggle Usage tab     | `Ctrl+Alt+U`   |
+| Open Browser pane    | `Ctrl+Shift+B` |
+| Toggle Browser tab   | `Ctrl+Alt+B`   |
 | Find in terminal     | `Ctrl+F`       |
 | Close selected pane  | `Ctrl+Shift+W` |
 
@@ -158,6 +158,8 @@ The AI icons on the board and each card copy the JSON path, task instructions, a
 _To do, Doing, and Done columns, with AI instruction copy controls for the board and individual cards._
 
 ### Browser
+
+Right-click a page for a native context menu. Selected text offers Copy; editable fields offer Undo, Redo, Cut, Copy, Paste, Paste as plain text, and Select all. Links offer Open link in new tab and Copy link address; images offer Open image in new tab, Copy image, and Copy image address. Empty page areas offer Back, Forward, and Reload. Inspect element is available in every context. New tabs retain the source tab’s Project or Common scope.
 
 The built-in Browser opens web pages beside your terminals in multiple tabs. Enter an HTTP/HTTPS URL, `about:blank`, or a local `file:///` URL in the address bar. Configure the start page in **Settings → Browser**.
 

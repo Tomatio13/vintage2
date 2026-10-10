@@ -141,6 +141,8 @@ interface UiState extends VintageSettings {
   browserBookmarks: BrowserBookmark[];
   browserWorkspaceId: string | null;
   browserSelections: Record<string, string>;
+  expandedFileFolders: Record<string, string[]>;
+  setFileFolderExpanded(workspaceId: string, path: string, expanded: boolean): void;
   setBrowserWorkspace(workspaceId: string): void;
   moveBrowserTab(tabId: string, workspaceId: string | null): void;
   setBrowserZoom(tabId: string, factor: number): void;
@@ -251,6 +253,15 @@ export const useUiStore = create<UiState>()(
       browserBookmarks: [],
       browserWorkspaceId: null,
       browserSelections: {},
+      expandedFileFolders: {},
+      setFileFolderExpanded: (workspaceId, path, expanded) =>
+        set((state) => {
+          const paths = state.expandedFileFolders[workspaceId] ?? [];
+          const next = expanded
+            ? [...new Set([...paths, path])]
+            : paths.filter((item) => item !== path);
+          return { expandedFileFolders: { ...state.expandedFileFolders, [workspaceId]: next } };
+        }),
       setBrowserWorkspace: (workspaceId) =>
         set((state) => {
           if (state.browserWorkspaceId === workspaceId) return state;
@@ -576,6 +587,7 @@ export const useUiStore = create<UiState>()(
         browserBookmarks,
         browserWorkspaceId,
         browserSelections,
+        expandedFileFolders,
         activeSidePaneTabId,
         desktopNotifications,
         filesPanelEnabled,
@@ -605,6 +617,7 @@ export const useUiStore = create<UiState>()(
         browserBookmarks,
         browserWorkspaceId,
         browserSelections,
+        expandedFileFolders,
         activeSidePaneTabId,
         desktopNotifications,
         filesPanelEnabled,
@@ -652,6 +665,7 @@ export const useUiStore = create<UiState>()(
           browserBookmarks: restoreBookmarks(persisted.browserBookmarks),
           browserWorkspaceId,
           browserSelections: restoreSelections(persisted.browserSelections),
+          expandedFileFolders: restoreExpandedFileFolders(persisted.expandedFileFolders),
           shell: TERMINAL_SHELLS.includes(persisted.shell as TerminalShell)
             ? (persisted.shell as TerminalShell)
             : currentState.shell,
@@ -776,5 +790,23 @@ function restoreSelections(value: unknown): Record<string, string> {
           (/^browser-[1-9]\d{0,8}$/.test(id) ||
             ["files", "review", "notes", "board", "usage"].includes(id)),
       ),
+  );
+}
+
+function restoreExpandedFileFolders(value: unknown): Record<string, string[]> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([id, paths]) => id && Array.isArray(paths))
+      .map(([id, paths]) => [
+        id,
+        [
+          ...new Set(
+            (paths as unknown[]).filter(
+              (path): path is string => typeof path === "string" && path.length > 0,
+            ),
+          ),
+        ],
+      ]),
   );
 }

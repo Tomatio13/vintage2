@@ -7,6 +7,7 @@ beforeEach(() => {
     browserBookmarks: [],
     browserWorkspaceId: null,
     browserSelections: {},
+    expandedFileFolders: {},
     browserTabCounter: 2,
     activeSidePaneTabId: "files",
     browserNavigateRequest: null,
@@ -128,4 +129,34 @@ it("restores local file tabs and bookmarks with project scope and zoom", async (
   expect(useUiStore.getState().browserBookmarks).toEqual([
     { url: "file:///tmp/local%20page.html#docs", title: "Local docs", workspaceId: "local-docs" },
   ]);
+});
+
+describe("Files expansion persistence", () => {
+  it("restores per-project expanded paths and saved collapse operations", async () => {
+    const store = useUiStore.getState();
+    store.setFileFolderExpanded("a", "src", true);
+    store.setFileFolderExpanded("a", "src/lib", true);
+    store.setFileFolderExpanded("a", "src", false);
+    store.setFileFolderExpanded("b", "docs", true);
+    const saved = localStorage.getItem("ai-workspace-starter-ui")!;
+    useUiStore.setState({ expandedFileFolders: {} });
+    localStorage.setItem("ai-workspace-starter-ui", saved);
+    await useUiStore.persist.rehydrate();
+    expect(useUiStore.getState().expandedFileFolders).toEqual({ a: ["src/lib"], b: ["docs"] });
+  });
+
+  it("accepts old settings and filters invalid saved paths", async () => {
+    for (const [value, expected] of [
+      [undefined, {}],
+      [null, {}],
+      [{ a: ["src", "src", 42, ""], b: "invalid" }, { a: ["src"] }],
+    ]) {
+      localStorage.setItem(
+        "ai-workspace-starter-ui",
+        JSON.stringify({ state: { expandedFileFolders: value } }),
+      );
+      await useUiStore.persist.rehydrate();
+      expect(useUiStore.getState().expandedFileFolders).toEqual(expected);
+    }
+  });
 });

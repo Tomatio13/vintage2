@@ -17,6 +17,7 @@ afterEach(() => {
     browserTabs: [...initialBrowserTabs],
     browserWorkspaceId: null,
     browserSelections: {},
+    expandedFileFolders: {},
     browserTabCounter: 2,
     browserNavigateRequest: null,
   });
@@ -185,6 +186,49 @@ describe("SidePane files", () => {
     expect(folder).toHaveAttribute("aria-expanded", "true");
     expect(await screen.findByRole("button", { name: "main.ts" })).toBeInTheDocument();
     expect(listWorkspaceFiles).toHaveBeenLastCalledWith("workspace", "src");
+  });
+
+  it("restores nested folders across workspace switches, remounts and refreshes", async () => {
+    window.desktop = {
+      listWorkspaceFiles: vi
+        .fn()
+        .mockImplementation((_id: string, path?: string) =>
+          Promise.resolve(
+            path === "src/lib"
+              ? [{ kind: "file", name: "main.ts", path: "src/lib/main.ts" }]
+              : path === "src"
+                ? [{ kind: "directory", name: "lib", path: "src/lib" }]
+                : [{ kind: "directory", name: "src", path: "src" }],
+          ),
+        ),
+    } as unknown as DesktopBridge;
+    const view = render(<SidePane workspaceId="a" onOpenFile={() => {}} />);
+    fireEvent.click(await screen.findByRole("button", { name: "src" }));
+    fireEvent.click(await screen.findByRole("button", { name: "lib" }));
+    expect(await screen.findByRole("button", { name: "main.ts" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "src" }));
+    fireEvent.click(screen.getByRole("button", { name: "src" }));
+    expect(await screen.findByRole("button", { name: "main.ts" })).toBeInTheDocument();
+    view.rerender(<SidePane workspaceId="b" onOpenFile={() => {}} />);
+    expect(await screen.findByRole("button", { name: "src" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    view.rerender(<SidePane workspaceId="a" onOpenFile={() => {}} />);
+    expect(await screen.findByRole("button", { name: "main.ts" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "lib" })).toHaveAttribute("aria-expanded", "true"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Browser" }));
+    fireEvent.click(screen.getByRole("button", { name: "Files" }));
+    expect(await screen.findByRole("button", { name: "main.ts" })).toBeInTheDocument();
+    view.rerender(<SidePane workspaceId="a" visible={false} onOpenFile={() => {}} />);
+    view.rerender(<SidePane workspaceId="a" visible onOpenFile={() => {}} />);
+    expect(await screen.findByRole("button", { name: "main.ts" })).toBeInTheDocument();
+    view.unmount();
+    render(<SidePane workspaceId="a" onOpenFile={() => {}} />);
+    expect(await screen.findByRole("button", { name: "main.ts" })).toBeInTheDocument();
   });
 
   it("hides Home dotfiles by default and reveals them on request", async () => {

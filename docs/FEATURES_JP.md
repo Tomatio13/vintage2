@@ -65,18 +65,18 @@ SpaceタブとサイドバーのWorkspace/Tab行には、配下ペインの認�
 | 下へ分割               | `Ctrl+Shift+T` |
 | サイドバー表示切り替え | `Ctrl+B`       |
 | 右ペイン表示切り替え   | `Ctrl+Shift+S` |
-| Filesペインを開く | `Ctrl+Shift+E` |
-| FilesタブのON/OFF | `Ctrl+Alt+E` |
-| Reviewペインを開く | `Ctrl+Shift+G` |
-| ReviewタブのON/OFF | `Ctrl+Alt+G` |
-| Notesペインを開く | `Ctrl+Shift+M` |
-| NotesタブのON/OFF | `Ctrl+Alt+M` |
-| Boardペインを開く | `Ctrl+Shift+K` |
-| BoardタブのON/OFF | `Ctrl+Alt+K` |
-| Usageペインを開く | `Ctrl+Shift+U` |
-| UsageタブのON/OFF | `Ctrl+Alt+U` |
-| Browserペインを開く | `Ctrl+Shift+B` |
-| BrowserタブのON/OFF | `Ctrl+Alt+B` |
+| Filesペインを開く      | `Ctrl+Shift+E` |
+| FilesタブのON/OFF      | `Ctrl+Alt+E`   |
+| Reviewペインを開く     | `Ctrl+Shift+G` |
+| ReviewタブのON/OFF     | `Ctrl+Alt+G`   |
+| Notesペインを開く      | `Ctrl+Shift+M` |
+| NotesタブのON/OFF      | `Ctrl+Alt+M`   |
+| Boardペインを開く      | `Ctrl+Shift+K` |
+| BoardタブのON/OFF      | `Ctrl+Alt+K`   |
+| Usageペインを開く      | `Ctrl+Shift+U` |
+| UsageタブのON/OFF      | `Ctrl+Alt+U`   |
+| Browserペインを開く    | `Ctrl+Shift+B` |
+| BrowserタブのON/OFF    | `Ctrl+Alt+B`   |
 | ターミナル内検索       | `Ctrl+F`       |
 | 選択中のペインを閉じる | `Ctrl+Shift+W` |
 
@@ -158,6 +158,8 @@ Board全体と各カードのAIアイコンから、JSONの保存先・作業指
 _To do・Doing・Doneの3列と、Board全体・カードごとのAI指示コピーボタン。_
 
 ### Browser
+
+ページ内を右クリックすると標準のコンテキストメニューが表示されます。選択文字はコピー、入力欄は元に戻す・やり直し・切り取り・コピー・貼り付け・プレーンテキスト貼り付け・全選択に対応します。リンクは新規タブ表示とURLコピー、画像は新規タブ表示・画像コピー・URLコピーができます。ページの余白では戻る・進む・再読み込みを表示し、どの対象でも要素の検証ができます。新規タブは元のタブのProject／Common所属を引き継ぎます。
 
 組み込みBrowserはターミナルの横でWebページを表示でき、複数タブに対応しています。アドレス欄にはHTTP/HTTPSのURL、`about:blank`、ローカルの `file:///` URLを入力できます。開始ページは **Settings → Browser** で設定します。
 
