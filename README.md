@@ -65,7 +65,9 @@ VINTAGE can optionally use [Jev](https://docs.typesafe.ai/sdk/javascript) to cla
 
 ## Monitor and AI Usage
 
-**Platform limitation: Monitor is currently supported on Linux only. Windows is not supported. A macOS implementation exists but has not been verified.**
+**Platform status: Linux is supported. Windows Monitor is an experimental pre-release; physical-device testing is pending. A macOS implementation exists but has not been verified.**
+
+Windows uses a bundled Rust helper for process discovery and CPU/RAM metrics. Claude Code, Codex and OpenCode are the initial targets; other agents remain unverified on Windows. Missing process information or ambiguous session ownership stays Unknown. Codex log association is inferred, and terminal detection is unavailable, so terminal-only logs may remain unmatched. Windows load average is unavailable. AI Usage depends separately on CodexBar availability. Building or developing on Windows requires the Rust toolchain (`cargo`); users of the installer do not need Rust or abtop.
 
 The **Monitor** tab shows activity across the PC: CPU and per-core load, memory, and running Claude Code / Codex / Antigravity / OpenCode / ZCode / Grok sessions. Select a session to inspect its current tool, model, context and process-tree CPU/RAM; **Open terminal** returns to an existing VINTAGE terminal. **Expand monitor** opens a window-wide view. Monitor is enabled by default and can be hidden in **Settings → Panels**.
 

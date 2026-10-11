@@ -202,7 +202,9 @@ Downloads, extensions, and saved login credentials are not supported.
 
 ## Monitor
 
-**Platform limitation: Monitor is currently supported on Linux only. Windows is not supported. A macOS implementation exists but has not been verified.**
+**Platform status: Linux is supported. Windows Monitor is an experimental pre-release; physical-device testing is pending. A macOS implementation exists but has not been verified.**
+
+Windows uses a bundled Rust helper for process discovery and CPU/RAM metrics. Claude Code, Codex and OpenCode are the initial targets; other agents remain unverified on Windows. Missing process information or ambiguous session ownership stays Unknown. Codex log association is inferred, and terminal detection is unavailable, so terminal-only logs may remain unmatched. Windows load average is unavailable. AI Usage depends separately on CodexBar availability. Building or developing on Windows requires the Rust toolchain (`cargo`); users of the installer do not need Rust or abtop.
 
 Monitor always displays sessions across the PC. The dashboard is arranged as CPU/Memory, optional AI Usage, sessions, and session details. There is no workspace scope switch, separate Usage tab, host-name display, or background-services section. Provider cards use equal widths and heights. Use **Expand monitor** to enlarge the dashboard without replacing terminal panes or changing the selected session.
 

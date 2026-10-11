@@ -10,3 +10,6 @@ coverage/
 
 .zcode/
 /.monitor-fix-build/
+
+/build/monitor/
+/native/monitor-windows/target/

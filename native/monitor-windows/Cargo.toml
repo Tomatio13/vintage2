@@ -1,0 +1,10 @@
+[package]
+name = "vintage-monitor"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[dependencies]
+sysinfo = "=0.32.1"
+serde_json = "1"

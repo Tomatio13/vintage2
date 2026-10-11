@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { open, readdir, stat } from "node:fs/promises";
+import { normalize } from "node:path/win32";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
@@ -113,7 +114,7 @@ export function matchCodexLog(
   if (!cwd || startedAt === undefined || peers !== 1) return null;
   const matches = candidates.filter(
     (log) =>
-      log.cwd === cwd &&
+      monitorPathsEqual(log.cwd, cwd) &&
       log.modifiedAt >= startedAt - 1000 &&
       (log.source !== "vscode" || terminalProcess),
   );
@@ -143,4 +144,20 @@ export function matchCodexLog(
   if (newlyStarted.length === 1 && !matches.some((log) => log.source === "vscode"))
     return newlyStarted[0]!.path;
   return null;
+}
+
+export function monitorPathsEqual(
+  a: string,
+  b: string,
+  windows = process.platform === "win32",
+): boolean {
+  if (!windows) return a === b;
+  return (
+    normalize(a)
+      .replace(/[\\/]+$/u, "")
+      .toLowerCase() ===
+    normalize(b)
+      .replace(/[\\/]+$/u, "")
+      .toLowerCase()
+  );
 }

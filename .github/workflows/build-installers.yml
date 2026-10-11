@@ -55,6 +55,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Set up Rust for Windows Monitor
+        if: matrix.platform == 'windows'
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Build installer packages
         run: pnpm run ${{ matrix.script }}
 

@@ -1,6 +1,9 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
+import { windowsProcessSnapshot } from "./monitorWindows.js";
+import { monitorCommandName } from "./monitorCommand.js";
+
 const execFileAsync = promisify(execFile);
 
 export interface ForegroundProcessSnapshot {
@@ -14,11 +17,16 @@ const AGENT_RUNTIME_NAMES = new Set(["bun", "node"]);
 const AGENT_LAUNCH_PATH =
   /(?:^|[/\\\s])(?:claude(?:-code)?|codex|opencode)(?:\.js)?(?=$|[/\\\s])/iu;
 
-interface ProcessRow {
+export interface ProcessRow {
   pid: number;
   parentPid: number;
   command: string;
   args?: string;
+  argv?: string[];
+  cwd?: string;
+  startedAt?: number;
+  memoryBytes?: number;
+  cpuPercent?: number | null;
 }
 
 type SnapshotListener = (snapshot: ForegroundProcessSnapshot | null) => void;
@@ -67,7 +75,13 @@ export function createSharedProcessMonitor(): SharedProcessMonitor {
 }
 
 export async function listProcessRows(): Promise<ProcessRow[] | null> {
-  if (process.platform === "win32") return null;
+  if (process.platform === "win32") {
+    try {
+      return await windowsProcessSnapshot();
+    } catch {
+      return null;
+    }
+  }
   try {
     const { stdout } = await execFileAsync("ps", ["-ww", "-eo", "pid=,ppid=,comm=,args="], {
       timeout: 1_000,
@@ -101,9 +115,13 @@ export function foregroundSnapshotFor(
     tree: descendants.map((row) => row.command).slice(-8),
     agentCli: descendants.some(
       (row) =>
-        AGENT_PROCESS_NAMES.has(row.command.toLowerCase()) ||
-        (AGENT_RUNTIME_NAMES.has(row.command.toLowerCase()) &&
-          AGENT_LAUNCH_PATH.test(row.args ?? "")),
+        AGENT_PROCESS_NAMES.has(
+          monitorCommandName(row.command, row.argv !== undefined || process.platform === "win32"),
+        ) ||
+        (AGENT_RUNTIME_NAMES.has(
+          monitorCommandName(row.command, row.argv !== undefined || process.platform === "win32"),
+        ) &&
+          AGENT_LAUNCH_PATH.test(row.argv?.[1] ?? row.args ?? "")),
     ),
   };
 }
@@ -133,11 +151,14 @@ function descendantsOf(rootPid: number, rows: ProcessRow[]): ProcessRow[] {
   }
   const result: ProcessRow[] = [];
   let parents = [rootPid];
+  const visited = new Set([rootPid]);
   while (parents.length > 0) {
     const children = parents
       .flatMap((pid) => byParent.get(pid) ?? [])
+      .filter((row) => !visited.has(row.pid))
       .sort((a, b) => a.pid - b.pid);
     if (children.length === 0) break;
+    for (const row of children) visited.add(row.pid);
     result.push(...children);
     parents = children.map((child) => child.pid);
   }

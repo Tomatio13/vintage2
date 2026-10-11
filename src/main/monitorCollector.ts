@@ -2,14 +2,16 @@ import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { open, readdir, readFile, readlink } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, isAbsolute, join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { promisify } from "node:util";
 import type { MonitorAgent, MonitorSession, MonitorSnapshot } from "../shared/monitor.js";
+import { monitorCommandName, monitorCommandTokens } from "./monitorCommand.js";
 import { listProcessRows } from "./processMonitor.js";
 import {
   discoverCodexLogs,
   matchCodexLog,
   monitorProcessStarts,
+  monitorPathsEqual,
   type CodexLogCandidate,
 } from "./monitorCodexDiscovery.js";
 import { readLocalAgent } from "./monitorLocalAgents.js";
@@ -30,8 +32,8 @@ interface Tracked {
   total: number;
 }
 
-function codexService(args: string): boolean {
-  const tokens = args.match(/(?:[^\s"']+|"[^"']*"|'[^']*')+/gu) ?? [];
+function codexService(args: string, start = 1): boolean {
+  const tokens = monitorCommandTokens(args);
   const valueOptions = new Set([
     "-c",
     "--config",
@@ -48,7 +50,7 @@ function codexService(args: string): boolean {
     "--remote",
     "--environment-id",
   ]);
-  for (let index = 1; index < tokens.length; index++) {
+  for (let index = start; index < tokens.length; index++) {
     const token = tokens[index]!;
     if (valueOptions.has(token)) {
       index++;
@@ -61,26 +63,28 @@ function codexService(args: string): boolean {
 }
 
 export function monitorAgent(row: ProcessRow): MonitorAgent | null {
-  const command = basename(row.command).toLowerCase();
+  const windows = row.argv !== undefined || process.platform === "win32";
+  const command = monitorCommandName(row.command, windows);
+  const argv = row.argv?.map((arg) => arg.replace(/\\/gu, "/"));
+  const args = argv ? argv.map((arg) => JSON.stringify(arg)).join(" ") : (row.args ?? "");
   if (command === "opencode" || command === "opencode-cli") return "opencode";
   if (/^grok(?:-\d+(?:\.\d+)*)?$/u.test(command)) return "grok";
   if (command === "zcode-cli" || command === "zc") return "zcode";
   if (["agy", "antigravity-cli", "antigravity_cli"].includes(command)) return "antigravity";
   if (
     /^language[_-]server/u.test(command) &&
-    /(?:\/antigravity(?:[-_/]|\.)|--app_data_dir[= ]+antigravity)/iu.test(row.args ?? "")
+    /(?:\/antigravity(?:[-_/]|\.)|--app_data_dir[= ]+antigravity)/iu.test(args)
   )
     return "antigravity";
   if (command === "claude" || command === "claude-code") return "claude";
-  if (command === "codex") return codexService(row.args ?? "") ? null : "codex";
+  if (command === "codex") return codexService(args) ? null : "codex";
   if (command === "node" || command === "bun") {
-    const entry = (row.args ?? "").match(/^\S+\s+(\S+)/u)?.[1] ?? "";
+    const entry = monitorCommandTokens(args)[1] ?? "";
     if (/(?:^|\/)(?:opencode|opencode-ai)(?:\/|\.(?:c?js|mjs)$|$)/u.test(entry)) return "opencode";
     if (/(?:^|\/)(?:zcode|zc)(?:\/|\.(?:c?js|mjs)$|$)/u.test(entry)) return "zcode";
-    if (/(?:^|[\s/])(?:claude-code|claude)(?:\.js)?(?:[\s/]|$)/u.test(row.args ?? ""))
-      return "claude";
-    if (/(?:^|[\s/])codex(?:\.js)?(?:[\s/]|$)/u.test(row.args ?? ""))
-      return codexService(row.args ?? "") ? null : "codex";
+    if (/(?:^|[\s/])(?:claude-code|claude)(?:\.js)?(?:[\s/]|$)/u.test(entry)) return "claude";
+    if (/(?:^|[\s/])codex(?:\.js)?(?:[\s/]|$)/u.test(entry))
+      return codexService(args, 2) ? null : "codex";
   }
   return null;
 }
@@ -163,6 +167,9 @@ export function parseMonitorLsof(output: string): Map<number, OpenFiles> {
 }
 
 async function openFiles(rows: ProcessRow[]): Promise<Map<number, OpenFiles>> {
+  if (process.platform === "win32") {
+    return new Map(rows.map((row) => [row.pid, { cwd: row.cwd ?? "", paths: [] }]));
+  }
   if (process.platform === "linux") {
     const map = new Map<number, OpenFiles>();
     for (const row of rows) map.set(row.pid, await linuxFiles(row.pid));
@@ -185,6 +192,7 @@ async function openFiles(rows: ProcessRow[]): Promise<Map<number, OpenFiles>> {
 }
 
 async function processIdentity(row: ProcessRow): Promise<string> {
+  if (process.platform === "win32" && row.startedAt) return `${row.pid}:${row.startedAt}`;
   const commandHash = createHash("sha256")
     .update(row.args ?? row.command)
     .digest("hex")
@@ -307,12 +315,12 @@ export class MonitorCollector {
 
   private async sample(): Promise<MonitorSnapshot> {
     const generatedAt = Date.now();
-    if (process.platform !== "linux" && process.platform !== "darwin")
+    if (!["linux", "darwin", "win32"].includes(process.platform))
       return {
         generatedAt,
         supported: false,
         sessions: [],
-        warnings: ["Monitor currently supports macOS and Linux."],
+        warnings: ["Monitor currently supports macOS, Linux and Windows (pre-release)."],
       };
     const rows = await listProcessRows();
     if (!rows) throw new Error("Unable to inspect local processes.");
@@ -333,7 +341,7 @@ export class MonitorCollector {
           }
         }
         return !(
-          ["node", "bun"].includes(basename(row.command)) &&
+          ["node", "bun"].includes(monitorCommandName(row.command)) &&
           candidates.some(
             (child) => child.parentPid === row.pid && monitorAgent(child) === monitorAgent(row),
           )
@@ -366,7 +374,11 @@ export class MonitorCollector {
     const needsFallback = codexRows.some(
       (row) => !files.get(row.pid)?.paths.some((path) => /\/rollout-[^/]+\.jsonl$/u.test(path)),
     );
-    const starts = needsFallback ? await monitorProcessStarts() : new Map<number, number>();
+    const starts = needsFallback
+      ? process.platform === "win32"
+        ? new Map(rows.filter((row) => row.startedAt).map((row) => [row.pid, row.startedAt!]))
+        : await monitorProcessStarts()
+      : new Map<number, number>();
     let fallbackLogs: CodexLogCandidate[] = [];
     if (needsFallback && starts.size) {
       const roots = new Set([process.env.CODEX_HOME || join(this.homeDirectory, ".codex")]);
@@ -410,6 +422,8 @@ export class MonitorCollector {
     const seen = new Set<string>();
     const usedReaders = new Set<string>();
     const warnings = new Set<string>();
+    if (process.platform === "win32")
+      warnings.add("Windows Monitor is pre-release; physical-device testing is pending.");
     const zcodeSessions = new Set<string>();
     if (candidates.length > 128) warnings.add("Only the first 128 agent processes are shown.");
     for (const row of agents) {
@@ -436,7 +450,7 @@ export class MonitorCollector {
         // make that terminal appear ambiguous just because they share its cwd.
         const peers = codexRows.filter(
           (peer) =>
-            files.get(peer.pid)?.cwd === ownFiles?.cwd &&
+            monitorPathsEqual(files.get(peer.pid)?.cwd ?? "", ownFiles?.cwd ?? "") &&
             (files.get(peer.pid)?.terminal === true) === (ownFiles?.terminal === true),
         ).length;
         path =
@@ -483,7 +497,8 @@ export class MonitorCollector {
               ownFiles?.cwd ?? "",
               agents.filter(
                 (peer) =>
-                  monitorAgent(peer) === agent && files.get(peer.pid)?.cwd === ownFiles?.cwd,
+                  monitorAgent(peer) === agent &&
+                  monitorPathsEqual(files.get(peer.pid)?.cwd ?? "", ownFiles?.cwd ?? ""),
               ).length,
               ownFiles?.paths ?? [],
               this.homeDirectory,
@@ -520,11 +535,21 @@ export class MonitorCollector {
       }
       const total = state.inputTokens + state.outputTokens;
       const sampledAt = Date.now();
-      const remote = agent === "codex" && /(?:^|\s)--remote(?:=|\s|$)/u.test(row.args ?? "");
-      const launchSurface = remote ? "remote" : ownFiles?.terminal ? "terminal" : "background";
+      const remote =
+        agent === "codex" &&
+        (row.argv ?? monitorCommandTokens(row.args ?? "")).some(
+          (token) => token === "--remote" || token.startsWith("--remote="),
+        );
+      const launchSurface = remote
+        ? "remote"
+        : ownFiles?.terminal
+          ? "terminal"
+          : process.platform === "win32"
+            ? undefined
+            : "background";
       const unavailableReason = remote
         ? "Remote Codex process; no local session log matched."
-        : agent === "codex" && !ownFiles?.terminal
+        : agent === "codex" && !ownFiles?.terminal && process.platform !== "win32"
           ? "Background Codex process; no local session log matched."
           : "No uniquely matched session log.";
       const session: MonitorSession = {
@@ -532,7 +557,7 @@ export class MonitorCollector {
         id,
         pid: row.pid,
         paneId: null,
-        launchSurface,
+        ...(launchSurface ? { launchSurface } : {}),
         logMatch: !readable
           ? "unavailable"
           : local

@@ -28,6 +28,7 @@ export default {
     artifactName: "${productName}-${version}-${arch}.${ext}",
   },
   win: {
+    extraResources: [{ from: "build/monitor", to: "monitor" }],
     target: ["nsis"],
     icon: "build/icon.png",
     artifactName: "${productName}-${version}-${arch}.${ext}",

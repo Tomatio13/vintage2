@@ -254,7 +254,7 @@ export function MonitorPanel({
         )}
         {snapshot && !snapshot.supported && (
           <p className="text-ui-sm text-foreground-subtle">
-            Monitor currently supports macOS and Linux.
+            Monitor supports Linux, macOS and Windows (pre-release).
           </p>
         )}
         <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">

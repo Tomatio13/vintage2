@@ -1,5 +1,28 @@
 # VINTAGE Changelog
 
+## [0.2.21] - 2026-10-11
+
+### Added
+
+- **Windows Monitor (experimental pre-release):** Add a bundled Rust process collector for PID/parent relationships, command lines, working directories, process start times, CPU and memory. Initial Windows targets are Claude Code, Codex and OpenCode. No Rust or abtop installation is required for installer users.
+
+### Fixed
+
+- **Windows session discovery:** Recognize native `.exe` and Node launchers, handle quoted paths and Windows path comparisons, exclude Codex app-server/MCP services, and probe OpenCode database locations. Keep ambiguous session ownership Unknown instead of assigning logs by modification order.
+- **Monitor display:** Keep AI Usage cards in two columns and deduplicate ZCode workers when one recent session can be inferred for their shared working directory.
+
+### Build
+
+- Build and bundle the Windows collector and dependency license notices with the installer. Windows development and source builds require the Rust toolchain; CI installs it automatically.
+
+### Validation and limitations
+
+- Automated validation passed: boundaries, TypeScript, lint, formatting, 365 tests (one skipped), and the Linux-hosted production build. The Rust collector passed Windows MSVC-target `cargo check` and a Linux-hosted protocol smoke test.
+- **Windows Monitor remains an experimental pre-release feature. Physical-device testing is pending.** Windows installer generation is verified separately by the release workflow; successful packaging does not establish runtime behavior.
+- Windows terminal detection is unavailable, so terminal-only Codex logs may remain unmatched. Unavailable metrics show a dash; ambiguous sessions show Unknown. Other agents remain unverified on Windows. macOS runtime verification remains pending, and AI Usage still depends separately on the optional CodexBar CLI.
+
+**Full Changelog:** [v0.2.20...v0.2.21](https://github.com/Tomatio13/vintage2/compare/v0.2.20...v0.2.21)
+
 ## [0.2.20] - 2026-10-11
 
 ### Added

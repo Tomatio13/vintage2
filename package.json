@@ -1,6 +1,6 @@
 {
   "name": "vintage",
-  "version": "0.2.20",
+  "version": "0.2.21",
   "private": true,
   "description": "A local multi-agent terminal workspace",
   "homepage": "https://github.com/Tomatio13/vintage2",
@@ -14,10 +14,10 @@
   "main": "dist/main/index.js",
   "scripts": {
     "clean": "node scripts/clean.mjs",
-    "dev": "pnpm clean && concurrently -k -n main,renderer,electron -c blue,green,magenta \"tsup --watch\" \"vite --host 127.0.0.1\" \"wait-on tcp:5173 file:dist/main/index.js file:dist/preload/index.cjs && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 node scripts/launch-electron-dev.mjs\"",
+    "dev": "node scripts/build-monitor-windows.mjs && pnpm clean && concurrently -k -n main,renderer,electron -c blue,green,magenta \"tsup --watch\" \"vite --host 127.0.0.1\" \"wait-on tcp:5173 file:dist/main/index.js file:dist/preload/index.cjs && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 node scripts/launch-electron-dev.mjs\"",
     "build:main": "tsup",
     "build:renderer": "vite build",
-    "build": "pnpm clean && pnpm build:main && pnpm build:renderer",
+    "build": "node scripts/build-monitor-windows.mjs && pnpm clean && pnpm build:main && pnpm build:renderer",
     "start": "electron dist/main/index.js",
     "dist": "pnpm build && electron-builder --config electron-builder.config.mjs --publish never",
     "dist:linux": "pnpm build && electron-builder --config electron-builder.config.mjs --linux AppImage deb --publish never",

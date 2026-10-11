@@ -202,7 +202,9 @@ Browserのページはサンドボックスと分離を有効にして実行し�
 
 ## Monitor
 
-**対応OSの制限：Monitorのサポート対象は現在Linuxのみです。Windowsは対象外です。macOSの実装はありますが、動作未確認です。**
+**対応OSの状況：Linuxはサポート対象です。WindowsのMonitorは試験中のプレリリース扱いで、実機試験はpendingです。macOSの実装はありますが、動作未確認です。**
+
+Windowsでは同梱のRustヘルパーでプロセス検出とCPU／RAMを取得します。初期対象はClaude Code、Codex、OpenCodeで、他のAgentはWindows未検証です。取得できないプロセス情報や曖昧なセッションはUnknownとして扱います。Codexのログ紐付けは推定で、ターミナル判定ができないため、一部のターミナル専用ログは紐付けできません。Windowsのロードアベレージは表示しません。AI Usageは別途CodexBarの利用可否に依存します。Windowsでのビルド・開発にはRustツールチェーン（`cargo`）が必要ですが、インストーラー利用者にはRustやabtopの導入は不要です。
 
 Monitorは常にPC全体のセッションを表示します。CPU／Memory、任意のAI Usage、セッション一覧、セッション詳細の順に並びます。Workspaceによる絞り込み、独立したUsageタブ、ホスト名、バックグラウンドサービスの欄はありません。Providerカードの幅と高さは揃えています。**Expand monitor**で拡大しても、ターミナルペインや選択中のセッションは維持します。
 

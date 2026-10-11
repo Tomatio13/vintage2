@@ -1,3 +1,4 @@
+import { monitorPathsEqual } from "./monitorCodexDiscovery.js";
 import { readGrok } from "./monitorGrok.js";
 import { DatabaseSync } from "node:sqlite";
 import { open, stat } from "node:fs/promises";
@@ -103,14 +104,20 @@ function readSessionDatabase(
     const sharedWorkers = agent === "zcode" && peers > 1;
     const rows = db
       .prepare(
-        `SELECT id,directory,time_created,time_updated FROM session WHERE directory=? AND (parent_id IS NULL OR parent_id='') ${sharedWorkers ? "AND time_updated>?" : ""} ORDER BY time_updated DESC LIMIT 2`,
+        `SELECT id,directory,time_created,time_updated FROM session WHERE ${process.platform === "win32" ? "1=1" : "directory=?"} AND (parent_id IS NULL OR parent_id='') ${sharedWorkers ? "AND time_updated>?" : ""} ORDER BY time_updated DESC LIMIT ${process.platform === "win32" ? 4096 : 2}`,
       )
-      .all(...(sharedWorkers ? [cwd, Date.now() - 60 * 60 * 1000] : [cwd])) as Row[];
-    const row = rows[0];
+      .all(
+        ...(process.platform === "win32" ? [] : [cwd]),
+        ...(sharedWorkers ? [Date.now() - 60 * 60 * 1000] : []),
+      ) as Row[];
+    const matchingRows = rows
+      .filter((row) => typeof row.directory === "string" && monitorPathsEqual(row.directory, cwd))
+      .slice(0, 2);
+    const row = matchingRows[0];
     if (!row) return missing("No local session matches this working directory.");
     if (
-      rows[1] &&
-      (sharedWorkers || number(row.time_updated) - number(rows[1].time_updated) < 5000)
+      matchingRows[1] &&
+      (sharedWorkers || number(row.time_updated) - number(matchingRows[1].time_updated) < 5000)
     )
       return missing(
         "Multiple recently updated sessions share this working directory; ownership is uncertain.",
@@ -386,12 +393,26 @@ export async function readLocalAgent(
       }
     return result;
   }
-  const path =
+  let path =
     files.find((path) =>
       agent === "opencode" ? basename(path) === "opencode.db" : path.endsWith("/cli/db/db.sqlite"),
     ) ??
     (agent === "opencode"
       ? join(dataHome || join(home, ".local", "share"), "opencode", "opencode.db")
       : join(home, ".zcode", "cli", "db", "db.sqlite"));
+  if (
+    agent === "opencode" &&
+    process.platform === "win32" &&
+    !(await stat(path).catch(() => null))
+  ) {
+    for (const root of [process.env.LOCALAPPDATA, process.env.APPDATA]) {
+      if (!root) continue;
+      const candidate = join(root, "opencode", "opencode.db");
+      if (await stat(candidate).catch(() => null)) {
+        path = candidate;
+        break;
+      }
+    }
+  }
   return readSessionDatabase(path, agent, cwd, peers);
 }

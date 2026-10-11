@@ -65,7 +65,9 @@ pnpm start
 
 ## MonitorとAI Usage
 
-**対応OSの制限：Monitorのサポート対象は現在Linuxのみです。Windowsは対象外です。macOSの実装はありますが、動作未確認です。**
+**対応OSの状況：Linuxはサポート対象です。WindowsのMonitorは試験中のプレリリース扱いで、実機試験はpendingです。macOSの実装はありますが、動作未確認です。**
+
+Windowsでは同梱のRustヘルパーでプロセス検出とCPU／RAMを取得します。初期対象はClaude Code、Codex、OpenCodeで、他のAgentはWindows未検証です。取得できないプロセス情報や曖昧なセッションはUnknownとして扱います。Codexのログ紐付けは推定で、ターミナル判定ができないため、一部のターミナル専用ログは紐付けできません。Windowsのロードアベレージは表示しません。AI Usageは別途CodexBarの利用可否に依存します。Windowsでのビルド・開発にはRustツールチェーン（`cargo`）が必要ですが、インストーラー利用者にはRustやabtopの導入は不要です。
 
 **Monitor**タブでは、PC全体のCPU・コア別負荷、メモリ、実行中のClaude Code / Codex / Antigravity / OpenCode / ZCode / Grokセッションを確認できます。セッションを選ぶと、現在のツール、モデル、コンテキスト、子プロセスを含むCPU・RAMを表示します。**Open terminal**でVINTAGE内の既存ターミナルへ戻り、**Expand monitor**でウィンドウ全体に拡大できます。Monitorは初期状態で有効で、**Settings → Panels**から非表示にできます。
 

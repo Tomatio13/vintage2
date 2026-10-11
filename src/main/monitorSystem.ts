@@ -136,7 +136,18 @@ export class MonitorSystem {
   ): Promise<Map<number, ProcessMetrics>> {
     const metrics = new Map<number, ProcessMetrics>();
     const now = Date.now();
-    if (process.platform === "linux") {
+    if (process.platform === "win32") {
+      for (const row of rows) {
+        if (!pids.includes(row.pid) || row.memoryBytes === undefined) continue;
+        metrics.set(row.pid, {
+          pid: row.pid,
+          name: row.command,
+          cpuPercent: row.cpuPercent ?? null,
+          memoryBytes: row.memoryBytes,
+          identity: String(row.startedAt ?? ""),
+        });
+      }
+    } else if (process.platform === "linux") {
       const units = await this.units().catch(() => null);
       if (!units) return metrics;
       for (let offset = 0; offset < pids.length; offset += 32) {
