@@ -1,5 +1,25 @@
 # VINTAGE Changelog
 
+## [0.2.23] - 2026-10-12
+
+### Fixed
+
+- **Monitor session visibility and activity:** Keep ambiguous local sessions visible as Unknown, account for all message and part updates when comparing ZCode task status, and combine resource usage for workers sharing a session.
+- **Parallel activity and attention:** Preserve running Antigravity steps across overlapping tool activity and stop attention polling while waiting for user input.
+- **Grok log tracking:** Read appended log records incrementally, retain state across long output, and keep model selection consistent across incremental reads and rebuilds.
+- **ZCode discovery performance:** Stream session metadata, retain directory matches, and calculate activity only for matching sessions without a global session limit.
+
+### Documentation
+
+- Add a Graphite-themed Monitor screenshot with demo data to both feature guides and clarify local session visibility.
+
+### Validation and limitations
+
+- Automated validation passed: boundaries, TypeScript, lint, formatting, 379 tests (one skipped), and the production build. Linux-hosted Electron checks passed for Monitor lifecycle, agent fixtures, and embedded AI Usage.
+- Windows Monitor remains experimental. Physical Windows and macOS runtime testing, live ZCode validation, and installed-app updater verification remain pending.
+
+**Full Changelog:** [v0.2.22...v0.2.23](https://github.com/Tomatio13/vintage2/compare/v0.2.22...v0.2.23)
+
 ## [0.2.22] - 2026-10-11
 
 ### Fixed
