@@ -1,5 +1,23 @@
 # VINTAGE Changelog
 
+## [0.2.20] - 2026-10-11
+
+### Added
+
+- **Local Agent Monitor:** View PC CPU, per-core load, memory, and running Claude Code, Codex, Antigravity, OpenCode, ZCode, and Grok sessions. Inspect current tools, models, context usage and process-tree resources, expand the dashboard, or return to an existing VINTAGE terminal. Local monitoring requires no abtop installation or external collector.
+
+### Changed
+
+- **Usage integration:** Move AI Usage directly below CPU/Memory in Monitor, with compact, equally sized provider cards. Remove the separate Usage tab and workspace filter. Configure quota visibility and refresh settings in Settings → Usage; existing CodexBar settings are retained.
+- **Monitor shortcuts:** Ctrl+Shift+U opens Monitor and Ctrl+Alt+U toggles the Monitor tab. Existing custom Usage shortcut bindings migrate to the corresponding Monitor actions.
+- **Live session lifecycle:** Remove exited processes on the next refresh, hide unmatched background/remote services, and hide ZCode sessions after one hour without recorded activity. Local monitoring and Usage refresh only while their view and the app document are visible.
+
+### Limitations
+
+- Monitor is currently supported on **Linux only**. Windows is not supported; the macOS implementation has not been verified. Ambiguous session associations appear as Unknown, and unavailable metrics are shown as a dash. AI Usage continues to require the optional CodexBar CLI.
+
+**Full Changelog:** [v0.2.19...v0.2.20](https://github.com/Tomatio13/vintage2/compare/v0.2.19...v0.2.20)
+
 ## [0.2.19] - 2026-10-10
 
 ### Added
