@@ -1,5 +1,19 @@
 # VINTAGE Changelog
 
+## [0.2.24] - 2026-10-12
+
+### Fixed
+
+- **Monitor process filtering:** Exclude Codex remote-control services and agent probes launched by CodexBar, including probes reached through intermediate parent processes. Keep ordinary agent sessions visible.
+- **Grok session badge:** Use teal instead of orange to align with the green AI Usage marker. ZCode retains its rose badge.
+
+### Validation and limitations
+
+- Automated validation passed: boundaries, TypeScript, lint, formatting, 380 tests (one skipped), and the production build. Regression tests cover native and Node remote-control launchers, CodexBar ancestry, Windows executable names, and ordinary Codex/Claude sessions.
+- Windows Monitor remains experimental. Physical Windows and macOS runtime testing, installed-app updater verification, and live reproduction of intermittent CodexBar probes remain pending.
+
+**Full Changelog:** [v0.2.23...v0.2.24](https://github.com/Tomatio13/vintage2/compare/v0.2.23...v0.2.24)
+
 ## [0.2.23] - 2026-10-12
 
 ### Fixed
