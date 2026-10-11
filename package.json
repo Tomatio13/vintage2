@@ -29,6 +29,7 @@
     "fmt": "oxfmt --write src tests scripts *.json *.md *.mjs *.ts",
     "fmt:check": "oxfmt --check src tests scripts *.json *.md *.mjs *.ts",
     "test": "vitest run",
+    "test:e2e:monitor": "pnpm build && node tests/e2e/monitor-smoke.mjs && node tests/e2e/monitor-agents-smoke.mjs && node tests/e2e/monitor-usage-smoke.mjs",
     "test:e2e": "pnpm build && node tests/e2e/electron-smoke.mjs",
     "verify:boundaries": "node scripts/check-boundaries.mjs",
     "verify": "pnpm verify:boundaries && pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm test && pnpm build"

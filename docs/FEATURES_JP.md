@@ -12,7 +12,7 @@ VINTAGEの画面は、大きく3つの作業エリアに分かれています。
 
 - **サイドバー**: ワークスペース、Spaceの一覧と、対応が必要なターミナルを示すAttention一覧
 - **中央**: Spaceのタブとターミナルペイン。Space内のターミナルは左右または上下に分割できます。
-- **右ペイン**: Files、Review、Notes、Board、Usage、Browserを切り替えて使えます。中央のターミナル配置はそのまま保たれます。
+- **右ペイン**: Files、Review、Notes、Board、Monitor、Browserを切り替えて使えます。中央のターミナル配置はそのまま保たれます。
 
 ![最新のVINTAGEでAttention通知とFilesペインを表示した画面](../assets/readme/vintage-background-attention.png)
 
@@ -73,8 +73,8 @@ SpaceタブとサイドバーのWorkspace/Tab行には、配下ペインの認�
 | NotesタブのON/OFF      | `Ctrl+Alt+M`   |
 | Boardペインを開く      | `Ctrl+Shift+K` |
 | BoardタブのON/OFF      | `Ctrl+Alt+K`   |
-| Usageペインを開く      | `Ctrl+Shift+U` |
-| UsageタブのON/OFF      | `Ctrl+Alt+U`   |
+| Monitorを開く          | `Ctrl+Shift+U` |
+| MonitorタブのON/OFF    | `Ctrl+Alt+U`   |
 | Browserペインを開く    | `Ctrl+Shift+B` |
 | BrowserタブのON/OFF    | `Ctrl+Alt+B`   |
 | ターミナル内検索       | `Ctrl+F`       |
@@ -86,7 +86,7 @@ _Open Board pane、Toggle Notes tab、Toggle Board tabもSettings → Shortcuts�
 
 ## 右ペイン
 
-右ペインにはFiles、Review、Notes、Board、Usage、Browserがあります。すべてのタブはSettings → Panelsで表示を切り替えられます。選択中のタブをOffにすると別の有効なタブへ移り、すべてOffなら案内を表示します。BrowserをOffにしても開いているタブは保持します。`Ctrl+Shift+S`で右ペイン全体の表示を切り替えます。各タブはコマンドパレットからも開け、ショートカットは **Settings → Shortcuts** で変更できます。
+右ペインにはFiles、Review、Notes、Board、Monitor、Browserがあります。すべてのタブはSettings → Panelsで表示を切り替えられます。選択中のタブをOffにすると別の有効なタブへ移り、すべてOffなら案内を表示します。BrowserをOffにしても開いているタブは保持します。`Ctrl+Shift+S`で右ペイン全体の表示を切り替えます。各タブはコマンドパレットからも開け、ショートカットは **Settings → Shortcuts** で変更できます。
 
 ターミナルと右ペインの境界をドラッグすると幅を調整できます。最大化時も含め、ターミナル用の領域を残しながらウィンドウ幅に応じて広げられます。指定した幅を保存し、ウィンドウを縮小すると表示幅を一時的に調整します。幅の変更中も実行中のターミナルセッションを保持します。
 
@@ -200,17 +200,32 @@ Browserのページはサンドボックスと分離を有効にして実行し�
 
 ファイルのダウンロード、拡張機能、ログイン情報の保存には対応していません。
 
+## Monitor
+
+**対応OSの制限：Monitorのサポート対象は現在Linuxのみです。Windowsは対象外です。macOSの実装はありますが、動作未確認です。**
+
+Monitorは常にPC全体のセッションを表示します。CPU／Memory、任意のAI Usage、セッション一覧、セッション詳細の順に並びます。Workspaceによる絞り込み、独立したUsageタブ、ホスト名、バックグラウンドサービスの欄はありません。Providerカードの幅と高さは揃えています。**Expand monitor**で拡大しても、ターミナルペインや選択中のセッションは維持します。
+
+- **対応Agent**: LinuxのClaude Code、Codex、Antigravity、OpenCode、ZCode、Grok。AntigravityはCLIと識別可能なlanguage-serverプロセスが対象で、Codex app-server／MCPは対象外です。
+- **ローカルの更新**: Monitorとアプリの画面が表示されている間、約2秒ごとに更新します。次のプロセス一覧に存在しないものは即座に除外します。ZCodeは最終更新から1時間以上経過しても非表示になり、活動が再開すると戻ります。
+- **セッション詳細**: 状態、現在のツール、モデル、コンテキスト量と容量、記録された入力・出力・キャッシュトークン、入力＋出力トークン数／秒、CPU・RAM、子プロセスを表示します。所有関係が分かる場合は、**Open terminal**でVINTAGE内の既存ターミナルへ移動できます。
+- **情報源**: Claude／Codexのローカルログ、OpenCode／ZCodeの読み取り専用セッションDB、Antigravityの会話情報と上限付きトランスクリプト、Grokの `~/.grok/sessions` にある要約メタデータと更新イベントを使用します。Grokのターン単位の合計トークン数は、現在のコンテキスト量として表示しません。
+- **紐付け**: 利用できる場合はプロセスが開いているファイルを優先します。Codexはログの起動元・プロセス開始時刻・作業ディレクトリ・直近の更新も照合し、一意な開始時刻の候補が最新スレッドでもある場合は待機中のターミナルを復元できます。ディレクトリによる紐付けは推定と表示し、候補が競合する場合は **Unknown** にします。紐付けできないバックグラウンド／リモートのサービスは非表示です。
+- **制限**: 読み取り不可・判定が曖昧な状態は **Unknown**、未取得の値は **—** です。Claudeのコンテキスト容量はモデルに基づく推定の場合があり、他の不明な容量は推測しません。複数コアを使うプロセスのCPUは100%を超える場合があり、トークンの増分はまとめて届く場合があります。プロンプト本文・コマンド本文・ツール結果の表示、要約用モデル呼び出し、プロセス終了操作は行いません。ローカル監視にabtopや外部収集ツールは不要で、macOSではOSの `lsof` を使います。
+
+以下のクォータ表示は、ローカルのセッション監視とは別に任意のCodexBar CLIを使用します。Monitorの表示は **Settings → Panels**、クォータの表示・更新設定は **Settings → Usage** で変更します。
+
 ### Usage制限（CodexBar）
 
-**Usage** タブには、AIプロバイダーごとのクォータをひと目で確認できるように表示します。使用期間（ウィンドウ）ごとの残率バー、リセット時刻（ローカル時間の `YYYY/MM/DD HH:MM` 形式）、プランとアカウント、クレジット、取得できる場合は直近のコストです。バーは普段は無色で、残率が40%・10%を下回ったときだけ警告色・危険色に変わります。リセット時刻にカーソルを合わせるとカウントダウンを確認できます。
+Monitor内の **AI Usage** には、AIプロバイダーごとのクォータをひと目で確認できるように表示します。使用期間（ウィンドウ）ごとの残率バー、リセット時刻（ローカル時間の `YYYY/MM/DD HH:MM` 形式）、プランとアカウント、クレジット、取得できる場合は直近のコストです。バーは普段は無色で、残率が40%・10%を下回ったときだけ警告色・危険色に変わります。リセット時刻にカーソルを合わせるとカウントダウンを確認できます。
 
-このタブは **Settings → Panels** で有効にするまで表示されません。[CodexBar CLI](https://github.com/steipete/codexbar) のインストールが必要です。
+このセクションは **Settings → Usage** で有効にするまで表示されません。[CodexBar CLI](https://github.com/steipete/codexbar) のインストールが必要です。
 
 1. CodexBar CLIをインストールし、プロバイダーの設定を済ませて、ターミナルで `codexbar` コマンドが実行できる状態にします。
-2. **Settings → Panels** でUsageタブを有効にします。CodexBarは **Settings → Usage** で設定します。**codexbar path** を空にすると `PATH` と一般的なインストール先から自動検出し、**Browse…** で明示指定もできます。検出できたパスとバージョンは入力欄の下に表示されます。
+2. **Settings → Usage** で **Show Usage in Monitor** を有効にし、CodexBarを設定します。**codexbar path** を空にすると `PATH` と一般的なインストール先から自動検出し、**Browse…** で明示指定もできます。検出できたパスとバージョンは入力欄の下に表示されます。
 3. 表示されるプロバイダーは `~/.config/codexbar/config.json` の有効フラグに従います。VINTAGEは `codexbar dashboard` の結果をそのまま表示します。Claude Codeを追加するには `codexbar config enable --provider claude` を実行します。
 
-タブが表示されている間、設定した間隔（60〜600秒、設定画面で10秒刻みで変更可能）ごとに `codexbar dashboard` を再実行します。手動更新ボタンも常時利用できます。取得に失敗したプロバイダーは、使用率の代わりにエラーを表示し、CodexBarがアイドルと印づけたウィンドウ（使用実績のないモデルファミリー）は非表示になります。クォータデータはローカルのCodexBarから取得し、VINTAGE自身がプロバイダーのAPIと通信することはありません。
+Monitorとアプリの画面が表示されている間、設定した間隔（60〜600秒、設定画面で10秒刻みで変更可能）ごとに `codexbar dashboard` を再実行します。手動更新ボタンも常時利用できます。取得に失敗したプロバイダーは、使用率の代わりにエラーを表示し、CodexBarがアイドルと印づけたウィンドウ（使用実績のないモデルファミリー）は非表示になります。クォータデータはローカルのCodexBarから取得し、VINTAGE自身がプロバイダーのAPIと通信することはありません。
 
 ## Attention監視
 
@@ -251,11 +266,11 @@ Jevへのリクエストには、秘密情報と思われる値をマスキン�
 
 ## 設定と保存データ
 
-PanelsではFiles・Review・Notes・Board・Usage・Browserを個別にON/OFFできます。Offのタブは開くショートカットとコマンドパレットからも開きません。タブのON/OFFはSettings → Shortcutsで再割り当てでき、Filesは`Ctrl+Alt+E`、Reviewは`Ctrl+Alt+G`、Usageは`Ctrl+Alt+U`、Browserは`Ctrl+Alt+B`が既定です。
+PanelsではFiles・Review・Notes・Board・Monitor・Browserを個別にON/OFFできます。Offのタブは開くショートカットとコマンドパレットからも開きません。タブのON/OFFはSettings → Shortcutsで再割り当てでき、Filesは`Ctrl+Alt+E`、Reviewは`Ctrl+Alt+G`、Monitorは`Ctrl+Alt+U`、Browserは`Ctrl+Alt+B`が既定です。
 
 設定の変更は自動保存されます。不正なURLは保存しません。JevのAPIキーは、専用のSave API keyまたはClear saved key操作で保存・削除します。
 
-設定では外観とUIサイズ、ターミナルのフォントとスクロールバック、シェル、Browser、Attention、ショートカット、Jev連携、Usageパネル（CodexBar）、アップデートを調整できます。テーマはSystem、Light、Dark、Graphiteの4種類です。
+設定では外観とUIサイズ、ターミナルのフォントとスクロールバック、シェル、Browser、Attention、ショートカット、Jev連携、Monitor内のUsage（CodexBar）、アップデートを調整できます。テーマはSystem、Light、Dark、Graphiteの4種類です。
 
 Linuxでは、AppImageの更新はVINTAGEから適用できます。`.deb` 版では、ダウンロードした更新のインストール時にシステムの認証(`pkexec`)を一度求め、承認するとその場で適用して再起動を促します。認証に失敗した場合や利用できない場合は、従来どおりダウンロードしたパッケージをシステムのパッケージインストーラーで開くので、そこでインストールを完了してからVINTAGEを再起動してください。インストーラーが見つからない場合は、Settingsに `sudo apt install` コマンドが表示されます。
 

@@ -69,8 +69,9 @@ export function createSharedProcessMonitor(): SharedProcessMonitor {
 export async function listProcessRows(): Promise<ProcessRow[] | null> {
   if (process.platform === "win32") return null;
   try {
-    const { stdout } = await execFileAsync("ps", ["-eo", "pid=,ppid=,comm=,args="], {
+    const { stdout } = await execFileAsync("ps", ["-ww", "-eo", "pid=,ppid=,comm=,args="], {
       timeout: 1_000,
+      maxBuffer: 4 * 1024 * 1024,
       windowsHide: true,
     });
     return parseProcessRows(stdout);

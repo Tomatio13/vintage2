@@ -60,6 +60,12 @@ interface OwnedTerminal {
 const sessions = new Map<string, OwnedTerminal>();
 const observedOwners = new Set<number>();
 
+export function monitorTerminalsForOwner(ownerId: number): { pid: number; paneId: string }[] {
+  return [...sessions.values()]
+    .filter((terminal) => terminal.ownerId === ownerId)
+    .map((terminal) => ({ pid: terminal.process.pid, paneId: terminal.paneId }));
+}
+
 export function registerTerminalIpc(
   resolveWorkspace: (id: unknown) => string,
   evaluationQueue: JevEvaluationQueue,

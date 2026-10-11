@@ -7,7 +7,9 @@ export default defineConfig([
     format: "esm",
     platform: "node",
     target: "node22",
-    external: ["electron", "node-pty"],
+    // SQLite is a prefix-only built-in: stripping node: would import a package named sqlite.
+    removeNodeProtocol: false,
+    external: ["electron", "node-pty", "node:sqlite"],
     sourcemap: true,
     clean: false,
   },

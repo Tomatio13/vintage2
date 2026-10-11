@@ -11,6 +11,7 @@ afterEach(() => {
     filesPanelEnabled: true,
     reviewPanelEnabled: true,
     browserPanelEnabled: true,
+    monitorPanelEnabled: true,
     usagePanelEnabled: false,
     codexbarPath: "",
     activeSidePaneTabId: "files",
@@ -286,7 +287,7 @@ describe("SidePane files", () => {
     expect(screen.queryByRole("button", { name: "Usage" })).not.toBeInTheDocument();
   });
 
-  it("shows the Usage tab and renders provider cards when enabled", async () => {
+  it("renders Usage inside Monitor without a separate Usage tab", async () => {
     window.desktop = {
       listWorkspaceFiles: vi.fn().mockResolvedValue([]),
       getCodexbarUsage: vi.fn().mockResolvedValue({
@@ -312,7 +313,8 @@ describe("SidePane files", () => {
     useUiStore.setState({ usagePanelEnabled: true });
     render(<SidePane workspaceId={null} onOpenFile={() => {}} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Usage" }));
+    expect(screen.queryByRole("button", { name: "Usage" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Monitor" }));
     expect(await screen.findByText("Codex")).toBeInTheDocument();
     expect(await screen.findByText("72% left")).toBeInTheDocument();
   });

@@ -238,3 +238,32 @@ describe("UsagePanel", () => {
     expect(getCodexbarUsage).not.toHaveBeenCalled();
   });
 });
+
+it("pauses embedded Usage refresh while the app document is hidden", async () => {
+  vi.useFakeTimers();
+  enableUsagePanel();
+  useUiStore.setState({ usageRefreshSeconds: 60 });
+  const getCodexbarUsage = vi.fn().mockResolvedValue({ ok: true, snapshot });
+  window.desktop = { getCodexbarUsage } as unknown as DesktopBridge;
+  const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+  try {
+    render(<UsagePanel active embedded />);
+    await act(async () => {});
+    expect(getCodexbarUsage).not.toHaveBeenCalled();
+    visibility.mockReturnValue("visible");
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(getCodexbarUsage).toHaveBeenCalledTimes(1);
+    visibility.mockReturnValue("hidden");
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(getCodexbarUsage).toHaveBeenCalledTimes(1);
+  } finally {
+    visibility.mockRestore();
+  }
+});

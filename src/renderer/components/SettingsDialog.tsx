@@ -96,8 +96,8 @@ const shortcutGroups: Array<[string, ShortcutAction[]]> = [
       "toggle-notes",
       "open-board",
       "toggle-board",
-      "open-usage",
-      "toggle-usage",
+      "open-monitor",
+      "toggle-monitor",
       "open-browser",
       "toggle-browser",
     ],
@@ -123,12 +123,12 @@ const shortcutLabels: Record<ShortcutAction, string> = {
   "toggle-notes": "Toggle Notes tab",
   "toggle-board": "Toggle Board tab",
   "toggle-browser": "Toggle Browser tab",
-  "toggle-usage": "Toggle Usage tab",
+  "toggle-monitor": "Toggle Monitor",
   "toggle-review": "Toggle Review tab",
   "toggle-files": "Toggle Files tab",
   "open-files": "Open Files pane",
   "open-review": "Open Review pane",
-  "open-usage": "Open Usage pane",
+  "open-monitor": "Open Monitor",
   "open-browser": "Open Browser pane",
   "close-pane": "Close pane",
 };
@@ -403,6 +403,7 @@ export function SettingsDialog() {
       browserPanelEnabled: store.browserPanelEnabled,
       notesPanelEnabled: store.notesPanelEnabled,
       boardPanelEnabled: store.boardPanelEnabled,
+      monitorPanelEnabled: store.monitorPanelEnabled,
       usagePanelEnabled: store.usagePanelEnabled,
       codexbarPath: store.codexbarPath,
       usageRefreshSeconds: store.usageRefreshSeconds,
@@ -422,6 +423,7 @@ export function SettingsDialog() {
       store.browserPanelEnabled,
       store.notesPanelEnabled,
       store.boardPanelEnabled,
+      store.monitorPanelEnabled,
       store.usagePanelEnabled,
       store.codexbarPath,
       store.usageRefreshSeconds,
@@ -802,13 +804,25 @@ export function SettingsDialog() {
           Display settings
         </h3>
         <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
-          Control how often AI provider quotas refresh. Enable the Usage tab in Panels.
+          Show AI provider quotas inside Monitor and control how often they refresh.
         </p>
         <div className="rounded-xl border border-border bg-panel">
           <div className="px-5 py-4">
             <Field
+              label="Show Usage in Monitor"
+              description="Add AI provider quotas to the Monitor dashboard."
+            >
+              <SettingsToggle
+                label="Show Usage in Monitor"
+                checked={draft.usagePanelEnabled}
+                onChange={(usagePanelEnabled) => change({ usagePanelEnabled })}
+              />
+            </Field>
+          </div>
+          <div className="border-t border-border px-5 py-4">
+            <Field
               label="Auto refresh interval"
-              description="Run CodexBar again at this interval while the Usage tab is visible."
+              description="Run CodexBar again at this interval while Monitor is visible."
             >
               <Stepper
                 surface="panel"
@@ -1665,7 +1679,11 @@ export function SettingsDialog() {
                     "boardPanelEnabled",
                     "Show the Kanban board. Turning it off keeps your saved cards.",
                   ],
-                  ["Usage", "usagePanelEnabled", "Show AI provider quotas from CodexBar."],
+                  [
+                    "Monitor",
+                    "monitorPanelEnabled",
+                    "Show local agent execution activity and optional AI Usage.",
+                  ],
                   [
                     "Browser",
                     "browserPanelEnabled",

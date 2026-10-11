@@ -2,7 +2,12 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { SettingsDialog } from "../src/renderer/components/SettingsDialog.js";
 import { SidePane } from "../src/renderer/components/SidePane.js";
-import { initialBrowserTabs, panelSettingKeys, useUiStore } from "../src/renderer/store/uiStore.js";
+import {
+  defaultShortcuts,
+  initialBrowserTabs,
+  panelSettingKeys,
+  useUiStore,
+} from "../src/renderer/store/uiStore.js";
 
 function reset() {
   useUiStore.setState({
@@ -11,8 +16,10 @@ function reset() {
     browserPanelEnabled: true,
     notesPanelEnabled: true,
     boardPanelEnabled: true,
+    monitorPanelEnabled: true,
     usagePanelEnabled: false,
     settingsOpen: false,
+    shortcuts: defaultShortcuts.map((binding) => ({ ...binding })),
     activeSidePaneTabId: "files",
     browserTabs: [...initialBrowserTabs],
     browserWorkspaceId: null,
@@ -28,13 +35,11 @@ it("autosaves all six panel switches and adds four toggle shortcuts", () => {
   useUiStore.setState({ settingsOpen: true });
   render(<SettingsDialog />);
   fireEvent.click(screen.getByRole("button", { name: "Panels" }));
-  for (const panel of ["Files", "Review", "Usage", "Browser"] as const) {
+  for (const panel of ["Files", "Review", "Monitor", "Browser"] as const) {
     fireEvent.click(screen.getByRole("switch", { name: `Show ${panel} tab` }));
     const key = panelSettingKeys[panel.toLowerCase() as keyof typeof panelSettingKeys];
-    expect(useUiStore.getState()[key]).toBe(panel === "Usage");
-    expect(JSON.parse(localStorage.getItem("ai-workspace-starter-ui")!).state[key]).toBe(
-      panel === "Usage",
-    );
+    expect(useUiStore.getState()[key]).toBe(false);
+    expect(JSON.parse(localStorage.getItem("ai-workspace-starter-ui")!).state[key]).toBe(false);
   }
   fireEvent.click(screen.getByRole("button", { name: "Shortcuts" }));
   const rows = within(screen.getByRole("region", { name: "Side pane shortcuts" }))
@@ -50,13 +55,13 @@ it("autosaves all six panel switches and adds four toggle shortcuts", () => {
     "Toggle Notes tab",
     "Open Board pane",
     "Toggle Board tab",
-    "Open Usage pane",
-    "Toggle Usage tab",
+    "Open Monitor",
+    "Toggle Monitor",
     "Open Browser pane",
     "Toggle Browser tab",
   ]);
 
-  for (const panel of ["Files", "Review", "Usage", "Browser"])
+  for (const panel of ["Files", "Review", "Browser"])
     expect(
       screen.getByRole("button", { name: `Set Toggle ${panel} tab shortcut` }),
     ).toBeInTheDocument();
@@ -103,4 +108,41 @@ it("shows an empty state when every panel is disabled and recovers on enabling o
   act(() => store.setPanelEnabled("review", true));
   expect(useUiStore.getState().activeSidePaneTabId).toBe("review");
   expect(screen.getByRole("button", { name: "Review" })).toBeInTheDocument();
+});
+
+it("autosaves Usage visibility inside Monitor from Usage settings", () => {
+  useUiStore.setState({ settingsOpen: true });
+  render(<SettingsDialog />);
+  fireEvent.click(screen.getByRole("button", { name: "Usage" }));
+  fireEvent.click(screen.getByRole("switch", { name: "Show Usage in Monitor" }));
+  expect(useUiStore.getState().usagePanelEnabled).toBe(true);
+  expect(JSON.parse(localStorage.getItem("ai-workspace-starter-ui")!).state.usagePanelEnabled).toBe(
+    true,
+  );
+});
+
+it("migrates saved Usage shortcut bindings to Monitor without losing custom keys", async () => {
+  localStorage.setItem(
+    "ai-workspace-starter-ui",
+    JSON.stringify({
+      state: {
+        shortcuts: [
+          { action: "open-usage", key: "q", ctrl: true, alt: false, shift: true },
+          { action: "toggle-usage", key: "q", ctrl: true, alt: true, shift: false },
+        ],
+      },
+      version: 0,
+    }),
+  );
+  await useUiStore.persist.rehydrate();
+  const bindings = useUiStore.getState().shortcuts;
+  expect(bindings.find((binding) => binding.action === "open-monitor")).toMatchObject({
+    key: "q",
+    shift: true,
+  });
+  expect(bindings.find((binding) => binding.action === "toggle-monitor")).toMatchObject({
+    key: "q",
+    alt: true,
+  });
+  expect(bindings.some((binding) => String(binding.action).endsWith("-usage"))).toBe(false);
 });

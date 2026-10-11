@@ -144,7 +144,7 @@ describe("uiStore browser tabs", () => {
     useUiStore.setState({ usagePanelEnabled: true });
     useUiStore.getState().showSidePaneTab("usage");
     state = useUiStore.getState();
-    expect(state.activeSidePaneTabId).toBe("usage");
+    expect(state.activeSidePaneTabId).toBe("monitor");
     expect(state.sidePaneOpen).toBe(true);
   });
 

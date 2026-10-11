@@ -22,6 +22,7 @@ export const DesktopChannels = {
   jevSettingsClear: "jev:settings-clear",
   attentionSettingsGet: "attention:settings-get",
   attentionSettingsSet: "attention:settings-set",
+  monitorSnapshotGet: "monitor:snapshot-get",
   codexbarUsageGet: "codexbar:usage-get",
   codexbarStatusGet: "codexbar:status-get",
   codexbarPathChoose: "codexbar:path-choose",
@@ -446,6 +447,7 @@ export interface DesktopBridge {
   clearJevApiKey(): Promise<JevSettingsStatus>;
   getAttentionSettings(): Promise<AttentionSettings>;
   setAttentionSettings(settings: AttentionSettings): Promise<AttentionSettings>;
+  getMonitorSnapshot(): Promise<import("./monitor.js").MonitorSnapshot>;
   getCodexbarUsage(path: string): Promise<CodexbarUsageResult>;
   getCodexbarStatus(path: string): Promise<CodexbarStatusResult>;
   chooseCodexbarPath(): Promise<string | null>;

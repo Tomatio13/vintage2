@@ -43,7 +43,7 @@ import { JevCredentialStore, JevSettingsManager } from "./jevSettings.js";
 import { JevEvaluationQueue } from "./jevEvaluationQueue.js";
 import { UpdateManager } from "./updateManager.js";
 import { restartApp } from "./restartApp.js";
-import { registerTerminalIpc } from "./terminalManager.js";
+import { monitorTerminalsForOwner, registerTerminalIpc } from "./terminalManager.js";
 import { createRendererNavigationGuard } from "./windowNavigation.js";
 import {
   getWorkspaceGitReview,
@@ -54,6 +54,10 @@ import { restoreSavedProjects } from "./workspaceRestore.js";
 import { parseWorkspaceState, WorkspaceStateManager } from "./workspaceState.js";
 import { configureBrowserSession, configureWebviewSecurity } from "./webviewSecurity.js";
 
+import { MonitorCollector, paneForMonitorPid } from "./monitorCollector.js";
+import { listProcessRows } from "./processMonitor.js";
+
+const monitorCollector = new MonitorCollector();
 const currentDir = dirname(fileURLToPath(import.meta.url));
 let _mainWindow: BrowserWindow | null = null;
 const workspaces = new Map<string, RegisteredWorkspace>();
@@ -469,6 +473,22 @@ function registerDesktopIpc(
   ipcMain.handle(DesktopChannels.attentionSettingsSet, (event, raw: unknown) => {
     resolveSenderWindow(event);
     return attentionSettings.setSettings(raw);
+  });
+  ipcMain.handle(DesktopChannels.monitorSnapshotGet, async (event) => {
+    resolveSenderWindow(event);
+    const snapshot = await monitorCollector.collect();
+    const terminals = monitorTerminalsForOwner(event.sender.id);
+    const rows = terminals.length ? await listProcessRows() : null;
+    return {
+      ...snapshot,
+      sessions: snapshot.sessions.map((session) => ({
+        ...session,
+        paneId:
+          session.status !== "Done" && rows
+            ? paneForMonitorPid(session.pid, rows, terminals)
+            : null,
+      })),
+    };
   });
   ipcMain.handle(DesktopChannels.codexbarUsageGet, (event, rawPath: unknown) => {
     resolveSenderWindow(event);

@@ -378,6 +378,7 @@ function PaneView({
   const active = pane.id === tab.activePaneId;
   return (
     <div
+      data-pane-id={pane.id}
       data-pane-kind={pane.kind}
       className={`relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border bg-background ${active ? "border-pane-active-border" : "border-border"}`}
       onMouseDown={() => onActivatePane(pane.id)}
@@ -970,8 +971,8 @@ export function App() {
         return ui.togglePanel("files");
       case "toggle-review":
         return ui.togglePanel("review");
-      case "toggle-usage":
-        return ui.togglePanel("usage");
+      case "toggle-monitor":
+        return ui.togglePanel("monitor");
       case "toggle-browser":
         return ui.togglePanel("browser");
       case "toggle-board":
@@ -980,8 +981,8 @@ export function App() {
         return ui.showSidePaneTab("files");
       case "open-review":
         return ui.showSidePaneTab("review");
-      case "open-usage":
-        return ui.showSidePaneTab("usage");
+      case "open-monitor":
+        return ui.showSidePaneTab("monitor");
       case "open-browser":
         return ui.openBrowserPane();
       case "close-pane": {
@@ -1192,11 +1193,11 @@ export function App() {
   const toggleBoardShortcut = shortcutText(ui.shortcuts, "toggle-board");
   const toggleFilesShortcut = shortcutText(ui.shortcuts, "toggle-files");
   const toggleReviewShortcut = shortcutText(ui.shortcuts, "toggle-review");
-  const toggleUsageShortcut = shortcutText(ui.shortcuts, "toggle-usage");
+  const toggleMonitorShortcut = shortcutText(ui.shortcuts, "toggle-monitor");
   const toggleBrowserShortcut = shortcutText(ui.shortcuts, "toggle-browser");
   const openFilesShortcut = shortcutText(ui.shortcuts, "open-files");
   const openReviewShortcut = shortcutText(ui.shortcuts, "open-review");
-  const openUsageShortcut = shortcutText(ui.shortcuts, "open-usage");
+  const openMonitorShortcut = shortcutText(ui.shortcuts, "open-monitor");
   const openBrowserShortcut = shortcutText(ui.shortcuts, "open-browser");
   const findTerminalShortcut = shortcutText(ui.shortcuts, "find-in-terminal");
   const closePaneShortcut = shortcutText(ui.shortcuts, "close-pane");
@@ -1439,15 +1440,15 @@ export function App() {
           onSelect: () => ui.showSidePaneTab("review"),
         },
         {
-          id: "action:open-usage",
+          id: "action:open-monitor",
           kind: "action",
           section: "actions",
-          title: "Open Usage pane",
-          keywords: ["show", "usage", "quota", "limits", "codexbar", "side", "panel"],
-          icon: "usage",
-          ...(openUsageShortcut ? { shortcut: openUsageShortcut } : {}),
-          disabled: !ui.usagePanelEnabled,
-          onSelect: () => ui.showSidePaneTab("usage"),
+          title: "Open Monitor",
+          keywords: ["agents", "activity", "execution", "monitor", "usage", "quota"],
+          icon: "terminal",
+          ...(openMonitorShortcut ? { shortcut: openMonitorShortcut } : {}),
+          disabled: !ui.monitorPanelEnabled,
+          onSelect: () => ui.showSidePaneTab("monitor"),
         },
         {
           id: "action:open-browser",
@@ -1474,14 +1475,14 @@ export function App() {
           },
         },
         {
-          id: "action:toggle-usage",
+          id: "action:toggle-monitor",
           kind: "action",
           section: "actions",
-          title: "Toggle Usage tab",
+          title: "Toggle Monitor",
           keywords: ["show", "hide", "usage", "quota", "limits", "codexbar"],
           icon: "usage",
-          ...(toggleUsageShortcut ? { shortcut: toggleUsageShortcut } : {}),
-          onSelect: () => ui.togglePanel("usage"),
+          ...(toggleMonitorShortcut ? { shortcut: toggleMonitorShortcut } : {}),
+          onSelect: () => ui.togglePanel("monitor"),
         },
         {
           id: "action:close-pane",
@@ -1755,6 +1756,23 @@ export function App() {
                 workspaceId={active?.available ? active.id : null}
                 workspaceName={active?.name ?? null}
                 onOpenFile={openFile}
+                onOpenTerminal={(paneId) => {
+                  for (const workspace of workspaces) {
+                    const tab = workspace.tabs.find((item) =>
+                      item.panes.some((pane) => pane.id === paneId),
+                    );
+                    if (!tab) continue;
+                    selectLocation(workspace.id, tab.id, paneId);
+                    requestAnimationFrame(() =>
+                      document
+                        .querySelector<HTMLTextAreaElement>(
+                          `[data-pane-id="${CSS.escape(paneId)}"] .xterm-helper-textarea`,
+                        )
+                        ?.focus(),
+                    );
+                    break;
+                  }
+                }}
               />
             </div>
           </>

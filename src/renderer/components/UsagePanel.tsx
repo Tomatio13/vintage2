@@ -53,7 +53,13 @@ function formatUsd(value: number): string {
   return usdFormatter.format(value);
 }
 
-function WindowRow({ window: rateWindow }: { window: CodexbarWindow }) {
+function WindowRow({
+  window: rateWindow,
+  compact = false,
+}: {
+  window: CodexbarWindow;
+  compact?: boolean;
+}) {
   const remaining =
     typeof rateWindow.remainingPercent === "number"
       ? clampPercent(rateWindow.remainingPercent)
@@ -66,10 +72,17 @@ function WindowRow({ window: rateWindow }: { window: CodexbarWindow }) {
   return (
     <div className="space-y-1">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-ui-base text-foreground-subtle">
+        <span
+          className={`truncate ${compact ? "text-ui-xs" : "text-ui-base"} text-foreground-subtle`}
+        >
           {rateWindow.label ?? rateWindow.kind}
         </span>
-        {resetText && (
+        {compact && (
+          <span className="shrink-0 font-mono text-ui-xs text-foreground-subtle">
+            {remaining !== null ? `${Math.round(remaining)}% left` : "—"}
+          </span>
+        )}
+        {!compact && resetText && (
           <span
             className="shrink-0 text-ui-sm text-foreground-subtlest"
             title={resetTime ? countdown : undefined}
@@ -86,8 +99,15 @@ function WindowRow({ window: rateWindow }: { window: CodexbarWindow }) {
           />
         )}
       </div>
-      <p className="text-ui-sm text-foreground-subtlest">
-        {remaining !== null ? `${Math.round(remaining)}% left` : "Usage unavailable"}
+      <p
+        className={`${compact ? "text-ui-xs" : "text-ui-sm"} text-foreground-subtlest`}
+        title={compact && resetTime ? countdown : undefined}
+      >
+        {compact
+          ? (resetText ?? (remaining === null ? "Usage unavailable" : null))
+          : remaining !== null
+            ? `${Math.round(remaining)}% left`
+            : "Usage unavailable"}
       </p>
     </div>
   );
@@ -101,7 +121,13 @@ function IdentityRow({ provider }: { provider: CodexbarProviderRow }) {
   return <p className="mt-1 truncate text-ui-xs text-foreground-subtlest">{meta.join(" · ")}</p>;
 }
 
-function AccountSection({ account }: { account: CodexbarAccount }) {
+function AccountSection({
+  account,
+  compact = false,
+}: {
+  account: CodexbarAccount;
+  compact?: boolean;
+}) {
   const windows = (account.windows ?? []).filter((window) => !window.idle);
   const error = describeError(account.error);
   return (
@@ -118,13 +144,23 @@ function AccountSection({ account }: { account: CodexbarAccount }) {
       </div>
       {error && <p className="text-ui-xs text-destructive">{error}</p>}
       {windows.map((window, index) => (
-        <WindowRow key={`${account.id}:${window.kind}:${index}`} window={window} />
+        <WindowRow
+          key={`${account.id}:${window.kind}:${index}`}
+          window={window}
+          compact={compact}
+        />
       ))}
     </div>
   );
 }
 
-function ProviderCard({ provider }: { provider: CodexbarProviderRow }) {
+function ProviderCard({
+  provider,
+  compact = false,
+}: {
+  provider: CodexbarProviderRow;
+  compact?: boolean;
+}) {
   const error = describeError(provider.error);
   const accounts = provider.accounts ?? [];
   const showAccounts = accounts.length > 0;
@@ -137,10 +173,12 @@ function ProviderCard({ provider }: { provider: CodexbarProviderRow }) {
   const statusLevel = provider.status?.level;
   return (
     <section className="overflow-hidden rounded-xl border border-card-border bg-card">
-      <div className="min-w-0 space-y-3 p-3">
+      <div className={compact ? "min-w-0 space-y-2 p-2" : "min-w-0 space-y-3 p-3"}>
         <div>
           <div className="flex items-center gap-2">
-            <span className="truncate text-ui-base font-semibold">{provider.name}</span>
+            <span className={`truncate ${compact ? "text-ui-sm" : "text-ui-base"} font-semibold`}>
+              {provider.name}
+            </span>
             {statusLevel && (
               <span
                 aria-label={provider.status?.label ?? `Status ${statusLevel}`}
@@ -160,12 +198,16 @@ function ProviderCard({ provider }: { provider: CodexbarProviderRow }) {
           <p className="text-ui-xs text-foreground-subtlest">No usage windows reported.</p>
         )}
         {windows.map((window, index) => (
-          <WindowRow key={`${provider.id}:${window.kind}:${index}`} window={window} />
+          <WindowRow
+            key={`${provider.id}:${window.kind}:${index}`}
+            window={window}
+            compact={compact}
+          />
         ))}
         {showAccounts && (
           <div className="space-y-3 border-t border-border pt-2">
             {accounts.map((account) => (
-              <AccountSection key={account.id} account={account} />
+              <AccountSection key={account.id} account={account} compact={compact} />
             ))}
           </div>
         )}
@@ -187,17 +229,24 @@ function ProviderCard({ provider }: { provider: CodexbarProviderRow }) {
   );
 }
 
-export function UsagePanel({ active }: { active: boolean }) {
+export function UsagePanel({ active, embedded = false }: { active: boolean; embedded?: boolean }) {
   const usagePanelEnabled = useUiStore((state) => state.usagePanelEnabled);
   const codexbarPath = useUiStore((state) => state.codexbarPath);
   const usageRefreshSeconds = useUiStore((state) => state.usageRefreshSeconds);
   const setSettingsOpen = useUiStore((state) => state.setSettingsOpen);
+  const [documentVisible, setDocumentVisible] = useState(document.visibilityState !== "hidden");
+  useEffect(() => {
+    const update = () => setDocumentVisible(document.visibilityState !== "hidden");
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, []);
+  const visible = active && documentVisible;
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CodexbarUsageResult | null>(null);
 
   useEffect(() => {
-    if (!active || !usagePanelEnabled) return;
+    if (!visible || !usagePanelEnabled) return;
     let cancelled = false;
     setLoading(true);
     const getCodexbarUsage = window.desktop?.getCodexbarUsage;
@@ -229,20 +278,20 @@ export function UsagePanel({ active }: { active: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [active, usagePanelEnabled, codexbarPath, refreshVersion]);
+  }, [visible, usagePanelEnabled, codexbarPath, refreshVersion]);
 
   useEffect(() => {
-    if (!active || !usagePanelEnabled || loading || usageRefreshSeconds <= 0) return;
+    if (!visible || !usagePanelEnabled || loading || usageRefreshSeconds <= 0) return;
     const timer = window.setTimeout(
       () => setRefreshVersion((version) => version + 1),
       usageRefreshSeconds * 1000,
     );
     return () => window.clearTimeout(timer);
-  }, [active, usagePanelEnabled, usageRefreshSeconds, loading, refreshVersion]);
+  }, [visible, usagePanelEnabled, usageRefreshSeconds, loading, refreshVersion]);
 
   if (!result) {
     return (
-      <div className="flex h-full items-center justify-center p-4">
+      <div className={`flex ${embedded ? "" : "h-full"} items-center justify-center p-4`}>
         <p className="text-ui-sm text-foreground-subtle">Loading usage…</p>
       </div>
     );
@@ -251,7 +300,9 @@ export function UsagePanel({ active }: { active: boolean }) {
   if (!result.ok) {
     const openSettings = result.errorKind === "not-configured";
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+      <div
+        className={`flex ${embedded ? "" : "h-full"} flex-col items-center justify-center gap-3 p-6 text-center`}
+      >
         <p className="text-ui-sm text-foreground-subtle">{result.message}</p>
         {result.resolvedPath && (
           <p className="truncate font-mono text-ui-xs text-foreground-subtlest">
@@ -286,10 +337,16 @@ export function UsagePanel({ active }: { active: boolean }) {
   const generated = formatRelative(snapshot.generatedAt);
   const version = snapshot.host?.codexBarVersion;
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
-        <div className="min-w-0">
-          <p className="text-ui-sm font-medium">AI Usage</p>
+    <div className={`flex ${embedded ? "" : "h-full"} flex-col`}>
+      <div
+        className={`flex ${embedded ? "h-8 px-2" : "h-11 px-3"} shrink-0 items-center justify-between gap-2 border-b border-border`}
+      >
+        <div className={`min-w-0 ${embedded ? "flex items-baseline gap-2" : ""}`}>
+          <p
+            className={`shrink-0 ${embedded ? "text-ui-xs uppercase tracking-wider" : "text-ui-sm"} font-medium`}
+          >
+            AI Usage
+          </p>
           <p className="truncate text-ui-xs text-foreground-subtlest">
             {version ? `codexbar ${version} · ` : ""}
             {generated ? `Updated ${generated}` : ""}
@@ -308,13 +365,21 @@ export function UsagePanel({ active }: { active: boolean }) {
           <RefreshCw aria-hidden="true" className={`size-4${loading ? " animate-spin" : ""}`} />
         </Button>
       </div>
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+      <div
+        className={
+          embedded
+            ? "grid auto-rows-fr items-stretch gap-2 p-2 @xl:grid-cols-2 @3xl:grid-cols-3"
+            : "min-h-0 flex-1 space-y-2 overflow-y-auto p-2"
+        }
+      >
         {providers.length === 0 ? (
           <p className="p-2 text-ui-sm text-foreground-subtle">
             No providers are enabled in the codexbar config.
           </p>
         ) : (
-          providers.map((provider) => <ProviderCard key={provider.id} provider={provider} />)
+          providers.map((provider) => (
+            <ProviderCard key={provider.id} provider={provider} compact={embedded} />
+          ))
         )}
       </div>
     </div>

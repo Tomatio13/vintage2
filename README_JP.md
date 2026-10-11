@@ -16,7 +16,8 @@ VINTAGEは、プロジェクト、Space、ターミナルをまとめて管理�
 - **エージェント状態の表示**: Spaceタブとサイドバーの色付きドットで、作業中・待機中・失敗などの状態を確認できます。
 - **FilesとGit Review**: ファイルの閲覧・コピー・リネーム、シンタックスハイライト・行番号・行移動に対応したMarkdown編集、ドキュメントの拡大・縮小、テキストの検索・置換、未ステージのGit差分確認に対応しています。
 - **NotesとBoard**: WorkspaceごとのメモとKanbanボードで、作業内容やタスクを管理できます。
-- **AI使用制限の表示**: CodexやClaude CodeなどのAI CLIの残りクォータ、リセット時刻、クレジットを右ペインで確認できます。任意の [CodexBar CLI](https://github.com/steipete/codexbar) が必要です。
+- **Agent Monitor**: Monitorタブで、Claude Code / Codex / Antigravity / OpenCode / ZCode / Grokの実行状態、現在のツール、コンテキスト使用率を確認できます。abtopや外部収集ツールのインストールは不要です。
+- **AI使用制限の表示**: CodexやClaude CodeなどのAI CLIの残りクォータ、リセット時刻、クレジットをMonitor内で確認できます。任意の [CodexBar CLI](https://github.com/steipete/codexbar) が必要です。
 - **複数のシェルに対応**: zsh、bash、fish、またはOSの既定シェルを選べます。Windows ではコマンドプロンプト、Windows PowerShell、PowerShell 7、Git Bash に対応しています。
 - **テキストの自動コピー**: ターミナル出力をマウスで選択するとクリップボードへコピーします。
 - **高速なターミナル描画**: 出力はWebGLで描画され(利用できない環境では自動フォールバック)、出力中のURLをクリックしてブラウザーで開け、Sixel/iTerm2のインライン画像表示にも対応しています。
@@ -62,11 +63,17 @@ pnpm start
 
 ローカルルールだけでは判別しづらいターミナル出力を、[Jev](https://docs.typesafe.ai/sdk/javascript) で分類できます。連携は **Settings → Integrations** から設定します。判定される状態、プライバシー、APIキーの設定方法は[機能と画面のガイド](docs/FEATURES_JP.md)をご覧ください。
 
-## CodexBarによるUsageパネル（任意）
+## MonitorとAI Usage
 
-AI CLIのクォータやリセット時刻をUsageタブに表示できます。任意の [CodexBar CLI](https://github.com/steipete/codexbar) が必要です。導入と設定は[Usage制限のガイド](docs/FEATURES_JP.md#usage制限codexbar)をご覧ください。
+**対応OSの制限：Monitorのサポート対象は現在Linuxのみです。Windowsは対象外です。macOSの実装はありますが、動作未確認です。**
 
-**Settings → Panels**でFiles・Review・Notes・Board・Usage・Browserを個別にON/OFFできます。変更は自動保存され、タブ表示の切り替えにはショートカットも設定できます。
+**Monitor**タブでは、PC全体のCPU・コア別負荷、メモリ、実行中のClaude Code / Codex / Antigravity / OpenCode / ZCode / Grokセッションを確認できます。セッションを選ぶと、現在のツール、モデル、コンテキスト、子プロセスを含むCPU・RAMを表示します。**Open terminal**でVINTAGE内の既存ターミナルへ戻り、**Expand monitor**でウィンドウ全体に拡大できます。Monitorは初期状態で有効で、**Settings → Panels**から非表示にできます。
+
+ローカルの実行状況は、Monitorとアプリの画面が表示されている間、約2秒ごとに更新します。終了したプロセスは次の更新で除外します。ZCodeはワーカープロセスが残っていても、最終更新から1時間以上経過すると非表示になります。紐付けできないバックグラウンド／リモートのサービスも非表示です。状態とセッションの紐付けはローカルのプロセス・ログ情報による推定で、曖昧・読み取り不可の場合は **Unknown**、未取得の値は **—** になります。ローカル監視にabtopや外部収集ツールのインストールは不要です。
+
+任意の **AI Usage** はCPU／Memoryの直下に表示され、サイズを揃えたコンパクトなProviderカードでクォータ、リセット時刻、クレジット、コストを確認できます。**Settings → Usage → Show Usage in Monitor**で有効にし、[CodexBar CLI](https://github.com/steipete/codexbar)を設定します。既存のUsage設定は引き継がれ、独立したUsageタブはありません。UsageはMonitorの表示中、専用の更新間隔で取得します。情報源と制限は[機能ガイド](docs/FEATURES_JP.md#monitor)、CodexBarの導入方法は[Usage制限のガイド](docs/FEATURES_JP.md#usage制限codexbar)をご覧ください。
+
+**Settings → Panels**でFiles・Review・Notes・Board・Monitor・Browserを個別にON/OFFできます。変更は自動保存され、タブ表示の切り替えにはショートカットも設定できます。
 
 ## ドキュメント
 

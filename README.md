@@ -16,7 +16,8 @@ VINTAGE keeps projects, Spaces, and terminals together, then brings you back whe
 - **Agent status at a glance**: Color-coded dots in Space tabs and the sidebar surface agent activity, waits, and failures.
 - **Files and Git Review**: Browse, copy, and rename files, edit Markdown with syntax highlighting, line numbers and line navigation, zoom documents, search and replace text, and inspect unstaged Git changes.
 - **Notes and Board**: Keep workspace notes and organize tasks on a Kanban board.
-- **AI usage limits**: See remaining quota, reset times, and credits for AI CLIs such as Codex and Claude Code in the right pane. Requires the optional [CodexBar CLI](https://github.com/steipete/codexbar).
+- **Agent Monitor**: Built-in local Claude Code / Codex / Antigravity / OpenCode / ZCode / Grok session activity, current tools, context usage in the Monitor tab. No abtop installation or external collector is required.
+- **AI usage limits**: See remaining quota, reset times, and credits for AI CLIs such as Codex and Claude Code inside Monitor. Requires the optional [CodexBar CLI](https://github.com/steipete/codexbar).
 - **Flexible shells**: Choose zsh, bash, fish, or the operating system’s default shell. On Windows, Command Prompt, Windows PowerShell, PowerShell 7, and Git Bash are supported.
 - **Automatic text copy**: Select terminal output with the mouse to copy it to the clipboard.
 - **Fast terminal rendering**: Output draws through WebGL with automatic fallback, links in terminal output open in the browser, and Sixel/iTerm2 inline images are supported.
@@ -62,11 +63,17 @@ pnpm start
 
 VINTAGE can optionally use [Jev](https://docs.typesafe.ai/sdk/javascript) to classify terminal output when local rules are not enough. The integration is configured in **Settings → Integrations**. See the [features and screen guide](docs/FEATURES.md#jev-semantic-analysis) for supported states, privacy details, and API key setup.
 
-## Optional CodexBar usage panel
+## Monitor and AI Usage
 
-Show AI CLI quotas and reset times in the Usage tab with the optional [CodexBar CLI](https://github.com/steipete/codexbar). See the [usage limits guide](docs/FEATURES.md#usage-limits-codexbar) for installation and configuration.
+**Platform limitation: Monitor is currently supported on Linux only. Windows is not supported. A macOS implementation exists but has not been verified.**
 
-Show or hide Files, Review, Notes, Board, Usage, and Browser in **Settings → Panels**. Changes save automatically; tab visibility also has configurable shortcuts.
+The **Monitor** tab shows activity across the PC: CPU and per-core load, memory, and running Claude Code / Codex / Antigravity / OpenCode / ZCode / Grok sessions. Select a session to inspect its current tool, model, context and process-tree CPU/RAM; **Open terminal** returns to an existing VINTAGE terminal. **Expand monitor** opens a window-wide view. Monitor is enabled by default and can be hidden in **Settings → Panels**.
+
+Local activity refreshes approximately every two seconds while Monitor and the app document are visible. Exited processes disappear on the next refresh. ZCode sessions with no recorded activity for one hour are also hidden even if their worker remains running. Unmatched background/remote services are hidden. Session associations and activity are inferred from local process and log information; ambiguous or unreadable data appears as **Unknown**, and unavailable values show **—**. Local monitoring requires no abtop installation or external collector.
+
+Optional **AI Usage** appears directly below CPU/Memory, with compact, equally sized provider cards for quota, reset times, credits and costs. Enable **Settings → Usage → Show Usage in Monitor** and configure the [CodexBar CLI](https://github.com/steipete/codexbar). Existing Usage settings are retained; there is no separate Usage tab. Usage refreshes at its own configured interval while Monitor is visible. See the [features guide](docs/FEATURES.md#monitor) for data sources and limits, and the [usage limits guide](docs/FEATURES.md#usage-limits-codexbar) for CodexBar setup.
+
+Show or hide Files, Review, Notes, Board, Monitor, and Browser in **Settings → Panels**. Changes save automatically; tab visibility also has configurable shortcuts.
 
 ## Documentation
 

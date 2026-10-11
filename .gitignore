@@ -9,3 +9,4 @@ coverage/
 *.rej
 
 .zcode/
+/.monitor-fix-build/

@@ -62,12 +62,12 @@ export const shortcutActions = [
   "toggle-notes",
   "toggle-board",
   "toggle-browser",
-  "toggle-usage",
+  "toggle-monitor",
   "toggle-review",
   "toggle-files",
   "open-files",
   "open-review",
-  "open-usage",
+  "open-monitor",
   "open-browser",
   "close-pane",
 ] as const;
@@ -98,12 +98,12 @@ export const defaultShortcuts: ShortcutBinding[] = [
   { action: "toggle-notes", key: "m", ctrl: true, alt: true, shift: false },
   { action: "toggle-board", key: "k", ctrl: true, alt: true, shift: false },
   { action: "toggle-browser", key: "b", ctrl: true, alt: true, shift: false },
-  { action: "toggle-usage", key: "u", ctrl: true, alt: true, shift: false },
+  { action: "toggle-monitor", key: "u", ctrl: true, alt: true, shift: false },
   { action: "toggle-review", key: "g", ctrl: true, alt: true, shift: false },
   { action: "toggle-files", key: "e", ctrl: true, alt: true, shift: false },
   { action: "open-files", key: "e", ctrl: true, alt: false, shift: true },
   { action: "open-review", key: "g", ctrl: true, alt: false, shift: true },
-  { action: "open-usage", key: "u", ctrl: true, alt: false, shift: true },
+  { action: "open-monitor", key: "u", ctrl: true, alt: false, shift: true },
   { action: "open-browser", key: "b", ctrl: true, alt: false, shift: true },
   { action: "close-pane", key: "w", ctrl: true, alt: false, shift: true },
 ];
@@ -122,6 +122,7 @@ export interface VintageSettings {
   browserPanelEnabled: boolean;
   notesPanelEnabled: boolean;
   boardPanelEnabled: boolean;
+  monitorPanelEnabled: boolean;
   usagePanelEnabled: boolean;
   codexbarPath: string;
   usageRefreshSeconds: number;
@@ -184,25 +185,29 @@ export const panelSettingKeys = {
   review: "reviewPanelEnabled",
   notes: "notesPanelEnabled",
   board: "boardPanelEnabled",
+  monitor: "monitorPanelEnabled",
   usage: "usagePanelEnabled",
   browser: "browserPanelEnabled",
 } as const;
 export type PanelName = keyof typeof panelSettingKeys;
 
 export function isSidePaneTabEnabled(state: VintageSettings, tabId: string): boolean {
+  if (tabId === "usage") return state.monitorPanelEnabled && state.usagePanelEnabled;
   if (tabId.startsWith("browser-")) return state.browserPanelEnabled;
   const key = panelSettingKeys[tabId as PanelName];
   return key !== undefined && state[key];
 }
 
 export function firstEnabledSidePaneTab(state: UiState): string {
-  for (const name of ["files", "review", "notes", "board", "usage"] as const) {
+  for (const name of ["files", "review", "notes", "board", "monitor"] as const) {
     if (state[panelSettingKeys[name]]) return name;
   }
   return state.browserPanelEnabled ? (visibleBrowserTabs(state)[0]?.id ?? "") : "";
 }
 
 function reconcilePanelSelection(state: UiState): Partial<UiState> {
+  if (state.activeSidePaneTabId === "usage" && state.monitorPanelEnabled)
+    return { activeSidePaneTabId: "monitor" };
   if (isSidePaneTabEnabled(state, state.activeSidePaneTabId)) return {};
   const activeSidePaneTabId = firstEnabledSidePaneTab(state);
   return {
@@ -237,6 +242,7 @@ export const useUiStore = create<UiState>()(
       browserPanelEnabled: true,
       notesPanelEnabled: true,
       boardPanelEnabled: true,
+      monitorPanelEnabled: true,
       usagePanelEnabled: false,
       codexbarPath: "",
       usageRefreshSeconds: 120,
@@ -274,7 +280,8 @@ export const useUiStore = create<UiState>()(
           const visible = state.browserTabs.filter(
             (tab) => !tab.workspaceId || tab.workspaceId === workspaceId,
           );
-          const remembered = browserSelections[workspaceId];
+          const remembered =
+            browserSelections[workspaceId] === "usage" ? "monitor" : browserSelections[workspaceId];
           const valid = (id: string | undefined) =>
             typeof id === "string" &&
             (!id.startsWith("browser-") || visible.some((tab) => tab.id === id));
@@ -400,12 +407,17 @@ export const useUiStore = create<UiState>()(
       setActivityHeight: (activityHeight) => set({ activityHeight }),
       activateSidePaneTab: (activeSidePaneTabId) =>
         set((state) =>
-          isSidePaneTabEnabled(state, activeSidePaneTabId) ? { activeSidePaneTabId } : state,
+          isSidePaneTabEnabled(state, activeSidePaneTabId)
+            ? {
+                activeSidePaneTabId:
+                  activeSidePaneTabId === "usage" ? "monitor" : activeSidePaneTabId,
+              }
+            : state,
         ),
       showSidePaneTab: (tabId) =>
         set((state) => {
           if (!isSidePaneTabEnabled(state, tabId)) return state;
-          return { activeSidePaneTabId: tabId, sidePaneOpen: true };
+          return { activeSidePaneTabId: tabId === "usage" ? "monitor" : tabId, sidePaneOpen: true };
         }),
       openBrowserPane: () =>
         set((state) => {
@@ -595,6 +607,7 @@ export const useUiStore = create<UiState>()(
         browserPanelEnabled,
         notesPanelEnabled,
         boardPanelEnabled,
+        monitorPanelEnabled,
         usagePanelEnabled,
         codexbarPath,
         usageRefreshSeconds,
@@ -625,6 +638,7 @@ export const useUiStore = create<UiState>()(
         browserPanelEnabled,
         notesPanelEnabled,
         boardPanelEnabled,
+        monitorPanelEnabled,
         usagePanelEnabled,
         codexbarPath,
         usageRefreshSeconds,
@@ -648,7 +662,9 @@ export const useUiStore = create<UiState>()(
               tab.id === persisted.activeSidePaneTabId &&
               (!tab.workspaceId || tab.workspaceId === browserWorkspaceId),
           ) ||
-            ["files", "review", "notes", "board", "usage"].includes(persisted.activeSidePaneTabId))
+            ["files", "review", "notes", "board", "monitor", "usage"].includes(
+              persisted.activeSidePaneTabId,
+            ))
             ? persisted.activeSidePaneTabId
             : "files";
         const restored: UiState = {
@@ -685,12 +701,20 @@ function mergeShortcutBindings(persisted: unknown): ShortcutBinding[] {
       if (
         !value ||
         typeof value !== "object" ||
-        !actionSet.has((value as { action?: string }).action ?? "")
+        typeof (value as { action?: unknown }).action !== "string"
       ) {
         continue;
       }
 
-      const binding = value as Partial<ShortcutBinding>;
+      const oldBinding = value as Partial<Omit<ShortcutBinding, "action">> & { action?: string };
+      const action =
+        oldBinding.action === "open-usage"
+          ? "open-monitor"
+          : oldBinding.action === "toggle-usage"
+            ? "toggle-monitor"
+            : oldBinding.action;
+      if (!actionSet.has(action ?? "")) continue;
+      const binding = { ...oldBinding, action } as Partial<ShortcutBinding>;
       if (
         typeof binding.key === "string" &&
         typeof binding.ctrl === "boolean" &&
@@ -788,7 +812,7 @@ function restoreSelections(value: unknown): Record<string, string> {
         ([, id]) =>
           typeof id === "string" &&
           (/^browser-[1-9]\d{0,8}$/.test(id) ||
-            ["files", "review", "notes", "board", "usage"].includes(id)),
+            ["files", "review", "notes", "board", "monitor", "usage"].includes(id)),
       ),
   );
 }

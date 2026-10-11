@@ -12,7 +12,7 @@ The VINTAGE window is organized into three work areas:
 
 - **Sidebar**: Workspace navigation, Spaces, and the Attention list for terminals that need a response.
 - **Center**: Space tabs and terminal panes. Split a Space horizontally or vertically to work in multiple shells at once.
-- **Right pane**: Switch between Files, Review, Notes, Board, Usage, and Browser without replacing the active terminal layout.
+- **Right pane**: Switch between Files, Review, Notes, Board, Monitor, and Browser without replacing the active terminal layout.
 
 ![VINTAGE showing the Attention list, terminal panes, and Files pane](../assets/readme/vintage-background-attention.png)
 
@@ -73,8 +73,8 @@ Shortcuts can be reassigned in **Settings → Shortcuts**. Changes save automati
 | Toggle Notes tab     | `Ctrl+Alt+M`   |
 | Open Board pane      | `Ctrl+Shift+K` |
 | Toggle Board tab     | `Ctrl+Alt+K`   |
-| Open Usage pane      | `Ctrl+Shift+U` |
-| Toggle Usage tab     | `Ctrl+Alt+U`   |
+| Open Monitor         | `Ctrl+Shift+U` |
+| Toggle Monitor       | `Ctrl+Alt+U`   |
 | Open Browser pane    | `Ctrl+Shift+B` |
 | Toggle Browser tab   | `Ctrl+Alt+B`   |
 | Find in terminal     | `Ctrl+F`       |
@@ -86,7 +86,7 @@ _Open Board pane, Toggle Notes tab, and Toggle Board tab can all be reassigned i
 
 ## Right pane
 
-The right pane contains Files, Review, Notes, Board, Usage, and Browser. Show or hide any tab in Settings → Panels. Disabling the active tab selects another enabled tab; disabling every tab shows an empty-state message. Browser tabs and pages are retained while hidden. Press `Ctrl+Shift+S` to show or hide the entire pane. Each tab is also a command palette action, and shortcuts can be reassigned in **Settings → Shortcuts**.
+The right pane contains Files, Review, Notes, Board, Monitor, and Browser. Show or hide any tab in Settings → Panels. Disabling the active tab selects another enabled tab; disabling every tab shows an empty-state message. Browser tabs and pages are retained while hidden. Press `Ctrl+Shift+S` to show or hide the entire pane. Each tab is also a command palette action, and shortcuts can be reassigned in **Settings → Shortcuts**.
 
 Drag the divider between the terminals and the right pane to adjust its width. The pane can expand with the window, including when maximized, while leaving room for terminals. Your preferred width is saved; shrinking the window temporarily reduces the displayed width. Resizing retains running terminal sessions.
 
@@ -200,17 +200,32 @@ Browser pages run with sandboxing and isolation, without Node.js integration or 
 
 Downloads, extensions, and saved login credentials are not supported.
 
+## Monitor
+
+**Platform limitation: Monitor is currently supported on Linux only. Windows is not supported. A macOS implementation exists but has not been verified.**
+
+Monitor always displays sessions across the PC. The dashboard is arranged as CPU/Memory, optional AI Usage, sessions, and session details. There is no workspace scope switch, separate Usage tab, host-name display, or background-services section. Provider cards use equal widths and heights. Use **Expand monitor** to enlarge the dashboard without replacing terminal panes or changing the selected session.
+
+- **Supported agents**: Claude Code, Codex, Antigravity, OpenCode, ZCode and Grok on Linux. Antigravity includes its CLI and identifiable language-server processes; Codex app-server/MCP processes are excluded.
+- **Local refresh**: About every two seconds while Monitor and the app document are visible. A process absent from the next process snapshot is removed immediately. ZCode sessions are additionally hidden after one hour without recorded activity and return when activity resumes.
+- **Session details**: Status, current tool, model, context tokens/capacity, recorded input/output/cache tokens, input + output per second, process CPU/RAM and child processes. **Open terminal** navigates to an existing VINTAGE terminal when ownership is known.
+- **Sources**: Claude/Codex local logs; OpenCode/ZCode read-only session databases; Antigravity conversation metadata and bounded transcripts; Grok `~/.grok/sessions` summaries and update events. Grok's turn-level aggregate token counts are not presented as current context usage.
+- **Matching**: Open-file ownership is preferred where available. Codex can also match log origin, process start time, working directory and recent activity, including idle terminal recovery when its unique start match is also the latest thread. Directory-based associations are labelled inferred; competing candidates remain **Unknown**. Unmatched background/remote services are hidden.
+- **Limits**: Unreadable or ambiguous activity is **Unknown**; unavailable metrics show **—**. Claude context capacity can be a model-based estimate; other unknown capacities are not guessed. Process CPU can exceed 100% across cores, and recorded token deltas can arrive in bursts. Monitor does not display prompts, command bodies or tool results, make summary-model calls, or provide process-kill controls. Local monitoring needs no abtop or external collector; macOS discovery uses the system `lsof` command.
+
+The quota section below uses the optional CodexBar CLI, independently of local session monitoring. **Settings → Panels** controls Monitor visibility; **Settings → Usage** controls quota visibility and refresh settings.
+
 ### Usage limits (CodexBar)
 
-The **Usage** tab shows each AI provider's quota at a glance: usage windows with a remaining percentage, the reset time in local `YYYY/MM/DD HH:MM` format, plan and account, credits, and recent cost when a provider reports them. Bars stay neutral and only take the warning or danger color once the remaining quota drops to 40% or 10%. Hovering a reset time shows the countdown.
+The **AI Usage** section in Monitor shows each AI provider's quota at a glance: usage windows with a remaining percentage, the reset time in local `YYYY/MM/DD HH:MM` format, plan and account, credits, and recent cost when a provider reports them. Bars stay neutral and only take the warning or danger color once the remaining quota drops to 40% or 10%. Hovering a reset time shows the countdown.
 
-The tab is hidden until it is enabled in **Settings → Panels**. It requires the [CodexBar CLI](https://github.com/steipete/codexbar):
+The section is hidden until it is enabled in **Settings → Usage**. It requires the [CodexBar CLI](https://github.com/steipete/codexbar):
 
 1. Install the CodexBar CLI and complete its provider setup so that the `codexbar` command runs in a terminal.
-2. In **Settings → Panels**, turn the Usage tab on. Configure CodexBar in **Settings → Usage**. Leave **codexbar path** empty to auto-detect the binary on `PATH` and in common install locations, or pick it with **Browse…**. The detected binary and version are shown under the field.
+2. In **Settings → Usage**, turn on **Show Usage in Monitor** and configure CodexBar. Leave **codexbar path** empty to auto-detect the binary on `PATH` and in common install locations, or pick it with **Browse…**. The detected binary and version are shown under the field.
 3. Which providers appear follows the enabled flags in `~/.config/codexbar/config.json` — VINTAGE displays whatever `codexbar dashboard` reports. To add Claude Code, run `codexbar config enable --provider claude`.
 
-While the tab is visible, VINTAGE re-runs `codexbar dashboard` at the configured interval (60–600 seconds, adjusted in 10-second steps in Settings). A refresh control is always available. A provider that fails to report shows its error in place of its usage, and windows that CodexBar marks as idle (model families without usage) are hidden. Quota data comes from the local CodexBar installation; VINTAGE does not talk to provider APIs itself.
+While Monitor and the app window are visible, VINTAGE re-runs `codexbar dashboard` at the configured interval (60–600 seconds, adjusted in 10-second steps in Settings). A refresh control is always available. A provider that fails to report shows its error in place of its usage, and windows that CodexBar marks as idle (model families without usage) are hidden. Quota data comes from the local CodexBar installation; VINTAGE does not talk to provider APIs itself.
 
 ## Attention monitoring
 
@@ -251,7 +266,7 @@ For classification logs, fully quit VINTAGE and run `VINTAGE_JEV_DEBUG=1 pnpm de
 
 ## Settings and saved data
 
-Panels independently enables Files, Review, Notes, Board, Usage, and Browser. Disabled tabs cannot be opened through shortcuts or the command palette. Tab toggles can be reassigned in Settings → Shortcuts: Files defaults to `Ctrl+Alt+E`, Review to `Ctrl+Alt+G`, Usage to `Ctrl+Alt+U`, and Browser to `Ctrl+Alt+B`.
+Panels independently enables Files, Review, Notes, Board, Monitor, and Browser. Disabled tabs cannot be opened through shortcuts or the command palette. Tab toggles can be reassigned in Settings → Shortcuts: Files defaults to `Ctrl+Alt+E`, Review to `Ctrl+Alt+G`, Monitor to `Ctrl+Alt+U`, and Browser to `Ctrl+Alt+B`.
 
 Settings changes are saved automatically. Invalid URLs are not saved. Jev API keys still require the dedicated Save API key or Clear saved key action.
 

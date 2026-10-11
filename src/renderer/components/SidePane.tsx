@@ -1,11 +1,11 @@
 import {
+  Activity,
   ChevronDown,
   ChevronRight,
   Eye,
   EyeOff,
   Folder,
   FolderOpen,
-  Gauge,
   Globe2,
   GitBranch,
   Plus,
@@ -23,17 +23,19 @@ import { BrowserPane } from "./BrowserPane.js";
 import { Button } from "./Button.js";
 import { LanguageIcon, ReviewPane } from "./ReviewPane.js";
 import { NotesPane } from "./NotesPane.js";
-import { UsagePanel } from "./UsagePanel.js";
+import { MonitorPanel } from "./MonitorPanel.js";
 
 export function SidePane({
   workspaceId,
   workspaceName,
+  onOpenTerminal,
   visible = true,
   onOpenFile,
 }: {
   visible?: boolean;
   workspaceId: string | null;
   workspaceName?: string | null;
+  onOpenTerminal?: ((paneId: string) => void) | undefined;
   onOpenFile(path: string, line?: number): void;
 }) {
   const setBrowserWorkspace = useUiStore((state) => state.setBrowserWorkspace);
@@ -42,6 +44,7 @@ export function SidePane({
     if (workspaceId) setBrowserWorkspace(workspaceId);
   }, [workspaceId, setBrowserWorkspace]);
   const tabMenuRef = useRef<HTMLDivElement>(null);
+  const sideTabHeaderRef = useRef<HTMLDivElement>(null);
   const [tabMenu, setTabMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   useEffect(() => {
     setTabMenu(null);
@@ -76,6 +79,7 @@ export function SidePane({
   const browserPanelEnabled = useUiStore((state) => state.browserPanelEnabled);
   const boardPanelEnabled = useUiStore((state) => state.boardPanelEnabled);
   const notesPanelEnabled = useUiStore((state) => state.notesPanelEnabled);
+  const monitorPanelEnabled = useUiStore((state) => state.monitorPanelEnabled);
   const usagePanelEnabled = useUiStore((state) => state.usagePanelEnabled);
   const browserTabElements = useRef(new Map<string, HTMLDivElement>());
   const [menu, setMenu] = useState<{
@@ -143,8 +147,10 @@ export function SidePane({
   }, [workspaceId, refreshVersion, visible, activeTabId]);
 
   useEffect(() => {
-    if (activeTabId === "files") return;
-    browserTabElements.current.get(activeTabId)?.scrollIntoView?.({
+    const target =
+      browserTabElements.current.get(activeTabId) ??
+      sideTabHeaderRef.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    target?.scrollIntoView?.({
       block: "nearest",
       inline: "nearest",
     });
@@ -152,6 +158,10 @@ export function SidePane({
 
   useEffect(() => {
     const state = useUiStore.getState();
+    if (activeTabId === "usage" && state.monitorPanelEnabled) {
+      activateSidePaneTab("monitor");
+      return;
+    }
     if (isSidePaneTabEnabled(state, activeTabId)) return;
     const next = firstEnabledSidePaneTab(state);
     if (next.startsWith("browser-")) state.activateBrowserTab(next);
@@ -163,6 +173,7 @@ export function SidePane({
     browserPanelEnabled,
     notesPanelEnabled,
     boardPanelEnabled,
+    monitorPanelEnabled,
     usagePanelEnabled,
     activeTabId,
     activateSidePaneTab,
@@ -185,7 +196,10 @@ export function SidePane({
 
   return (
     <aside className="flex h-full min-w-0 flex-col bg-panel">
-      <div className="flex h-11 shrink-0 items-center gap-1 border-b border-border px-2">
+      <div
+        ref={sideTabHeaderRef}
+        className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 [scrollbar-width:thin]"
+      >
         {filesPanelEnabled && (
           <button
             aria-pressed={activeTabId === "files"}
@@ -219,7 +233,7 @@ export function SidePane({
         {notesPanelEnabled && (
           <button
             type="button"
-            className={`h-7 rounded-lg px-2 text-ui-sm ${activeTabId === "notes" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
+            className={`h-7 shrink-0 rounded-lg px-2 text-ui-sm ${activeTabId === "notes" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
             aria-pressed={activeTabId === "notes"}
             onClick={() => activateSidePaneTab("notes")}
           >
@@ -229,33 +243,29 @@ export function SidePane({
         {boardPanelEnabled && (
           <button
             type="button"
-            className={`h-7 rounded-lg px-2 text-ui-sm ${activeTabId === "board" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
+            className={`h-7 shrink-0 rounded-lg px-2 text-ui-sm ${activeTabId === "board" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
             aria-pressed={activeTabId === "board"}
             onClick={() => activateSidePaneTab("board")}
           >
             Board
           </button>
         )}
-        {usagePanelEnabled && (
+        {monitorPanelEnabled && (
           <button
-            aria-pressed={activeTabId === "usage"}
-            className={`flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${
-              activeTabId === "usage"
-                ? "bg-selected text-foreground"
-                : "text-foreground-subtle hover:bg-hover hover:text-foreground"
-            }`}
-            onClick={() => activateSidePaneTab("usage")}
+            aria-pressed={activeTabId === "monitor"}
+            className={`flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium ${activeTabId === "monitor" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
             type="button"
+            onClick={() => activateSidePaneTab("monitor")}
           >
-            <Gauge aria-hidden="true" className="size-3.5" />
-            <span>Usage</span>
+            <Activity aria-hidden="true" className="size-3.5" />
+            <span>Monitor</span>
           </button>
         )}
         {browserPanelEnabled && (
           <>
             <div
               aria-label="Browser tabs"
-              className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]"
+              className="flex min-w-0 max-w-72 shrink-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]"
               role="group"
             >
               {browserTabs
@@ -419,13 +429,16 @@ export function SidePane({
             onRefresh={() => setReviewRefreshVersion((version) => version + 1)}
           />
         </div>
-        {usagePanelEnabled && (
+        {monitorPanelEnabled && (
           <div
-            aria-hidden={activeTabId !== "usage"}
+            aria-hidden={activeTabId !== "monitor"}
             className="absolute inset-0"
-            hidden={activeTabId !== "usage"}
+            hidden={activeTabId !== "monitor"}
           >
-            <UsagePanel active={activeTabId === "usage"} />
+            <MonitorPanel
+              active={visible && activeTabId === "monitor"}
+              onOpenTerminal={onOpenTerminal}
+            />
           </div>
         )}
         {(notesPanelEnabled || boardPanelEnabled) && workspaceId && (
