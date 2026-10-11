@@ -1,5 +1,23 @@
 # VINTAGE Changelog
 
+## [0.2.22] - 2026-10-11
+
+### Fixed
+
+- **ZCode Monitor status:** Compare desktop task metadata with session activity, message updates and completion times, and all tool updates before overriding the CLI state. Prevent stale completed tasks from masking active work and stale running tasks from reviving finished turns.
+- **Parallel tool tracking:** Keep ZCode and OpenCode sessions Executing while any tool in the latest message is running or pending, even when a later tool has already finished.
+
+### Changed
+
+- **AI Usage colors:** Add provider-colored name markers and quota bars, using CodexBar accents where available. Keep warning and critical colors for low remaining quota, and highlight the active account badge.
+
+### Validation and limitations
+
+- Automated validation passed: boundaries, TypeScript, lint, formatting, 368 tests (one skipped), and the production build. Regression tests cover stale desktop metadata, message/tool update ordering, and parallel tools. Linux-hosted Electron Monitor and AI Usage integration checks passed.
+- Live ZCode session validation remains pending. Windows Monitor remains experimental; Windows and macOS runtime validation and installed-app updater verification were not performed for this release.
+
+**Full Changelog:** [v0.2.21...v0.2.22](https://github.com/Tomatio13/vintage2/compare/v0.2.21...v0.2.22)
+
 ## [0.2.21] - 2026-10-11
 
 ### Added

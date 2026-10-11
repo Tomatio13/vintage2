@@ -1,5 +1,5 @@
 import { RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 
 import type {
   CodexbarAccount,
@@ -27,11 +27,27 @@ function clampPercent(value: number): number {
   return Math.min(100, Math.max(0, value));
 }
 
-// Bars stay neutral until remaining quota is actually running low.
+const providerAccents: Record<string, string> = {
+  codex: "#49a3b0",
+  claude: "#ce896b",
+  gemini: "#7b91df",
+  grok: "#a18bce",
+  zcode: "#cf7d9b",
+  opencode: "#69a998",
+};
+
+function providerAccent(provider: CodexbarProviderRow): string {
+  const color = provider.display?.accentColor;
+  return typeof color === "string" && /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/iu.test(color)
+    ? color
+    : (providerAccents[provider.id.toLowerCase()] ?? "#7b91b7");
+}
+
+// Low-quota warnings take precedence over the provider's accent.
 function barClass(remaining: number): string {
   if (remaining <= 10) return "bg-destructive";
   if (remaining <= 40) return "bg-warning";
-  return "bg-foreground-subtlest";
+  return "bg-[var(--usage-accent)]";
 }
 
 function describeError(error: unknown): string | null {
@@ -137,7 +153,7 @@ function AccountSection({
           {account.label ?? account.id}
         </span>
         {account.active && (
-          <span className="rounded-full bg-hover px-2 py-0.5 text-ui-xs text-foreground-subtle">
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-ui-xs text-primary">
             active
           </span>
         )}
@@ -172,10 +188,17 @@ function ProviderCard({
   const last30DaysUsd = provider.cost?.last30DaysUSD;
   const statusLevel = provider.status?.level;
   return (
-    <section className="overflow-hidden rounded-xl border border-card-border bg-card">
+    <section
+      className="overflow-hidden rounded-xl border border-card-border bg-card"
+      style={{ "--usage-accent": providerAccent(provider) } as CSSProperties}
+    >
       <div className={compact ? "min-w-0 space-y-2 p-2" : "min-w-0 space-y-3 p-3"}>
         <div>
           <div className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="size-2 shrink-0 rounded-full bg-[var(--usage-accent)]"
+            />
             <span className={`truncate ${compact ? "text-ui-sm" : "text-ui-base"} font-semibold`}>
               {provider.name}
             </span>

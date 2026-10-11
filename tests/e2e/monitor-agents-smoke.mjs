@@ -20,21 +20,23 @@ function db(path) {
 function sessionDatabase(path, directory, model) {
   const value = db(path);
   value.exec(
-    `CREATE TABLE session(id TEXT,directory TEXT,parent_id TEXT,time_created INTEGER,time_updated INTEGER);CREATE TABLE message(id TEXT,session_id TEXT,time_created INTEGER,data TEXT);CREATE TABLE part(id TEXT,message_id TEXT,session_id TEXT,time_created INTEGER,data TEXT);`,
+    `CREATE TABLE session(id TEXT,directory TEXT,parent_id TEXT,time_created INTEGER,time_updated INTEGER);CREATE TABLE message(id TEXT,session_id TEXT,time_created INTEGER,data TEXT,time_updated INTEGER DEFAULT 0);CREATE TABLE part(id TEXT,message_id TEXT,session_id TEXT,time_created INTEGER,data TEXT,time_updated INTEGER DEFAULT 0);`,
   );
   value
     .prepare("INSERT INTO session VALUES('fixture',?,NULL,?,?)")
     .run(directory, Date.now(), Date.now());
-  value.prepare("INSERT INTO message VALUES('message','fixture',?,?)").run(
-    Date.now(),
-    JSON.stringify({
-      role: "assistant",
-      modelID: model,
-      modelId: model,
-      tokens: { input: 1000, output: 100, cache: { read: 100 } },
-      content: "PRIVATE USER PROMPT",
-    }),
-  );
+  value
+    .prepare("INSERT INTO message(id,session_id,time_created,data) VALUES('message','fixture',?,?)")
+    .run(
+      Date.now(),
+      JSON.stringify({
+        role: "assistant",
+        modelID: model,
+        modelId: model,
+        tokens: { input: 1000, output: 100, cache: { read: 100 } },
+        content: "PRIVATE USER PROMPT",
+      }),
+    );
   return value;
 }
 try {
@@ -55,7 +57,9 @@ try {
     directories.zcode,
     "zcode-test-model",
   );
-  zc.prepare("INSERT INTO part VALUES('tool','message','fixture',?,?)").run(
+  zc.prepare(
+    "INSERT INTO part(id,message_id,session_id,time_created,data) VALUES('tool','message','fixture',?,?)",
+  ).run(
     Date.now(),
     JSON.stringify({
       type: "tool",
@@ -65,9 +69,11 @@ try {
   );
   const tasks = db(join(home, ".zcode/v2/tasks-index.sqlite"));
   tasks.exec(
-    "CREATE TABLE tasks(task_id TEXT,workspace_path TEXT,task_status TEXT,deleted INTEGER,archived INTEGER)",
+    "CREATE TABLE tasks(task_id TEXT,workspace_path TEXT,task_status TEXT,deleted INTEGER,archived INTEGER,updated_at INTEGER)",
   );
-  tasks.prepare("INSERT INTO tasks VALUES('fixture',?,'running',0,0)").run(directories.zcode);
+  tasks
+    .prepare("INSERT INTO tasks VALUES('fixture',?,'running',0,0,?)")
+    .run(directories.zcode, Date.now());
   const antiRoot = join(home, ".gemini/antigravity-cli");
   const ag = db(join(antiRoot, "conversation_summaries.db"));
   ag.exec(

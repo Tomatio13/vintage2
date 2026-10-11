@@ -123,7 +123,7 @@ function readSessionDatabase(
         "Multiple recently updated sessions share this working directory; ownership is uncertain.",
       );
     const message = db
-      .prepare(`SELECT id, json_extract(data,'$.role') role,
+      .prepare(`SELECT id,time_created,time_updated, json_extract(data,'$.role') role,
       COALESCE(json_extract(data,'$.modelID'),json_extract(data,'$.modelId'),json_extract(data,'$.model.modelID')) model,
       json_extract(data,'$.time.completed') completed, json_extract(data,'$.finish') finish,
       CASE WHEN json_type(data,'$.error') IN ('object','text') THEN 1 ELSE 0 END error, json_extract(data,'$.tokens.input') input,
@@ -133,7 +133,10 @@ function readSessionDatabase(
     const tool = message
       ? (db
           .prepare(
-            `SELECT id,time_created,json_extract(data,'$.tool') name,json_extract(data,'$.state.status') status FROM part WHERE message_id=? AND json_extract(data,'$.type')='tool' ORDER BY time_created DESC,id DESC LIMIT 1`,
+            `SELECT id,time_created,time_updated,json_extract(data,'$.tool') name,json_extract(data,'$.state.status') status,
+            MAX(MAX(time_created,COALESCE(time_updated,0))) OVER () activity_at
+            FROM part WHERE message_id=? AND json_extract(data,'$.type')='tool'
+            ORDER BY CASE json_extract(data,'$.state.status') WHEN 'running' THEN 0 WHEN 'pending' THEN 0 WHEN 'error' THEN 1 ELSE 2 END,time_created DESC,id DESC LIMIT 1`,
           )
           .get(message.id as string) as Row | undefined)
       : undefined;
@@ -159,20 +162,29 @@ function readSessionDatabase(
         tasks = database(join(dirname(dirname(dirname(path))), "v2", "tasks-index.sqlite"));
         const task = tasks
           .prepare(
-            "SELECT task_status FROM tasks WHERE task_id=? AND workspace_path=? AND deleted=0 AND archived=0 LIMIT 1",
+            "SELECT task_status,updated_at FROM tasks WHERE task_id=? AND workspace_path=? AND deleted=0 AND archived=0 LIMIT 1",
           )
           .get(row.id as string, cwd) as Row | undefined;
-        if (
-          task &&
-          ["completed", "idle", "paused", "cancelled"].includes(
-            String(task.task_status).toLowerCase(),
-          )
-        ) {
+        // The desktop index can retain the previous turn's completion while
+        // the CLI database already contains the next turn. Only fresh task
+        // metadata may override that activity.
+        const taskStatus = String(task?.task_status).toLowerCase();
+        const activityAt = Math.max(
+          number(row.time_updated),
+          number(message?.time_created),
+          number(message?.time_updated),
+          number(message?.completed),
+          number(tool?.activity_at),
+        );
+        const taskIsCurrent = task && number(task.updated_at) >= activityAt;
+        if (taskIsCurrent && ["completed", "idle", "paused", "cancelled"].includes(taskStatus)) {
           state.status = "Waiting";
           state.currentTool = null;
-        } else if (task && ["failed", "error"].includes(String(task.task_status).toLowerCase())) {
+        } else if (taskIsCurrent && ["failed", "error"].includes(taskStatus)) {
           state.status = "Error";
           state.currentTool = null;
+        } else if (taskIsCurrent && taskStatus === "running" && state.status === "Waiting") {
+          state.status = "Thinking";
         }
       } catch {
         /* CLI-only installations may not have the desktop task index. */

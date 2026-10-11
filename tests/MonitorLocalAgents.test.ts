@@ -22,15 +22,15 @@ function sessionDb(path: string) {
   const db = new DatabaseSync(path);
   db.exec(`PRAGMA journal_mode=WAL;
 CREATE TABLE session(id TEXT PRIMARY KEY,directory TEXT,parent_id TEXT,time_created INTEGER,time_updated INTEGER);
-CREATE TABLE message(id TEXT PRIMARY KEY,session_id TEXT,time_created INTEGER,data TEXT);
-CREATE TABLE part(id TEXT PRIMARY KEY,session_id TEXT,message_id TEXT,time_created INTEGER,data TEXT);
+CREATE TABLE message(id TEXT PRIMARY KEY,session_id TEXT,time_created INTEGER,data TEXT,time_updated INTEGER DEFAULT 0);
+CREATE TABLE part(id TEXT PRIMARY KEY,session_id TEXT,message_id TEXT,time_created INTEGER,data TEXT,time_updated INTEGER DEFAULT 0);
 INSERT INTO session VALUES('one','/project',NULL,1000,10000);`);
   return db;
 }
 function message(db: DatabaseSync, value: unknown) {
-  db.prepare("INSERT OR REPLACE INTO message VALUES('msg','one',10000,?)").run(
-    JSON.stringify(value),
-  );
+  db.prepare(
+    "INSERT OR REPLACE INTO message(id,session_id,time_created,data) VALUES('msg','one',10000,?)",
+  ).run(JSON.stringify(value));
 }
 describe("OpenCode and ZCode local databases", () => {
   it("reads WAL state transitions without leaking private bodies or confusing stale tools with activity", async () => {
@@ -51,7 +51,9 @@ describe("OpenCode and ZCode local databases", () => {
         model: "test-model",
         contextTokens: 1000,
       });
-      db.prepare("INSERT INTO part VALUES('tool','one','msg',10001,?)").run(
+      db.prepare(
+        "INSERT INTO part(id,session_id,message_id,time_created,data) VALUES('tool','one','msg',10001,?)",
+      ).run(
         JSON.stringify({
           type: "tool",
           tool: "Bash",
@@ -142,12 +144,77 @@ describe("OpenCode and ZCode local databases", () => {
     const tasks = new DatabaseSync(join(indexDir, "tasks-index.sqlite"));
     try {
       tasks.exec(
-        "CREATE TABLE tasks(task_id TEXT,workspace_path TEXT,task_status TEXT,deleted INTEGER,archived INTEGER);INSERT INTO tasks VALUES('one','/project','completed',0,0)",
+        "CREATE TABLE tasks(task_id TEXT,workspace_path TEXT,task_status TEXT,deleted INTEGER,archived INTEGER,updated_at INTEGER);INSERT INTO tasks VALUES('one','/project','completed',0,0,11000)",
       );
       message(db, { role: "assistant", modelId: "GLM-test", tokens: { input: 0, output: 0 } });
-      db.prepare("INSERT INTO part VALUES('stale','one','msg',10001,?)").run(
+      db.prepare(
+        "INSERT INTO part(id,session_id,message_id,time_created,data) VALUES('stale','one','msg',10001,?)",
+      ).run(JSON.stringify({ type: "tool", tool: "Bash", state: { status: "running" } }));
+      expect((await readLocalAgent("zcode", "/project", 1, [], home)).state).toMatchObject({
+        status: "Waiting",
+        currentTool: null,
+      });
+      // A new turn has reached the CLI DB before the desktop index updates.
+      db.exec("UPDATE session SET time_updated=12000");
+      expect((await readLocalAgent("zcode", "/project", 1, [], home)).state).toMatchObject({
+        status: "Executing",
+        currentTool: { name: "Bash" },
+      });
+      tasks.exec("UPDATE tasks SET task_status='running',updated_at=13000");
+      message(db, { role: "assistant", time: { completed: 12000 }, finish: "stop" });
+      expect((await readLocalAgent("zcode", "/project", 1, [], home)).state).toMatchObject({
+        status: "Thinking",
+        currentTool: null,
+      });
+      tasks.exec("UPDATE tasks SET task_status='completed',updated_at=14000");
+      expect((await readLocalAgent("zcode", "/project", 1, [], home)).state?.status).toBe(
+        "Waiting",
+      );
+    } finally {
+      tasks.close();
+      db.close();
+    }
+  });
+  it("compares desktop status against message updates, completion and every tool update", async () => {
+    const home = await fixture();
+    const base = join(home, ".zcode/cli/db");
+    await mkdir(base, { recursive: true });
+    const db = sessionDb(join(base, "db.sqlite"));
+    await mkdir(join(home, ".zcode/v2"), { recursive: true });
+    const tasks = new DatabaseSync(join(home, ".zcode/v2/tasks-index.sqlite"));
+    try {
+      tasks.exec(
+        "CREATE TABLE tasks(task_id TEXT,workspace_path TEXT,task_status TEXT,deleted INTEGER,archived INTEGER,updated_at INTEGER);INSERT INTO tasks VALUES('one','/project','running',0,0,11000)",
+      );
+      message(db, { role: "assistant", time: { completed: 12000 }, finish: "stop" });
+      expect((await readLocalAgent("zcode", "/project", 1, [], home)).state?.status).toBe(
+        "Waiting",
+      );
+
+      message(db, { role: "assistant", time: { completed: 10000 }, finish: "stop" });
+      db.exec("UPDATE message SET time_updated=12000");
+      expect((await readLocalAgent("zcode", "/project", 1, [], home)).state?.status).toBe(
+        "Waiting",
+      );
+
+      message(db, { role: "assistant" });
+      db.prepare("INSERT INTO part VALUES('running','one','msg',10001,?,12000)").run(
         JSON.stringify({ type: "tool", tool: "Bash", state: { status: "running" } }),
       );
+      tasks.exec("UPDATE tasks SET task_status='completed'");
+      expect((await readLocalAgent("zcode", "/project", 1, [], home)).state).toMatchObject({
+        status: "Executing",
+        currentTool: { name: "Bash" },
+      });
+      // A different, already completed tool carries the newest update.
+      db.prepare("INSERT INTO part VALUES('finished','one','msg',10002,?,14000)").run(
+        JSON.stringify({ type: "tool", tool: "Read", state: { status: "completed" } }),
+      );
+      tasks.exec("UPDATE tasks SET updated_at=13000");
+      expect((await readLocalAgent("zcode", "/project", 1, [], home)).state?.status).toBe(
+        "Executing",
+      );
+      tasks.exec("UPDATE tasks SET updated_at=15000");
       expect((await readLocalAgent("zcode", "/project", 1, [], home)).state).toMatchObject({
         status: "Waiting",
         currentTool: null,
@@ -157,6 +224,48 @@ describe("OpenCode and ZCode local databases", () => {
       db.close();
     }
   });
+  it.each(["opencode", "zcode"] as const)(
+    "keeps %s executing until all parallel tools finish",
+    async (agent) => {
+      const home = await fixture();
+      const base = join(home, agent === "zcode" ? ".zcode/cli/db" : ".local/share/opencode");
+      await mkdir(base, { recursive: true });
+      const db = sessionDb(join(base, agent === "zcode" ? "db.sqlite" : "opencode.db"));
+      const insert = db.prepare(
+        "INSERT INTO part(id,session_id,message_id,time_created,data) VALUES(?,'one','msg',?,?)",
+      );
+      try {
+        message(db, { role: "assistant", time: { completed: 10000 }, finish: "tool-calls" });
+        insert.run(
+          "first",
+          10001,
+          JSON.stringify({ type: "tool", tool: "Bash", state: { status: "running" } }),
+        );
+        insert.run(
+          "second",
+          10002,
+          JSON.stringify({ type: "tool", tool: "Read", state: { status: "completed" } }),
+        );
+        expect((await readLocalAgent(agent, "/project", 1, [], home)).state).toMatchObject({
+          status: "Executing",
+          currentTool: { id: "first", name: "Bash" },
+        });
+        db.prepare("UPDATE part SET data=? WHERE id='first'").run(
+          JSON.stringify({ type: "tool", tool: "Bash", state: { status: "completed" } }),
+        );
+        expect((await readLocalAgent(agent, "/project", 1, [], home)).state).toMatchObject({
+          status: "Thinking",
+          currentTool: null,
+        });
+        message(db, { role: "assistant", time: { completed: 12000 }, finish: "stop" });
+        expect((await readLocalAgent(agent, "/project", 1, [], home)).state?.status).toBe(
+          "Waiting",
+        );
+      } finally {
+        db.close();
+      }
+    },
+  );
   it("does not silently select between equally recent sessions", async () => {
     const home = await fixture();
     const base = join(home, ".local/share/opencode");
