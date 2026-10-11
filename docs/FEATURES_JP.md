@@ -202,6 +202,10 @@ Browserのページはサンドボックスと分離を有効にして実行し�
 
 ## Monitor
 
+![システムリソース、AI 使用量、エージェントセッションを表示した拡大 Monitor](../assets/readme/vintage-monitor.png)
+
+_セッションと使用量のデモデータを表示した拡大 Monitor。_
+
 **対応OSの状況：Linuxはサポート対象です。WindowsのMonitorは試験中のプレリリース扱いで、実機試験はpendingです。macOSの実装はありますが、動作未確認です。**
 
 Windowsでは同梱のRustヘルパーでプロセス検出とCPU／RAMを取得します。初期対象はClaude Code、Codex、OpenCodeで、他のAgentはWindows未検証です。取得できないプロセス情報や曖昧なセッションはUnknownとして扱います。Codexのログ紐付けは推定で、ターミナル判定ができないため、一部のターミナル専用ログは紐付けできません。Windowsのロードアベレージは表示しません。AI Usageは別途CodexBarの利用可否に依存します。Windowsでのビルド・開発にはRustツールチェーン（`cargo`）が必要ですが、インストーラー利用者にはRustやabtopの導入は不要です。
