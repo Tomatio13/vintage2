@@ -558,6 +558,7 @@ export class AttentionRouter {
         // must not flip the badge back to thinking; user input or a new Jev decision re-opens it.
         this.agentTurnConcluded =
           this.monitorMode === "agent_monitor" && decision.status === "completed";
+        if (decision.status === "waiting_input") this.cancelPendingEvaluations();
         if (
           running &&
           decision.keepMonitoring &&
@@ -587,6 +588,7 @@ export class AttentionRouter {
         this.monitorMode !== "ignore_until_error" &&
         WAITING_INPUT_PATTERNS.some((pattern) => pattern.test(tail))
       ) {
+        this.cancelPendingEvaluations();
         this.transition("waiting_input", 3, true, "pty", { reason: "input_request" });
         return;
       }
@@ -719,7 +721,10 @@ export class AttentionRouter {
   }
 
   private isAgentMonitorWorkActive(): boolean {
-    return this.commandRunning || (!this.promptVisible && this.hasKnownAgentProcess());
+    return (
+      this.state.status !== "waiting_input" &&
+      (this.commandRunning || (!this.promptVisible && this.hasKnownAgentProcess()))
+    );
   }
 
   private resetAgentMonitorBackoff(): void {

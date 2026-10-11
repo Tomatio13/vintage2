@@ -3,11 +3,12 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   readLocalAgent,
   localDatabaseState,
   antigravityStatus,
+  antigravityTranscriptState,
 } from "../src/main/monitorLocalAgents.js";
 const dirs: string[] = [];
 afterEach(async () => {
@@ -130,6 +131,91 @@ describe("OpenCode and ZCode local databases", () => {
       expect(
         (await readLocalAgent("opencode", "/project", 2, [join(base, "opencode.db")], home)).state,
       ).toBeNull();
+    } finally {
+      db.close();
+    }
+  });
+  it("matches one active shared ZCode session among recently completed sessions", async () => {
+    const home = await fixture();
+    const base = join(home, ".zcode/cli/db");
+    await mkdir(base, { recursive: true });
+    const db = sessionDb(join(base, "db.sqlite"));
+    await mkdir(join(home, ".zcode/v2"), { recursive: true });
+    const tasks = new DatabaseSync(join(home, ".zcode/v2/tasks-index.sqlite"));
+    try {
+      const now = Date.now();
+      db.prepare("UPDATE session SET time_updated=? WHERE id='one'").run(now - 1000);
+      db.prepare("INSERT INTO session VALUES('finished','/project',NULL,1000,?)").run(now);
+      db.prepare("INSERT INTO session VALUES('older','/project',NULL,1000,?)").run(now - 2000);
+      message(db, { role: "assistant" });
+      tasks.exec(
+        "CREATE TABLE tasks(task_id TEXT,workspace_path TEXT,task_status TEXT,deleted INTEGER,archived INTEGER,updated_at INTEGER)",
+      );
+      const insert = tasks.prepare("INSERT INTO tasks VALUES(?,'/project',?,0,0,?)");
+      insert.run("one", "running", now - 1500);
+      insert.run("finished", "completed", now);
+      insert.run("older", "completed", now - 2000);
+      for (const peers of [1, 2, 3]) {
+        expect((await readLocalAgent("zcode", "/project", peers, [], home)).state).toMatchObject({
+          sessionId: "one",
+          status: "Thinking",
+        });
+      }
+      db.prepare("INSERT INTO message VALUES('resumed','finished',?,?,?)").run(
+        now - 1000,
+        JSON.stringify({ role: "assistant" }),
+        now + 1000,
+      );
+      expect((await readLocalAgent("zcode", "/project", 2, [], home)).state).toBeNull();
+      db.exec("DELETE FROM message WHERE id='resumed'");
+      db.prepare("INSERT INTO part VALUES('resumed','finished','resumed-msg',?,?,?)").run(
+        now - 1000,
+        JSON.stringify({ type: "tool", state: { status: "running" } }),
+        now + 2000,
+      );
+      expect((await readLocalAgent("zcode", "/project", 2, [], home)).state).toBeNull();
+      db.exec("DELETE FROM part WHERE id='resumed'");
+      tasks
+        .prepare("UPDATE tasks SET task_status='completed',updated_at=? WHERE task_id='one'")
+        .run(now);
+      expect((await readLocalAgent("zcode", "/project", 2, [], home)).state?.status).toBe(
+        "Waiting",
+      );
+      tasks.exec("UPDATE tasks SET task_status='running' WHERE task_id='one'");
+      // An unaccounted-for or second active session must stay ambiguous.
+      tasks.exec("DELETE FROM tasks WHERE task_id='older'");
+      expect((await readLocalAgent("zcode", "/project", 2, [], home)).state).toBeNull();
+      insert.run("older", "running", now);
+      expect((await readLocalAgent("zcode", "/project", 2, [], home)).state).toBeNull();
+      tasks
+        .prepare("UPDATE tasks SET task_status='completed',updated_at=? WHERE task_id='older'")
+        .run(now - 3000);
+      expect((await readLocalAgent("zcode", "/project", 2, [], home)).state).toBeNull();
+    } finally {
+      tasks.close();
+      db.close();
+    }
+  });
+  it("uses tool activity to recover a ZCode session whose session row is older than an hour", async () => {
+    const home = await fixture();
+    const base = join(home, ".zcode/cli/db");
+    await mkdir(base, { recursive: true });
+    const db = sessionDb(join(base, "db.sqlite"));
+    try {
+      const now = Date.now();
+      db.prepare("UPDATE session SET time_updated=?").run(now - 7200000);
+      message(db, { role: "assistant" });
+      db.prepare("INSERT INTO part VALUES('live','one','msg',?,?,?)").run(
+        now - 7200000,
+        JSON.stringify({ type: "tool", tool: "Bash", state: { status: "running" } }),
+        now,
+      );
+      const result = await readLocalAgent("zcode", "/project", 2, [], home);
+      expect(result.state).toMatchObject({
+        sessionId: "one",
+        status: "Executing",
+        lastActivityAt: now,
+      });
     } finally {
       db.close();
     }
@@ -368,4 +454,70 @@ describe("Antigravity conversation snapshots", () => {
     expect(antigravityStatus("CASCADE_RUN_STATUS_IDLE", 0)).toBe("Waiting");
     expect(antigravityStatus("CASCADE_RUN_STATUS_ERROR", 0)).toBe("Error");
   });
+});
+
+it("retains Antigravity parallel running steps until their own completion", () => {
+  const state = localDatabaseState("opencode", {}, undefined, undefined, {});
+  state.status = "Thinking";
+  antigravityTranscriptState(
+    [
+      { step_index: 1, type: "RUN_COMMAND", status: "RUNNING" },
+      { step_index: 2, type: "PLANNER_RESPONSE", status: "COMPLETED" },
+    ],
+    state,
+  );
+  expect(state).toMatchObject({ status: "Executing", currentTool: { id: "1" } });
+  state.status = "Thinking";
+  state.currentTool = null;
+  antigravityTranscriptState(
+    [
+      { step_index: 1, type: "RUN_COMMAND", status: "RUNNING" },
+      { step_index: 1, type: "RUN_COMMAND", status: "COMPLETED" },
+    ],
+    state,
+  );
+  expect(state).toMatchObject({ status: "Thinking", currentTool: null });
+  antigravityTranscriptState(
+    [
+      { step_index: 1, type: "RUN_COMMAND", status: "RUNNING" },
+      { step_index: 2, type: "USER_INPUT", status: "COMPLETED" },
+    ],
+    state,
+  );
+  expect(state).toMatchObject({ status: "Thinking", currentTool: null });
+});
+
+it("computes ZCode activity only after Windows directory matching, including old session rows", async () => {
+  const home = await fixture();
+  const base = join(home, ".zcode/cli/db");
+  await mkdir(base, { recursive: true });
+  const db = sessionDb(join(base, "db.sqlite"));
+  const platform = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+  try {
+    const now = Date.now();
+    db.exec("BEGIN");
+    const session = db.prepare("INSERT INTO session VALUES(?,'/unrelated',NULL,?,?)");
+    const badMessage = db.prepare(
+      "INSERT INTO message(id,session_id,time_created,data) VALUES(?,?,?,'invalid json')",
+    );
+    for (let i = 0; i < 4100; i++) {
+      session.run("other-" + i, now, now);
+      badMessage.run("other-" + i, "other-" + i, now);
+    }
+    db.exec("COMMIT");
+    message(db, { role: "assistant" });
+    db.prepare("INSERT INTO part VALUES('live','one','msg',?,?,?)").run(
+      now - 7200000,
+      JSON.stringify({ type: "tool", tool: "Bash", state: { status: "running" } }),
+      now,
+    );
+    expect((await readLocalAgent("zcode", "/project", 1, [], home)).state).toMatchObject({
+      sessionId: "one",
+      status: "Executing",
+      lastActivityAt: now,
+    });
+  } finally {
+    platform.mockRestore();
+    db.close();
+  }
 });

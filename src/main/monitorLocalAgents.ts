@@ -86,6 +86,33 @@ export function localDatabaseState(
   return state;
 }
 
+// Shared desktop workers do not identify their individual sessions. A fresh
+// terminal task record can exclude finished sessions from the candidate set.
+function activeZCodeSession(path: string, rows: Row[], cwd: string): Row | undefined {
+  let tasks: DatabaseSync | undefined;
+  try {
+    tasks = database(join(dirname(dirname(dirname(path))), "v2", "tasks-index.sqlite"));
+    const lookup = tasks.prepare(
+      "SELECT task_status,updated_at FROM tasks WHERE task_id=? AND workspace_path=? AND deleted=0 AND archived=0 LIMIT 1",
+    );
+    const candidates = rows.filter((row) => {
+      const task = lookup.get(row.id as string, cwd) as Row | undefined;
+      return !(
+        task &&
+        number(task.updated_at) >= number(row.activity_at ?? row.time_updated) &&
+        ["completed", "idle", "paused", "cancelled", "failed", "error"].includes(
+          String(task.task_status).toLowerCase(),
+        )
+      );
+    });
+    return candidates.length === 1 ? candidates[0] : candidates.length === 0 ? rows[0] : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    tasks?.close();
+  }
+}
+
 function readSessionDatabase(
   path: string,
   agent: "opencode" | "zcode",
@@ -99,23 +126,55 @@ function readSessionDatabase(
   let db: DatabaseSync | undefined;
   try {
     db = database(path);
-    // Desktop ZCode can retain several workers in the same directory. Only
-    // infer their session when exactly one session has activity within an hour.
-    const sharedWorkers = agent === "zcode" && peers > 1;
-    const rows = db
-      .prepare(
-        `SELECT id,directory,time_created,time_updated FROM session WHERE ${process.platform === "win32" ? "1=1" : "directory=?"} AND (parent_id IS NULL OR parent_id='') ${sharedWorkers ? "AND time_updated>?" : ""} ORDER BY time_updated DESC LIMIT ${process.platform === "win32" ? 4096 : 2}`,
-      )
-      .all(
-        ...(process.platform === "win32" ? [] : [cwd]),
-        ...(sharedWorkers ? [Date.now() - 60 * 60 * 1000] : []),
-      ) as Row[];
-    const matchingRows = rows
-      .filter((row) => typeof row.directory === "string" && monitorPathsEqual(row.directory, cwd))
-      .slice(0, 2);
-    const row = matchingRows[0];
+    db.exec("BEGIN");
+    // Desktop ZCode can retain several workers in the same directory. Infer
+    // one recent session only when ownership is unambiguous or fresh desktop
+    // metadata excludes all other recent sessions as finished.
+    const sharedWorkers = agent === "zcode";
+    const activity =
+      agent === "zcode"
+        ? `MAX(time_updated,
+          COALESCE((SELECT MAX(MAX(m.time_created,COALESCE(m.time_updated,0),COALESCE(json_extract(m.data,'$.time.completed'),0))) FROM message m WHERE m.session_id=session.id),0),
+          COALESCE((SELECT MAX(MAX(p.time_created,COALESCE(p.time_updated,0))) FROM part p WHERE p.session_id=session.id),0))`
+        : "time_updated";
+    const directoryRows: Row[] = [];
+    // ZCode activity is sorted below after matching; avoid a global SQL sort
+    // or materializing unrelated Windows sessions before the path comparison.
+    const query = db.prepare(
+      `SELECT id,directory,time_created,time_updated FROM session WHERE ${process.platform === "win32" ? "1=1" : "directory=?"} AND (parent_id IS NULL OR parent_id='') ${agent === "zcode" ? "" : `ORDER BY time_updated DESC LIMIT ${process.platform === "win32" ? 4096 : 2}`}`,
+    );
+    for (const row of query.iterate(...(process.platform === "win32" ? [] : [cwd]))) {
+      if (typeof row.directory === "string" && monitorPathsEqual(row.directory, cwd)) {
+        directoryRows.push(row);
+      }
+    }
+    const activityQuery =
+      agent === "zcode"
+        ? db.prepare(`SELECT ${activity} activity_at FROM session WHERE id=?`)
+        : undefined;
+    for (const row of directoryRows) {
+      row.activity_at = activityQuery
+        ? (activityQuery.get(row.id as string) as Row).activity_at
+        : row.time_updated;
+    }
+    directoryRows.sort((a, b) => number(b.activity_at) - number(a.activity_at));
+    const recent = directoryRows.filter(
+      (row) => number(row.activity_at) > Date.now() - 60 * 60 * 1000,
+    );
+    const matchingRows =
+      agent === "zcode" && directoryRows.length > 1
+        ? recent.length
+          ? recent
+          : directoryRows.slice(0, 1)
+        : directoryRows;
+    const activeRow =
+      sharedWorkers && matchingRows.length > 1
+        ? activeZCodeSession(path, matchingRows, cwd)
+        : undefined;
+    const row = activeRow ?? matchingRows[0];
     if (!row) return missing("No local session matches this working directory.");
     if (
+      !activeRow &&
       matchingRows[1] &&
       (sharedWorkers || number(row.time_updated) - number(matchingRows[1].time_updated) < 5000)
     )
@@ -147,6 +206,7 @@ function readSessionDatabase(
       SUM(CASE WHEN json_extract(data,'$.role')='user' THEN 1 ELSE 0 END) turns FROM message WHERE session_id=?`)
       .get(row.id as string) as Row;
     const state = localDatabaseState(agent, row, message, tool, usage);
+    state.lastActivityAt = number(row.activity_at) || state.lastActivityAt;
     const context = db
       .prepare(`SELECT json_extract(data,'$.tokens.input') input,
       COALESCE(json_extract(data,'$.tokens.cache.read'),0)+COALESCE(json_extract(data,'$.tokens.cache.write'),0) cache
@@ -170,7 +230,7 @@ function readSessionDatabase(
         // metadata may override that activity.
         const taskStatus = String(task?.task_status).toLowerCase();
         const activityAt = Math.max(
-          number(row.time_updated),
+          number(row.activity_at ?? row.time_updated),
           number(message?.time_created),
           number(message?.time_updated),
           number(message?.completed),
@@ -194,12 +254,15 @@ function readSessionDatabase(
     }
     return {
       state,
-      diagnostic: "Latest local session matched by working directory; association is inferred.",
+      diagnostic: activeRow
+        ? "Session selected using recent activity and fresh desktop task metadata; association is inferred."
+        : "Latest local session matched by working directory; association is inferred.",
       verified: false,
     };
   } catch {
     return missing("Local session database could not be read or its schema is unsupported.");
   } finally {
+    if (db?.isTransaction) db.exec("ROLLBACK");
     db?.close();
   }
 }
@@ -236,9 +299,11 @@ async function transcriptTail(path: string): Promise<{ rows: Row[]; complete: bo
   }
 }
 export function antigravityTranscriptState(rows: Row[], state: State): State {
-  let lastTool: MonitorTool | null = null;
+  const running = new Map<string, MonitorTool>();
+  state.currentTool = null;
   state.turnCount = rows.filter((row) => row.type === "USER_INPUT").length;
   for (const row of rows) {
+    if (row.type === "USER_INPUT") running.clear();
     const at = typeof row.created_at === "string" ? Date.parse(row.created_at) : NaN;
     if (Number.isFinite(at)) {
       state.startedAt ??= at;
@@ -257,17 +322,18 @@ export function antigravityTranscriptState(rows: Row[], state: State): State {
       const call = object(calls.at(-1));
       const args = object(call.args);
       const name = clean(call.name) ?? (row.type !== "PLANNER_RESPONSE" ? clean(row.type) : null);
-      lastTool = name
-        ? {
-            id: String(row.step_index ?? "step"),
-            name,
-            path: clean(args.AbsolutePath ?? args.TargetFile ?? args.file_path),
-            startedAt: Number.isFinite(at) ? at : null,
-            durationMs: null,
-          }
-        : null;
-    } else lastTool = null;
+      if (name)
+        running.set(String(row.step_index ?? "step"), {
+          id: String(row.step_index ?? "step"),
+          name,
+          path: clean(args.AbsolutePath ?? args.TargetFile ?? args.file_path),
+          startedAt: Number.isFinite(at) ? at : null,
+          durationMs: null,
+        });
+      else running.delete(String(row.step_index ?? "step"));
+    } else running.delete(String(row.step_index ?? "step"));
   }
+  const lastTool = [...running.values()].at(-1);
   if (state.status === "Thinking" && lastTool) {
     state.currentTool = lastTool;
     state.status = "Executing";
@@ -365,6 +431,7 @@ async function readAntigravity(
       "Antigravity conversation database is unavailable or has an unsupported schema.",
     );
   } finally {
+    if (db?.isTransaction) db.exec("ROLLBACK");
     db?.close();
   }
 }

@@ -97,3 +97,21 @@ describe("Windows Monitor pre-release", () => {
     }
   });
 });
+
+it("includes sibling workers and their descendants in a shared session's resources", async () => {
+  const platform = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+  try {
+    const result = await new MonitorSystem().sample(
+      [
+        { ...row, cpuPercent: 10 },
+        { ...row, pid: 50, parentPid: 10, cpuPercent: 20 },
+        { ...row, pid: 51, parentPid: 50, cpuPercent: 30 },
+      ],
+      [{ id: "shared", pid: 42, processPids: [42, 50], status: "Thinking" } as never],
+    );
+    expect(result.sessions[0]).toMatchObject({ cpuPercent: 60, memoryBytes: 12288 });
+    expect(result.sessions[0]?.children?.map((child) => child.pid).sort()).toEqual([50, 51]);
+  } finally {
+    platform.mockRestore();
+  }
+});

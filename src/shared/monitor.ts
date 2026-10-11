@@ -20,6 +20,7 @@ export interface MonitorSession {
   id: string;
   agent: MonitorAgent;
   pid: number;
+  processPids?: number[];
   sessionId: string | null;
   cwd: string;
   model: string | null;

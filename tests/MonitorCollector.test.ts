@@ -83,7 +83,7 @@ describe("Monitor collection with local fixture logs", () => {
       state.lastActivityAt = updatedAt;
       state.sessionId = "shared-zcode-session";
       state.status = "Waiting";
-      vi.spyOn(localAgents, "readLocalAgent").mockImplementation(async () => ({
+      const localRead = vi.spyOn(localAgents, "readLocalAgent").mockImplementation(async () => ({
         state,
         diagnostic: null,
         verified: false,
@@ -94,9 +94,13 @@ describe("Monitor collection with local fixture logs", () => {
       ]);
       const collector = new MonitorCollector("/tmp");
       vi.setSystemTime(updatedAt + 3_598_000);
-      expect((await collector.collect()).sessions).toHaveLength(1);
+      const shared = (await collector.collect()).sessions;
+      expect(shared).toHaveLength(1);
+      expect(shared[0]?.processPids).toEqual([process.pid, process.ppid]);
+      expect(localRead).toHaveBeenCalledTimes(1);
       vi.setSystemTime(updatedAt + 3_600_000);
       expect((await collector.collect()).sessions).toHaveLength(0);
+      expect(localRead).toHaveBeenCalledTimes(2);
       state.lastActivityAt = updatedAt + 3_602_000;
       vi.setSystemTime(state.lastActivityAt);
       expect((await collector.collect()).sessions).toHaveLength(1);

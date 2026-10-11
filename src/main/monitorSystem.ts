@@ -214,7 +214,12 @@ export class MonitorSystem {
     sessions: MonitorSession[];
   }> {
     const live = sessions.filter((session) => session.status !== "Done");
-    const owners = monitorProcessOwners(rows, live);
+    const owners = monitorProcessOwners(
+      rows,
+      live.flatMap((session) =>
+        (session.processPids ?? [session.pid]).map((pid) => ({ pid, id: session.id })),
+      ),
+    );
     const pids = [...owners.keys()].slice(0, 2048);
     const [host, metrics] = await Promise.all([this.host(), this.processMetrics(rows, pids)]);
     return {

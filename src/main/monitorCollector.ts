@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { open, readdir, readFile, readlink } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, join } from "node:path";
+import { basename, isAbsolute, join } from "node:path";
 import { promisify } from "node:util";
 import type { MonitorAgent, MonitorSession, MonitorSnapshot } from "../shared/monitor.js";
 import { monitorCommandName, monitorCommandTokens } from "./monitorCommand.js";
@@ -424,7 +424,8 @@ export class MonitorCollector {
     const warnings = new Set<string>();
     if (process.platform === "win32")
       warnings.add("Windows Monitor is pre-release; physical-device testing is pending.");
-    const zcodeSessions = new Set<string>();
+    const zcodeSessions = new Map<string, string>();
+    const localReads = new Map<string, Awaited<ReturnType<typeof readLocalAgent>>>();
     if (candidates.length > 128) warnings.add("Only the first 128 agent processes are shown.");
     for (const row of agents) {
       const agent = monitorAgent(row)!;
@@ -490,21 +491,45 @@ export class MonitorCollector {
           .find((value) => value.startsWith("XDG_DATA_HOME="));
         if (entry && isAbsolute(entry.slice(14))) dataHome = entry.slice(14);
       }
-      const local =
-        agent !== "claude" && agent !== "codex"
-          ? await readLocalAgent(
-              agent,
-              ownFiles?.cwd ?? "",
-              agents.filter(
-                (peer) =>
-                  monitorAgent(peer) === agent &&
-                  monitorPathsEqual(files.get(peer.pid)?.cwd ?? "", ownFiles?.cwd ?? ""),
-              ).length,
-              ownFiles?.paths ?? [],
-              this.homeDirectory,
-              dataHome,
-            )
-          : null;
+      let local: Awaited<ReturnType<typeof readLocalAgent>> | null = null;
+      if (agent !== "claude" && agent !== "codex") {
+        const cwd = ownFiles?.cwd ?? "";
+        const peers = agents.filter(
+          (peer) =>
+            monitorAgent(peer) === agent && monitorPathsEqual(files.get(peer.pid)?.cwd ?? "", cwd),
+        ).length;
+        const paths = ownFiles?.paths ?? [];
+        const databasePath =
+          agent === "zcode"
+            ? (paths.find((path) => path.endsWith("/cli/db/db.sqlite")) ??
+              join(this.homeDirectory, ".zcode", "cli", "db", "db.sqlite"))
+            : agent === "opencode"
+              ? (paths.find((path) => basename(path) === "opencode.db") ??
+                join(
+                  dataHome || join(this.homeDirectory, ".local", "share"),
+                  "opencode",
+                  "opencode.db",
+                ))
+              : undefined;
+        const key = JSON.stringify([
+          agent,
+          cwd,
+          peers,
+          agent === "zcode" || agent === "opencode" ? (databasePath ?? null) : [...paths].sort(),
+          agent === "opencode" ? dataHome : null,
+        ]);
+        local =
+          localReads.get(key) ??
+          (await readLocalAgent(
+            agent,
+            cwd,
+            peers,
+            ownFiles?.paths ?? [],
+            this.homeDirectory,
+            dataHome,
+          ));
+        localReads.set(key, local);
+      }
       // ZCode workers may remain alive long after their task has stopped updating.
       if (
         agent === "zcode" &&
@@ -516,11 +541,14 @@ export class MonitorCollector {
       }
       if (agent === "zcode" && local?.state?.sessionId) {
         const key = JSON.stringify([local.state.cwd, local.state.sessionId]);
-        if (zcodeSessions.has(key)) {
+        const representative = zcodeSessions.get(key);
+        if (representative) {
+          const shared = this.tracked.get(representative)?.session;
+          if (shared) shared.processPids = [...(shared.processPids ?? [shared.pid]), row.pid];
           seen.delete(id);
           continue;
         }
-        zcodeSessions.add(key);
+        zcodeSessions.set(key, id);
       }
       if (local) readable = local.state !== null;
       const state = structuredClone(
@@ -556,6 +584,7 @@ export class MonitorCollector {
         ...state,
         id,
         pid: row.pid,
+        ...(agent === "zcode" ? { processPids: [row.pid] } : {}),
         paneId: null,
         ...(launchSurface ? { launchSurface } : {}),
         logMatch: !readable

@@ -162,8 +162,9 @@ export function MonitorPanel({
   const all = (snapshot?.sessions ?? []).filter(
     (session) =>
       !(
+        session.agent === "codex" &&
         session.logMatch === "unavailable" &&
-        (session.launchSurface === "background" || session.launchSurface === "remote")
+        session.launchSurface === "remote"
       ),
   );
   const sessions = all.toSorted((a, b) => statusOrder[a.status] - statusOrder[b.status]);
@@ -594,7 +595,7 @@ function SessionDetail({
         </dl>
         <div>
           <h4 className="mb-2 text-ui-xs font-semibold uppercase tracking-wider text-foreground-subtle">
-            Child processes <span className="font-mono">{session.children?.length ?? 0}</span>
+            Related processes <span className="font-mono">{session.children?.length ?? 0}</span>
           </h4>
           <div className="max-h-32 space-y-1.5 overflow-auto font-mono text-ui-xs">
             {session.children?.map((child) => (
@@ -612,6 +613,12 @@ function SessionDetail({
             )}
           </div>
         </div>
+        {(session.processPids?.length ?? 0) > 1 && (
+          <p className="text-ui-xs text-foreground-subtlest">
+            CPU and memory include {session.processPids!.length} shared workers and their child
+            processes.
+          </p>
+        )}
         {session.diagnostic && (
           <p className="text-ui-xs text-foreground-subtlest">{session.diagnostic}</p>
         )}

@@ -644,6 +644,44 @@ describe("AttentionRouter", () => {
     expect(router.snapshot().status).toBe("waiting_input");
   });
 
+  it("pauses Agent Monitor evaluations while input is required and resumes after input", async () => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue(null);
+    const { router } = recorder({ evaluate }, { monitorMode: "agent_monitor" });
+    router.observeProcess("codex");
+    router.observeOutput(OSC + "C\u0007Password: ");
+    await vi.advanceTimersByTimeAsync(801);
+    expect(router.snapshot().status).toBe("waiting_input");
+    await vi.advanceTimersByTimeAsync(120000);
+    expect(evaluate).not.toHaveBeenCalled();
+    router.observeInput("answer\r");
+    await vi.advanceTimersByTimeAsync(10001);
+    expect(evaluate).toHaveBeenCalled();
+    router.dispose();
+  });
+
+  it("also pauses periodic polling after Jev requests user input", async () => {
+    vi.useFakeTimers();
+    const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue({
+      status: "waiting_input",
+      attentionLevel: 3,
+      userActionRequired: true,
+      keepMonitoring: true,
+      confidence: 0.9,
+      semanticHash: "input",
+      model: "test",
+    });
+    const { router } = recorder({ evaluate }, { monitorMode: "agent_monitor" });
+    router.observeProcess("codex");
+    router.observeOutput(OSC + "C\u0007Working...");
+    await vi.advanceTimersByTimeAsync(10001);
+    expect(router.snapshot().status).toBe("waiting_input");
+    expect(evaluate).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(120000);
+    expect(evaluate).toHaveBeenCalledTimes(1);
+    router.dispose();
+  });
+
   it("limits continuous output evaluations per terminal", () => {
     vi.useFakeTimers();
     const evaluate: JevEvaluator["evaluate"] = vi.fn().mockResolvedValue(null);

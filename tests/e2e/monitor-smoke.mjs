@@ -78,7 +78,11 @@ try {
   );
   if (backgroundRow?.logMatch !== "unavailable" || backgroundRow.sessionId !== null)
     throw new Error("terminal log incorrectly assigned to background process");
-  await page.getByRole("button").filter({ hasText: "monitor-project" }).click();
+  await page
+    .getByRole("button")
+    .filter({ hasText: "monitor-project" })
+    .filter({ hasText: "fixture-model" })
+    .click();
   await page
     .getByLabel("Session details")
     .getByText(/fixture-model/u)
@@ -111,6 +115,7 @@ try {
   await page
     .getByRole("button")
     .filter({ hasText: "monitor-project" })
+    .filter({ hasText: "fixture-model" })
     .getByText("Executing", { exact: true })
     .waitFor();
   await page
@@ -142,6 +147,7 @@ try {
   await page
     .getByRole("button")
     .filter({ hasText: "monitor-project" })
+    .filter({ hasText: "fixture-model" })
     .getByText("Waiting", { exact: true })
     .waitFor();
   if ((await page.locator('[data-pane-kind="terminal"]').count()) !== paneCount)

@@ -222,7 +222,7 @@ it("labels Antigravity, OpenCode and ZCode individually and does not show unavai
   expect(detail.getByText("Input").nextElementSibling).toHaveTextContent("—");
 });
 
-it("omits the Background / remote section, its rows and details", async () => {
+it("keeps unmatched local background agents but hides remote Codex services", async () => {
   bridge(
     vi.fn().mockResolvedValue(
       snapshot([
@@ -239,8 +239,30 @@ it("omits the Background / remote section, its rows and details", async () => {
   render(<MonitorPanel active />);
   await flush();
   const list = within(screen.getByLabelText("Sessions"));
-  expect(list.queryByText("background")).not.toBeInTheDocument();
+  expect(list.getByText("background")).toBeInTheDocument();
   expect(list.queryByText("remote")).not.toBeInTheDocument();
   expect(list.getByText("terminal")).toBeInTheDocument();
   expect(screen.queryByText(/Background \/ remote/u)).not.toBeInTheDocument();
+});
+
+it("keeps ambiguous local background agents visible as Unknown", async () => {
+  bridge(
+    vi.fn().mockResolvedValue(
+      snapshot(
+        (["zcode", "opencode", "antigravity", "grok"] as const).map((agent) => ({
+          ...session(agent, "/project"),
+          agent,
+          status: "Unknown" as const,
+          logMatch: "unavailable" as const,
+          launchSurface: "background" as const,
+          diagnostic: "Multiple sessions share this directory.",
+        })),
+      ),
+    ),
+  );
+  render(<MonitorPanel active />);
+  await flush();
+  const list = within(screen.getByLabelText("Sessions"));
+  for (const name of ["ZCode", "OpenCode", "Antigravity", "Grok"])
+    expect(list.getByText(name)).toBeInTheDocument();
 });
