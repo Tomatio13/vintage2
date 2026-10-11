@@ -112,6 +112,26 @@ describe("OpenCode and ZCode local databases", () => {
       db.close();
     }
   });
+  it("matches shared ZCode workers only when one session is active within an hour", async () => {
+    const home = await fixture();
+    const base = join(home, ".zcode/cli/db");
+    await mkdir(base, { recursive: true });
+    const db = sessionDb(join(base, "db.sqlite"));
+    try {
+      const now = Date.now();
+      db.prepare("UPDATE session SET time_updated=? WHERE id='one'").run(now - 1000);
+      db.prepare("INSERT INTO session VALUES('old','/project',NULL,1000,?)").run(now - 3_600_000);
+      expect((await readLocalAgent("zcode", "/project", 2, [], home)).state?.sessionId).toBe("one");
+      db.prepare("UPDATE session SET time_updated=? WHERE id='old'").run(now - 60_000);
+      expect((await readLocalAgent("zcode", "/project", 2, [], home)).state).toBeNull();
+      // OpenCode still requires a single owning process.
+      expect(
+        (await readLocalAgent("opencode", "/project", 2, [join(base, "opencode.db")], home)).state,
+      ).toBeNull();
+    } finally {
+      db.close();
+    }
+  });
   it("uses the ZCode desktop task status to avoid reporting interrupted tools as running", async () => {
     const home = await fixture();
     const base = join(home, ".zcode/cli/db");

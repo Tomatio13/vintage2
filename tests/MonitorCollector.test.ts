@@ -81,6 +81,7 @@ describe("Monitor collection with local fixture logs", () => {
       const updatedAt = 10_000_000;
       const state = new MonitorTranscript("zcode").state;
       state.lastActivityAt = updatedAt;
+      state.sessionId = "shared-zcode-session";
       state.status = "Waiting";
       vi.spyOn(localAgents, "readLocalAgent").mockImplementation(async () => ({
         state,
@@ -89,6 +90,7 @@ describe("Monitor collection with local fixture logs", () => {
       }));
       vi.mocked(listProcessRows).mockResolvedValue([
         { pid: process.pid, parentPid: process.ppid, command: "zcode-cli" },
+        { pid: process.ppid, parentPid: 1, command: "zcode-cli" },
       ]);
       const collector = new MonitorCollector("/tmp");
       vi.setSystemTime(updatedAt + 3_598_000);

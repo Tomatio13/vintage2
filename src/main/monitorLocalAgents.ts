@@ -91,21 +91,27 @@ function readSessionDatabase(
   cwd: string,
   peers: number,
 ): LocalAgentResult {
-  if (!cwd || peers !== 1)
+  if (!cwd || (peers !== 1 && agent !== "zcode"))
     return missing(
       "Session association is ambiguous: multiple agent processes share this working directory.",
     );
   let db: DatabaseSync | undefined;
   try {
     db = database(path);
+    // Desktop ZCode can retain several workers in the same directory. Only
+    // infer their session when exactly one session has activity within an hour.
+    const sharedWorkers = agent === "zcode" && peers > 1;
     const rows = db
       .prepare(
-        "SELECT id,directory,time_created,time_updated FROM session WHERE directory=? AND (parent_id IS NULL OR parent_id='') ORDER BY time_updated DESC LIMIT 2",
+        `SELECT id,directory,time_created,time_updated FROM session WHERE directory=? AND (parent_id IS NULL OR parent_id='') ${sharedWorkers ? "AND time_updated>?" : ""} ORDER BY time_updated DESC LIMIT 2`,
       )
-      .all(cwd) as Row[];
+      .all(...(sharedWorkers ? [cwd, Date.now() - 60 * 60 * 1000] : [cwd])) as Row[];
     const row = rows[0];
     if (!row) return missing("No local session matches this working directory.");
-    if (rows[1] && number(row.time_updated) - number(rows[1].time_updated) < 5000)
+    if (
+      rows[1] &&
+      (sharedWorkers || number(row.time_updated) - number(rows[1].time_updated) < 5000)
+    )
       return missing(
         "Multiple recently updated sessions share this working directory; ownership is uncertain.",
       );

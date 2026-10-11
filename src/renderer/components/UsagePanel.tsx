@@ -368,7 +368,7 @@ export function UsagePanel({ active, embedded = false }: { active: boolean; embe
       <div
         className={
           embedded
-            ? "grid auto-rows-fr items-stretch gap-2 p-2 @xl:grid-cols-2 @3xl:grid-cols-3"
+            ? "grid grid-cols-2 auto-rows-fr items-stretch gap-2 p-2"
             : "min-h-0 flex-1 space-y-2 overflow-y-auto p-2"
         }
       >

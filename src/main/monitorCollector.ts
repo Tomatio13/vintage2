@@ -410,6 +410,7 @@ export class MonitorCollector {
     const seen = new Set<string>();
     const usedReaders = new Set<string>();
     const warnings = new Set<string>();
+    const zcodeSessions = new Set<string>();
     if (candidates.length > 128) warnings.add("Only the first 128 agent processes are shown.");
     for (const row of agents) {
       const agent = monitorAgent(row)!;
@@ -497,6 +498,14 @@ export class MonitorCollector {
       ) {
         seen.delete(id);
         continue;
+      }
+      if (agent === "zcode" && local?.state?.sessionId) {
+        const key = JSON.stringify([local.state.cwd, local.state.sessionId]);
+        if (zcodeSessions.has(key)) {
+          seen.delete(id);
+          continue;
+        }
+        zcodeSessions.add(key);
       }
       if (local) readable = local.state !== null;
       const state = structuredClone(
