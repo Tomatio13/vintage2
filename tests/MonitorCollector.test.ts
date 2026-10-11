@@ -35,6 +35,11 @@ describe("Monitor process ownership", () => {
     expect(monitorAgent({ ...row, command: "sh", args: "sh -c echo codex" })).toBeNull();
     expect(monitorAgent({ ...row, args: "codex app-server" })).toBeNull();
     expect(monitorAgent({ ...row, args: "codex mcp-server" })).toBeNull();
+    expect(monitorAgent({ ...row, args: "codex remote-control" })).toBeNull();
+    expect(
+      monitorAgent({ ...row, command: "node", args: "node /tools/bin/codex remote-control" }),
+    ).toBeNull();
+    expect(monitorAgent({ ...row, args: 'codex exec "inspect remote-control"' })).toBe("codex");
     expect(
       monitorAgent({
         ...row,

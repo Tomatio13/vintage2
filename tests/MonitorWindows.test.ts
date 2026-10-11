@@ -31,6 +31,7 @@ describe("Windows Monitor pre-release", () => {
 
   it("recognizes quoted Windows launchers and excludes Codex services", () => {
     expect(monitorAgent(row)).toBe("codex");
+    expect(monitorAgent({ ...row, argv: [...row.argv, "remote-control"] })).toBeNull();
     expect(monitorAgent({ ...row, argv: [...row.argv, "app-server"] })).toBeNull();
     const wrapper = {
       ...row,

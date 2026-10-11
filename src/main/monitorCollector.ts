@@ -57,7 +57,7 @@ function codexService(args: string, start = 1): boolean {
       continue;
     }
     if (token.startsWith("-")) continue;
-    return token === "app-server" || token === "mcp-server";
+    return ["app-server", "mcp-server", "remote-control"].includes(token);
   }
   return false;
 }
