@@ -28,7 +28,7 @@ const agentStyle = {
   codex: { name: "Codex", badge: "CD", color: "bg-cyan-500/10 text-cyan-500" },
   antigravity: { name: "Antigravity", badge: "AG", color: "bg-violet-500/10 text-violet-500" },
   opencode: { name: "OpenCode", badge: "OC", color: "bg-emerald-500/10 text-emerald-500" },
-  grok: { name: "Grok", badge: "GK", color: "bg-orange-500/10 text-orange-500" },
+  grok: { name: "Grok", badge: "GK", color: "bg-teal-500/10 text-teal-500" },
   zcode: { name: "ZCode", badge: "ZC", color: "bg-rose-500/10 text-rose-500" },
 };
 const statusColor: Record<MonitorStatus, string> = {
