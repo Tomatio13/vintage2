@@ -324,9 +324,30 @@ export class MonitorCollector {
       };
     const rows = await listProcessRows();
     if (!rows) throw new Error("Unable to inspect local processes.");
-    const candidates = rows.filter((row) => monitorAgent(row));
-    // A node launcher and its native child represent the same agent, not two sessions.
     const parents = new Map(rows.map((row) => [row.pid, row]));
+    const candidates = rows.filter((row) => {
+      if (!monitorAgent(row)) return false;
+      // Usage probes launched by CodexBar are not interactive agent sessions.
+      let pid = row.parentPid;
+      const visited = new Set<number>([row.pid]);
+      while (pid > 0 && !visited.has(pid)) {
+        visited.add(pid);
+        const parent = parents.get(pid);
+        if (!parent) break;
+        if (
+          /^codexbar(?:-linux)?$/u.test(
+            monitorCommandName(
+              parent.command,
+              parent.argv !== undefined || process.platform === "win32",
+            ),
+          )
+        )
+          return false;
+        pid = parent.parentPid;
+      }
+      return true;
+    });
+    // A node launcher and its native child represent the same agent, not two sessions.
     const agents = candidates
       .filter((row) => {
         if (monitorAgent(row) === "antigravity") {

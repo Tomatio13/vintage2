@@ -22,6 +22,21 @@ import {
 } from "../src/main/monitorCollector.js";
 
 describe("Monitor process ownership", () => {
+  it("excludes CodexBar probes through intermediate parents while retaining terminal agents", async () => {
+    vi.mocked(listProcessRows).mockResolvedValue([
+      { pid: 900001, parentPid: 1, command: "codexbar-linux" },
+      { pid: 900002, parentPid: 900001, command: "sh" },
+      { pid: 900003, parentPid: 900002, command: "node", args: "node /tools/bin/codex" },
+      { pid: 900004, parentPid: 900003, command: "codex", args: "codex" },
+      { pid: 900005, parentPid: 900001, command: "claude", args: "claude" },
+      { pid: 900006, parentPid: 1, command: "codex", args: "codex" },
+      { pid: 900007, parentPid: 1, command: "claude", args: "claude" },
+      { pid: 900008, parentPid: 1, command: "CodexBar.exe", argv: ["CodexBar.exe"] },
+      { pid: 900009, parentPid: 900008, command: "codex.exe", argv: ["codex.exe"] },
+    ]);
+    const snapshot = await new MonitorCollector("/tmp").collect();
+    expect(snapshot.sessions.map((session) => session.pid).sort()).toEqual([900006, 900007]);
+  });
   it("recognizes native and Node agent launchers without matching commands that merely mention Codex", () => {
     const row = { pid: 10, parentPid: 1, command: "codex", args: "codex" };
     expect(monitorAgent(row)).toBe("codex");
