@@ -376,7 +376,7 @@ export function UsagePanel({ active, embedded = false }: { active: boolean; embe
           <p
             className={`shrink-0 ${embedded ? "text-ui-xs uppercase tracking-wider" : "text-ui-sm"} font-medium`}
           >
-            AI Usage
+            Usage
           </p>
           <p className="truncate text-ui-xs text-foreground-subtlest">
             {version ? `codexbar ${version} · ` : ""}

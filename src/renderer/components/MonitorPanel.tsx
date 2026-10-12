@@ -258,13 +258,13 @@ export function MonitorPanel({
             Monitor supports Linux, macOS and Windows (pre-release).
           </p>
         )}
-        <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+        <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-border bg-background/50 px-4 py-3">
           <div>
             <p className="flex items-center gap-1.5 text-ui-xs font-medium uppercase tracking-widest text-foreground-subtle">
               <span
-                className={`size-1.5 rounded-full ${active && !error ? "animate-pulse bg-emerald-500" : "bg-foreground-subtlest"}`}
+                className={`size-1.5 rounded-full ${active && !error ? "animate-pulse bg-foreground-subtle" : "bg-foreground-subtlest"}`}
               />
-              {error ? "Last snapshot" : active ? "Live on this PC" : "Paused"}
+              {error ? "Last snapshot" : active ? "Live now" : "Paused"}
             </p>
             <p className="mt-1 flex items-baseline gap-2">
               <span className="font-mono text-3xl font-semibold tabular-nums text-emerald-500">
@@ -370,7 +370,7 @@ export function MonitorPanel({
         </div>
         {usageEnabled && (
           <section
-            aria-label="AI Usage"
+            aria-label="Usage"
             className="overflow-hidden rounded-xl border border-border bg-background/50"
           >
             <UsagePanel active={active} embedded />
