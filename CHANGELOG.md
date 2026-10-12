@@ -1,5 +1,26 @@
 # VINTAGE Changelog
 
+## [0.2.26] - 2026-10-13
+
+### Changed
+
+- **Sidebar navigation:** Click workspace folders to expand or collapse their Spaces. Reveal project actions on hover or keyboard focus and choose Remove from the menu. Remove terminal counts from Space rows.
+- **Agent activity colors:** Use the Codex Usage teal accent for Running and Thinking dots across themes.
+- **Monitor presentation:** Use a neutral summary card and status dot, retain the green Monitor icon and active-agent count, and shorten the headings to Live Now and Usage.
+
+### Fixed
+
+- **CLI activity detection:** Show detected Claude Code and other known agent CLI processes as running even without shell integration, including in Errors Only mode. Clear process activity when the CLI exits without changing notification thresholds.
+
+### Validation and limitations
+
+- Automated validation passed: boundaries, TypeScript, lint, formatting, 388 tests (one skipped), and the production build.
+- Automated validation covers CLI detection without shell integration, process exit, workspace expansion, and the Remove menu.
+- The user confirmed the Claude Code dot and sidebar/Monitor presentation in the running app.
+- Windows Monitor remains experimental. Physical Windows/macOS runtime testing and installed-app updater verification remain pending.
+
+**Full Changelog:** [v0.2.25...v0.2.26](https://github.com/Tomatio13/vintage2/compare/v0.2.25...v0.2.26)
+
 ## [0.2.25] - 2026-10-12
 
 ### Changed

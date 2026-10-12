@@ -295,7 +295,7 @@ describe("VINTAGE workspace shell", () => {
     renderApp();
 
     expect(await screen.findByText("Project folder is unavailable")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Saved Space" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Saved Space" })).toHaveLength(2);
     expect(document.querySelector('[data-pane-id="saved-terminal"]')).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Locate folder" }));
 
@@ -355,7 +355,8 @@ describe("VINTAGE workspace shell", () => {
     renderApp();
 
     expect(await screen.findByText("Project folder is unavailable")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Remove Project from list" }));
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Project" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
     await waitFor(() => {
       const latest = saveWorkspaceState.mock.calls.at(-1)?.[0] as
         | WorkspaceStateSnapshot
