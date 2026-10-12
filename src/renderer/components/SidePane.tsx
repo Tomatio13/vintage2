@@ -448,6 +448,7 @@ export function SidePane({
           >
             <NotesPane
               key={workspaceId}
+              workspaceName={workspaceName ?? "Workspace"}
               workspaceId={workspaceId}
               visible={visible && (activeTabId === "notes" || activeTabId === "board")}
               onOpenFile={onOpenFile}

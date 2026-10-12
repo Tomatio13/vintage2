@@ -4,6 +4,8 @@ import { lstat, mkdir, open, realpath, rename, rmdir, unlink } from "node:fs/pro
 import { join } from "node:path";
 import { validateKanban, type KanbanDocument, type KanbanSnapshot } from "../shared/kanban.js";
 
+import { prepareKanbanCli } from "./kanbanCli.js";
+
 const limit = 1_000_000;
 function missing(error: unknown) {
   return (error as NodeJS.ErrnoException).code === "ENOENT";
@@ -23,8 +25,11 @@ async function directory(path: string, create: boolean): Promise<string> {
     throw new Error("Board storage must be a real directory.");
   return realpath(path);
 }
-async function readAt(dir: string): Promise<KanbanSnapshot | null> {
-  const path = join(dir, "kanban.json");
+async function readAt(
+  dir: string,
+  name = "kanban.json",
+): Promise<(KanbanSnapshot & { raw: string }) | null> {
+  const path = join(dir, name);
   try {
     const details = await lstat(path);
     if (!details.isFile() || details.isSymbolicLink() || details.nlink !== 1)
@@ -36,7 +41,7 @@ async function readAt(dir: string): Promise<KanbanSnapshot | null> {
       if (bytesRead > limit || (await handle.stat()).size > limit)
         throw new Error("Kanban exceeds 1 MB.");
       const raw = buffer.toString("utf8", 0, bytesRead);
-      return { board: validateKanban(JSON.parse(raw)), revision: hash(raw) };
+      return { board: validateKanban(JSON.parse(raw)), revision: hash(raw), raw };
     } finally {
       await handle.close();
     }
@@ -70,6 +75,36 @@ async function replace(
   const current = await readAt(dir);
   if ((current?.revision ?? null) !== expected)
     throw new Error("Board changed on disk. Your draft is kept; reload the board before retrying.");
+  if (current && current.board.version > board.version)
+    throw new Error(
+      `Board version ${current.board.version} cannot be downgraded. Preserve its metadata.`,
+    );
+  if (board.version >= 2) {
+    await prepareKanbanCli(dir);
+    if (current && current.board.version < board.version) {
+      const name = `kanban-v${current.board.version}-${current.revision}.json`;
+      let ownedBackup = false;
+      try {
+        const backup = await open(join(dir, name), "wx", 0o600);
+        ownedBackup = true;
+        try {
+          await backup.writeFile(current.raw);
+          await backup.sync();
+        } finally {
+          await backup.close();
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+          if (ownedBackup) await unlink(join(dir, name));
+          throw error;
+        }
+        if ((await readAt(dir, name))?.raw !== current.raw)
+          throw new Error(
+            `Version ${current.board.version} backup does not match the original board. Migration stopped.`,
+          );
+      }
+    }
+  }
   const temporary = join(dir, `kanban-${randomUUID()}.tmp`);
   try {
     const handle = await open(temporary, "wx", 0o600);
@@ -102,13 +137,13 @@ export async function readKanban(root: string, initial?: unknown): Promise<Kanba
     dir = await directory(root, true);
   }
   const current = await readAt(dir);
-  if (current) return current;
+  if (current) return { board: current.board, revision: current.revision };
   if (initial === undefined)
     throw new Error("Board file is missing. Restore the board JSON file before continuing.");
   const board = validateKanban(initial);
   return locked(dir, async () => {
     const existing = await readAt(dir);
-    if (existing) return existing;
+    if (existing) return { board: existing.board, revision: existing.revision };
     return replace(dir, board, null);
   });
 }

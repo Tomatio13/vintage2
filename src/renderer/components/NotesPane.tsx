@@ -5,10 +5,12 @@ import { MarkdownEditor } from "./MarkdownEditor.js";
 
 export function NotesPane({
   workspaceId,
+  workspaceName = "Workspace",
   visible,
   onOpenFile,
 }: {
   workspaceId: string;
+  workspaceName?: string;
   visible: boolean;
   onOpenFile: (path: string) => void;
 }) {
@@ -39,6 +41,7 @@ export function NotesPane({
         <div className="min-h-0 flex-1" hidden={view !== "board"}>
           <KanbanBoard
             workspaceId={workspaceId}
+            workspaceName={workspaceName}
             request={request}
             active={visible && view === "board"}
           />

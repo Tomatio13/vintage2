@@ -143,15 +143,25 @@ _WorkspaceごとのScratchpad。入力時に自動保存され、カード作成
 
 ### Board（Kanban）
 
-Boardタブ、コマンドパレットのOpen Board pane、または`Ctrl+Shift+K`でWorkspaceのKanbanボードを開きます。BoardではTo do・Doing・Doneの3列にタイトルとメモ付きのカードを作成し、ドラッグ＆ドロップで移動できます。カードをクリックすると編集でき、削除直後はUndoで戻せます。幅の狭いペインではボードを横スクロールしてください。
+Boardタブ、コマンドパレットのOpen Board pane、または`Ctrl+Shift+K`でWorkspaceのKanbanボードを開きます。To do・Doing・Doneの3列で作業を管理し、カードにはラベル・タイトル・短縮したタスクID・優先度・期限・Subtaskの進捗を表示します。Notesは詳細で表示します。列の高さはカード量に合わせ、長い列は縦スクロールします。列の折りたたみと、狭いペインでの横スクロールに対応します。
 
-Notesの編集画面で文章を選択し、Create card from noteアイコンを押すとカード作成フォームが開きます。未選択の場合はカーソルのある行を使い、元のメモは保持します。
+タイトルまたはEditを押すと、Boardを作業領域へ拡大し、一覧を残したまま右に詳細ドロワーを開きます。端末セッションは維持されます。Title・Status・Priority・Due date・Labels・Description / Notesを編集し、**Save changes**で保存します。ラベルはEnterまたはAddで追加でき、未追加のラベル入力も保存対象です。編集のあるカードを閉じたり切り替えたりすると、破棄の確認を表示します。復帰ボタンで右ペインへ戻せます。列のAdd cardはタイトルだけを連続入力するフォーム、上部のAdd cardは詳細を開きます。
 
-カードはVINTAGEのアプリ保存領域にJSON形式で、Workspaceの実パスごとに保存されます。メモとカードは再起動後に復元されます。カード編集フォームの未確定の入力は再起動時に復元されません。
+Description / Notesの下でSubtaskを入力し、Enterまたは＋で追加します。タイトルを行内で編集し、完了チェックや削除ができます。**Save changes**でAdd subtaskの未追加入力も含めて保存します。詳細とカードに完了数／総数と進捗バーを表示します。全Subtaskを完了しても親カードのStatusは変更しません。1カードに最大100項目、タイトルは各200文字までです。
+
+検索はTitleとNotes、Filterは優先度、SortはManual・Priority・Due dateに対応し、Show doneでDone列を表示／非表示にします。検索・Filter・Sortは保存済みの手動順を変更しません。ドラッグで列移動や並べ替えができ、More actionsのMove to・Up／Downからも操作できます。ドラッグとUp／DownはManualかつ検索・優先度Filterなしの場合に使えます。カードの削除直後はUndoで戻せます。
+
+Notesの編集画面で文章を選択し、Create card from noteアイコンを押すとカード詳細を開きます。未選択の場合はカーソルのある行を使い、元のメモは保持します。
+
+カードはVINTAGEのアプリ保存領域にJSON形式で、Workspaceの実パスごとに保存され、再起動後に復元されます。未保存のカード下書きとBoardの検索・表示設定は再起動時に復元されません。既存version 1を読み込め、メタ情報の保存でversion 2、Subtaskの保存でversion 3へ移行します。移行前に元ファイルの完全な内容をバックアップします。旧版アプリは新形式を読めないため、[保存と移行の詳細](KANBAN.md#storage-and-version-migration)をご確認ください。
 
 Settings → Panels → Show Board tab、または`Ctrl+Alt+K`でBoardのON/OFFを切り替えます（既定はOn）。Offの間はOpen Board paneからも開きません。表示中のBoardをOffにすると別の有効なタブへ移ります。カードは保持され、設定は再起動後も維持されます。ショートカットはSettings → Shortcutsで変更できます。
 
-Board全体と各カードのAIアイコンから、JSONの保存先・作業指示・パラメータ指定のPython更新コマンドをクリップボードへコピーできます。好きなCLIエージェントに貼り付けて使います。プロジェクト内にファイルや環境変数は追加しません。Board表示中は3秒ごとに外部変更を読み込み、カードの編集中は下書きを保持して古い状態からの保存を拒否します。既存のローカル保存カードは初回に移行し、元のデータはバックアップとして残します。[AI連携と保存形式](KANBAN.md)をご覧ください。
+AIアイコンから、作業場所・Board JSONとAgent Skillのパス・対象・作業指示の5行をコピーします。Board全体のアイコンは検索・Filter・列の折りたたみで隠れたカードを含む**すべてのTo do**、カードのアイコンはその保存済みカードが対象です。CLI Agentに貼り付けて使い、コピー自体はAgentを起動しません。Pythonのコマンド例はSkillに記載しています。
+
+配布用の[vintage-board Agent Skill](../skills/vintage-board/SKILL.md)はPython 3のhelperを含みます。`skills/vintage-board`フォルダー全体をAgentのSkill保存先へコピーするか、SKILL.mdを直接読ませてください。AI指示コピー時には同じSkillを`<VINTAGE userData>/kanban/skills/vintage-board`へ書き出し、その場所をコピーする指示へ含めます。helperはカードの読み取り・Status／Notes更新と、完全なIDを指定したSubtaskの追加・タイトル変更・完了／再開・削除に対応します。無関係なデータを保持し、アプリと共通のロック・atomic writeで更新します。Skillの配布だけでは別マシンのAgentにBoardデータは共有されません。
+
+プロジェクト内にファイルや環境変数は追加しません。Boardが表示中かつアクティブな間は3秒ごとに外部変更を読み込み、編集中の下書きを保持して古い状態からの保存を拒否します。既存のローカル保存カードは初回に移行し、元のデータはバックアップとして残します。[AI連携・保存形式・Skill配布の詳細](KANBAN.md)をご覧ください。
 
 ![BoardのTo do・Doing・DoneとAI指示コピーボタン](../assets/readme/vintage-board.png)
 

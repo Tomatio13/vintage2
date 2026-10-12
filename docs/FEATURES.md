@@ -143,15 +143,25 @@ _Workspace Scratchpad with autosave, card creation, and Markdown export controls
 
 ### Board (Kanban)
 
-Open the workspace Kanban board from the Board tab, Open Board pane in the command palette, or `Ctrl+Shift+K`. It has To do, Doing, and Done columns. Create cards with a title and notes, move them by drag-and-drop, click to edit, and undo a deletion immediately afterward. Scroll horizontally in narrow panes.
+Open the workspace Kanban board from the Board tab, Open Board pane in the command palette, or `Ctrl+Shift+K`. It has To do, Doing, and Done columns. Cards show labels, a title, a shortened task ID, priority, due date, and subtask progress. Notes are shown in details. Columns follow their own content height; long columns scroll vertically. Collapse a column or scroll horizontally in narrow panes.
 
-In Notes editing mode, select text and use Create card from note to open a card form; without a selection, it uses the current line. The original memo stays intact.
+Click a title or Edit to expand Board over the workspace content, keeping the card list beside a detail drawer. Terminal sessions remain mounted. Edit Title, Status, Priority, Due date, Labels, and Description / Notes, then **Save changes**. Enter or Add creates a label; pending label text is included when saving. Closing or switching cards asks before discarding edits. Restore Board to return it to the side pane. Column Add card opens a title-only composer for consecutive entries; the top Add card opens details.
 
-Cards are saved as JSON in VINTAGE’s app data directory, keyed by the canonical workspace path. Notes and cards restore after restarting. Unsubmitted card form inputs are not restored after restarting.
+Below Description / Notes, type a Subtask and press Enter or click +. Edit titles inline, check completed items, or delete rows. **Save changes** includes text still in Add subtask. Progress appears in details and on cards; completing all subtasks does not change the parent Status. Each card supports up to 100 subtasks, with titles up to 200 characters.
+
+Search matches Title and Notes, Filter selects priority, Sort offers Manual/Priority/Due date, and Show done toggles the Done column. Sorting and filtering leave the saved manual order intact. Drag to move or reorder cards; More actions provides Move to and Up/Down. Drag and Up/Down require Manual sorting and no search or priority filter. Undo can restore a deleted card immediately afterward.
+
+In Notes editing mode, select text and use Create card from note to open card details; without a selection, it uses the current line. The original memo stays intact.
+
+Cards are saved as JSON in VINTAGE's app data directory, keyed by the canonical workspace path, and restore after restarting. Unsaved card drafts and Board search/view settings are not restored after restarting. Existing version 1 boards remain readable; metadata saves upgrade to version 2, and subtask saves upgrade to version 3. Each upgrade backs up the exact previous file before replacing it. Older apps cannot read the new format; see [storage and migration](KANBAN.md#storage-and-version-migration).
 
 Use Settings → Panels → Show Board tab or `Ctrl+Alt+K` to turn Board on or off (On by default). While Off, Open Board pane does not open it. Turning off an active Board tab selects another enabled tab. Cards are retained, and the preference persists across restarts. Reassign the shortcut in Settings → Shortcuts.
 
-The AI icons on the board and each card copy the JSON path, task instructions, and a parameterized Python helper command to the clipboard for pasting into your CLI agent. No files or environment variables are added to the project. Visible boards check for external edits every three seconds; an open card draft is retained and outdated saves are rejected. Legacy local cards migrate on first use, with the original local data retained as a backup. See [AI integration and storage format](KANBAN.md).
+The AI icons copy five lines containing the workspace, Board JSON and Agent Skill paths, task scope, and work instructions. The board-wide icon targets **all To do cards**, including cards hidden by search, filters, or collapsed columns; a card's icon targets that saved card. Paste the instructions into your CLI agent. Copying does not start an agent. Python command examples live in the Skill.
+
+The portable [vintage-board Agent Skill](../skills/vintage-board/SKILL.md) includes its Python 3 helper. Distribute the entire `skills/vintage-board` folder to the agent's skill directory, or have it read SKILL.md directly. Copying instructions exports the same Skill to `<VINTAGE userData>/kanban/skills/vintage-board`; its location is included in the copied text. The helper reads cards and updates Status/Notes or adds, renames, completes, reopens, and deletes subtasks by full ID. It preserves unrelated data and uses the app's shared lock and atomic writes. Skill distribution alone does not share local Board data with remote agents.
+
+No files or environment variables are added to the project. Visible, active boards check for external edits every three seconds; an open draft is retained and outdated saves are rejected. Legacy local cards migrate on first use, with the original local data retained as a backup. See [AI integration, storage format, and Skill distribution](KANBAN.md).
 
 ![Kanban Board with To do, Doing, Done, and AI instruction controls](../assets/readme/vintage-board.png)
 

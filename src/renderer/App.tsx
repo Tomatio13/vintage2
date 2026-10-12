@@ -1625,7 +1625,11 @@ export function App() {
         onSplitRight={active?.available ? () => split("right") : undefined}
         onSplitDown={active?.available ? () => split("down") : undefined}
       >
-        <div ref={layoutRef} className="relative flex h-full min-h-0 bg-background">
+        <div
+          ref={layoutRef}
+          data-workspace-content
+          className="relative flex h-full min-h-0 bg-background"
+        >
           <main className="relative min-w-0 flex-1 overflow-hidden bg-background">
             {workspaceActionError && active?.available && (
               <div

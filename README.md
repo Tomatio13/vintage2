@@ -16,7 +16,7 @@ VINTAGE keeps projects, Spaces, and terminals together, then brings you back whe
 - **Attention monitoring**: See command completions, errors, and input requests from background terminals in one list.
 - **Agent status at a glance**: Color-coded dots in Space tabs and the sidebar surface agent activity, waits, and failures. Agent CLI processes also appear as running when shell integration is unavailable, including in Errors Only mode.
 - **Files and Git Review**: Browse, copy, and rename files, edit Markdown with syntax highlighting, line numbers and line navigation, zoom documents, search and replace text, and inspect unstaged Git changes.
-- **Notes and Board**: Keep workspace notes and organize tasks on a Kanban board.
+- **Notes and Board**: Keep workspace notes and organize tasks with compact Kanban cards, labels, priorities, due dates, and subtask checklists with progress. Expand Board to keep the list beside a detail drawer; search, filter, sort, or reorder by drag and keyboard. Distribute the [vintage-board Agent Skill](skills/vintage-board/SKILL.md) to let agents update cards, Notes, and subtasks through the bundled Python helper.
 - **Agent Monitor**: Built-in local Claude Code / Codex / Antigravity / OpenCode / ZCode / Grok session activity, current tools, context usage in the Monitor tab. No abtop installation or external collector is required.
 - **AI usage limits**: See remaining quota, reset times, and credits for AI CLIs such as Codex and Claude Code inside Monitor. Requires the optional [CodexBar CLI](https://github.com/steipete/codexbar).
 - **Flexible shells**: Choose zsh, bash, fish, or the operating system’s default shell. On Windows, Command Prompt, Windows PowerShell, PowerShell 7, and Git Bash are supported.
@@ -77,6 +77,14 @@ Local activity refreshes approximately every two seconds while Monitor and the a
 Optional **AI Usage** appears directly below CPU/Memory, with compact, equally sized provider cards for quota, reset times, credits and costs. When CodexBar reports `limitResetCredits`, its available balance and next expiry replace the regular Credits display, and Today/30 days costs are hidden. Enable **Settings → Usage → Show Usage in Monitor** and configure the [CodexBar CLI](https://github.com/steipete/codexbar). Existing Usage settings are retained; there is no separate Usage tab. Usage refreshes at its own configured interval while Monitor is visible. See the [features guide](docs/FEATURES.md#monitor) for data sources and limits, and the [usage limits guide](docs/FEATURES.md#usage-limits-codexbar) for CodexBar setup.
 
 Show or hide Files, Review, Notes, Board, Monitor, and Browser in **Settings → Panels**. Changes save automatically; tab visibility also has configurable shortcuts.
+
+## Board and AI agents
+
+Open **Board** with `Ctrl+Shift+K`. Cards show labels, priority, due date, and subtask progress. Opening a card expands Board with the list beside a detail drawer while terminal sessions stay mounted. Add, edit, check, or delete subtasks below Description / Notes, then **Save changes**. Completing the checklist leaves the parent card status unchanged.
+
+The AI icon copies five lines containing the workspace, Board JSON and Agent Skill paths, task scope, and work instructions. Paste them into your agent; it reads the Skill for Python commands. The board-wide icon covers all To do cards, including hidden cards; a card's icon targets that saved card. Python 3 is required.
+
+Distribute the entire [`skills/vintage-board`](skills/vintage-board/SKILL.md) folder to the agent's skill directory. Copying AI instructions also exports the Skill under VINTAGE app data. Its Python helper supports card status, Notes, and subtask addition, title editing, completion/reopening, and deletion. Board data stays local to the machine. See the [Board guide](docs/FEATURES.md#board-kanban) and [storage, CLI, and Skill distribution guide](docs/KANBAN.md).
 
 ## Documentation
 

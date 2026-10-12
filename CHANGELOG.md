@@ -1,5 +1,28 @@
 # VINTAGE Changelog
 
+## [0.2.27] - 2026-10-13
+
+### Added
+
+- **Subtasks:** Add, edit, complete, reopen, and delete checklist items below Description / Notes. Show completed/total progress in card details and on cards. Save changes includes pending subtask input; completing the checklist leaves the parent status unchanged.
+- **Agent Skill:** Distribute the portable `vintage-board` Skill with its Python 3 helper. Agents can read cards, update Status/Notes, and manage subtasks by full ID. Copy AI instructions exports the Skill under app data and supplies its path in a concise five-line prompt.
+
+### Changed
+
+- **Board layout:** Keep the card list beside an expanded detail drawer while preserving terminal sessions. Use compact cards with labels, task IDs, priority, and due date, plus columns that follow their content height.
+- **Board navigation:** Search Title/Notes, filter by priority, sort by manual order/priority/due date, hide Done, collapse columns, and reorder using drag or keyboard actions.
+- **Board storage:** Support metadata in version 2 and subtasks in version 3. Back up the exact previous file before migration, retain IDs and card order, reject downgrades, and preserve unrelated data through shared locks and atomic writes.
+- **Documentation:** Update English/Japanese README and feature guides, the Board/CLI guide, and the Board port design.
+
+### Validation and limitations
+
+- Automated validation passed: boundaries, TypeScript, lint, formatting, 420 tests (one skipped), and the production build. Python static checks and Skill validation passed.
+- Linux Electron smoke testing covers narrow/wide panes, list/detail layout, subtask entry and progress, copied Skill execution and external changes, real dragging, 1,000 cards, three themes, and continuing input/output in the same terminal session.
+- Windows Monitor remains experimental. Physical Windows/macOS runtime testing, installed-app updater verification, and agent-specific automatic Skill discovery remain pending.
+- Older VINTAGE versions cannot read version 2/3 boards. Migration backups exclude later changes; see the Board guide before restoring an old format.
+
+**Full Changelog:** [v0.2.26...v0.2.27](https://github.com/Tomatio13/vintage2/compare/v0.2.26...v0.2.27)
+
 ## [0.2.26] - 2026-10-13
 
 ### Changed

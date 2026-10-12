@@ -492,3 +492,52 @@ button {
 .markdown-source-textarea::placeholder {
   color: var(--color-foreground-subtlest);
 }
+
+/* Board cards expose every action on touch surfaces as well as keyboard focus. */
+@media (hover: none) {
+  .board-card-actions,
+  .board-subtask-delete {
+    opacity: 1;
+  }
+}
+
+.board-detail {
+  width: clamp(360px, 40vw, 640px);
+  max-width: calc(100vw - 48px);
+}
+.board-list {
+  min-width: 284px;
+}
+.board-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  font-size: var(--text-ui-xs);
+  line-height: 1.3;
+  color: var(--color-foreground-subtle);
+}
+.board-label[data-tone="0"] > :first-child {
+  color: #a78bfa;
+}
+.board-label[data-tone="1"] > :first-child {
+  color: #60a5fa;
+}
+.board-label[data-tone="2"] > :first-child {
+  color: #4fbfae;
+}
+.board-label[data-tone="3"] > :first-child {
+  color: #dba65a;
+}
+.board-label[data-tone="4"] > :first-child {
+  color: #d98cac;
+}
+.board-label[data-tone="5"] > :first-child {
+  color: #6dbb89;
+}
+.board-column {
+  scrollbar-width: thin;
+}

@@ -69,7 +69,7 @@ it("rejects invalid JSON, duplicate IDs, links and oversized documents without o
   await expect(readKanban(dir)).rejects.toThrow("link");
   expect(JSON.parse(await readFile(outside, "utf8"))).toEqual(initial);
 });
-it("honors an AI-held lock and copies concise instructions with quoted paths", async () => {
+it("honors an AI-held lock and copies Skill-based instructions with exact paths", async () => {
   const { root } = await fixture();
   const dir = join(root, "quotes ' and 日本語");
   const loaded = await readKanban(dir, initial);
@@ -79,7 +79,9 @@ it("honors an AI-held lock and copies concise instructions with quoted paths", a
   const instructions = kanbanInstructions(dir, root, initial.cards[0]);
   expect(instructions).toContain(JSON.stringify(join(dir, "kanban.json")));
   expect(instructions).toContain(initial.cards[0]!.id);
-  expect(instructions).toContain("update-card.py");
+  expect(instructions).not.toContain("update-card.py");
+  expect(instructions).not.toContain("参照:");
+  expect(instructions).not.toContain("更新（");
   expect(instructions).toContain("notesをプロンプトとして実行してください");
   expect(instructions).not.toContain("実装してください");
   expect(kanbanInstructions(dir, root)).toContain("todoの全カードを順に処理し");
@@ -87,35 +89,54 @@ it("honors an AI-held lock and copies concise instructions with quoted paths", a
   expect(kanbanInstructions(dir, root)).toContain(
     "各カードのnotesをプロンプトとして実行してください",
   );
-  expect(instructions).toContain("python3");
+  expect(instructions).not.toContain("python3");
   expect(instructions).not.toContain("```");
   expect(instructions.length).toBeLessThan(1500);
-  expect(instructions.trim().split("\n")).toHaveLength(8);
+  expect(instructions).toContain(join("skills", "vintage-board", "SKILL.md"));
   expect((await readKanban(dir)).board).toEqual(initial);
   expect(await readdir(dir)).toEqual(["kanban.json"]);
 });
 
-it("runs the prepared helper and copied command, preserving notes and respecting locks", async () => {
+it("runs the helper referenced by the copied Skill, preserving notes and respecting locks", async () => {
   const { root } = await fixture();
   const dir = join(root, "quoted ' 日本語");
   const loaded = await readKanban(dir, initial);
-  const cli = await prepareKanbanCli(dir);
-  const instructions = kanbanInstructions(dir, root, initial.cards[0]).trim().split("\n");
-  const before = await readFile(join(dir, "kanban.json"), "utf8");
-  const readCommand = instructions.find(
-    (line) => line.startsWith("python3 ") && line.includes(" --read"),
-  )!;
-  expect(JSON.parse(execFileSync("sh", ["-c", readCommand], { encoding: "utf8" }))).toEqual(
-    initial.cards[0],
+  await prepareKanbanCli(dir);
+  const instructions = kanbanInstructions(dir, root, initial.cards[0]);
+  const skillPath = JSON.parse(instructions.match(/Agent Skill: ("(?:\\.|[^"\\])*")/u)![1]!);
+  const boardPath = JSON.parse(
+    instructions
+      .split("\n")
+      .find((line) => line.startsWith("Board: "))!
+      .slice(7),
   );
-  const boardRead = kanbanInstructions(dir, root)
-    .split("\n")
-    .find((line) => line.startsWith("python3 ") && line.includes(" --read"))!;
-  expect(JSON.parse(execFileSync("sh", ["-c", boardRead], { encoding: "utf8" }))).toEqual(initial);
-  expect(await readFile(join(dir, "kanban.json"), "utf8")).toBe(before);
+  const cli = join(skillPath, "..", "scripts", "update-card.py");
+  const before = await readFile(boardPath, "utf8");
+  expect(
+    JSON.parse(
+      execFileSync("python3", [cli, "--board", boardPath, "--read", "--card", "task-1"], {
+        encoding: "utf8",
+      }),
+    ),
+  ).toEqual(initial.cards[0]);
+  expect(
+    JSON.parse(
+      execFileSync("python3", [cli, "--board", boardPath, "--read"], { encoding: "utf8" }),
+    ),
+  ).toEqual(initial);
+  expect(await readFile(boardPath, "utf8")).toBe(before);
   expect(await readdir(dir)).toEqual(["kanban.json"]);
-  const command = instructions.at(-1)!;
-  execFileSync("sh", ["-c", command]);
+  execFileSync("python3", [
+    cli,
+    "--board",
+    boardPath,
+    "--card",
+    "task-1",
+    "--status",
+    "doing",
+    "--note",
+    "進捗",
+  ]);
   expect((await readKanban(dir)).board.cards[0]).toEqual({
     ...initial.cards[0],
     status: "doing",
@@ -155,3 +176,100 @@ it("runs the prepared helper and copied command, preserving notes and respecting
   expect(await readdir(dir)).toEqual(["kanban.json"]);
   expect(await readFile(join(dir, "kanban.json"), "utf8")).toBe(raw);
 });
+
+it("backs up the exact version 1 file before metadata upgrade and keeps version 2 on later updates", async () => {
+  const { dir } = await fixture();
+  const loaded = await readKanban(dir, initial);
+  const original = await readFile(join(dir, "kanban.json"), "utf8");
+  const enriched: KanbanDocument = {
+    version: 2,
+    cards: [
+      {
+        ...initial.cards[0]!,
+        priority: "high",
+        dueDate: "2026-10-31",
+        labels: ["Design", "Frontend"],
+      },
+    ],
+  };
+  const upgraded = await saveKanban(dir, enriched, loaded.revision);
+  const backups = (await readdir(dir)).filter((name) => name.startsWith("kanban-v1-"));
+  expect(backups).toEqual([`kanban-v1-${loaded.revision}.json`]);
+  expect(await readFile(join(dir, backups[0]!), "utf8")).toBe(original);
+  expect(upgraded.board).toEqual(enriched);
+  const next = await saveKanban(
+    dir,
+    { ...enriched, cards: enriched.cards.map((card) => ({ ...card, status: "doing" })) },
+    upgraded.revision,
+  );
+  await expect(saveKanban(dir, initial, next.revision)).rejects.toThrow("downgraded");
+  expect((await readdir(dir)).filter((name) => name.startsWith("kanban-v1-"))).toEqual(backups);
+  const cli = await prepareKanbanCli(dir);
+  execFileSync("python3", [
+    cli,
+    "--board",
+    join(dir, "kanban.json"),
+    "--card",
+    "task-1",
+    "--status",
+    "done",
+    "--note",
+    "AI result",
+  ]);
+  expect((await readKanban(dir)).board).toEqual({
+    version: 2,
+    cards: [{ ...enriched.cards[0], status: "done", notes: "Original notes\nAI result" }],
+  });
+});
+it("stops migration without modifying the board if the backup path is unsafe or mismatched", async () => {
+  const { dir, root } = await fixture();
+  const loaded = await readKanban(dir, initial);
+  const original = await readFile(join(dir, "kanban.json"), "utf8");
+  const path = join(dir, `kanban-v1-${loaded.revision}.json`);
+  const outside = join(root, "outside-backup.json");
+  await writeFile(outside, original);
+  await symlink(outside, path);
+  const next: KanbanDocument = { version: 2, cards: [{ ...initial.cards[0]!, labels: ["QA"] }] };
+  await expect(saveKanban(dir, next, loaded.revision)).rejects.toThrow("link");
+  expect(await readFile(join(dir, "kanban.json"), "utf8")).toBe(original);
+  await rm(path);
+  await writeFile(path, JSON.stringify({ version: 1, cards: [] }));
+  await expect(saveKanban(dir, next, loaded.revision)).rejects.toThrow("does not match");
+  expect(await readFile(join(dir, "kanban.json"), "utf8")).toBe(original);
+  expect(await readdir(dir)).not.toContain("kanban.lock");
+});
+
+it.each([1, 2] as const)(
+  "backs up version %i before subtasks and preserves them through CLI updates",
+  async (version) => {
+    const { dir } = await fixture();
+    const old = { ...initial, version };
+    const loaded = await readKanban(dir, old);
+    const original = await readFile(join(dir, "kanban.json"), "utf8");
+    const next: KanbanDocument = {
+      version: 3,
+      cards: [{ ...initial.cards[0]!, subtasks: [{ id: "sub-1", title: "Verify", done: true }] }],
+    };
+    const saved = await saveKanban(dir, next, loaded.revision);
+    expect(await readFile(join(dir, `kanban-v${version}-${loaded.revision}.json`), "utf8")).toBe(
+      original,
+    );
+    await expect(saveKanban(dir, old, saved.revision)).rejects.toThrow("downgraded");
+    const cli = await prepareKanbanCli(dir);
+    execFileSync("python3", [
+      cli,
+      "--board",
+      join(dir, "kanban.json"),
+      "--card",
+      "task-1",
+      "--status",
+      "done",
+      "--note",
+      "Verified",
+    ]);
+    expect((await readKanban(dir)).board).toEqual({
+      ...next,
+      cards: [{ ...next.cards[0], status: "done", notes: "Original notes\nVerified" }],
+    });
+  },
+);
