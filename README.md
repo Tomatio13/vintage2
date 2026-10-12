@@ -10,10 +10,11 @@ VINTAGE keeps projects, Spaces, and terminals together, then brings you back whe
 
 ## Key features
 
+- **Project navigation**: Click a sidebar folder to expand or collapse its Spaces. Hover over a project and open the ⋯ menu to choose Remove. Running agent dots use the Codex AI Usage accent.
 - **Workspaces, Spaces, and terminals**: Organize projects, create multiple Spaces, and split terminals side by side or vertically.
 - **Command palette**: Press `Ctrl+Shift+P` to search actions and jump to a workspace, Space, or terminal.
 - **Attention monitoring**: See command completions, errors, and input requests from background terminals in one list.
-- **Agent status at a glance**: Color-coded dots in Space tabs and the sidebar surface agent activity, waits, and failures.
+- **Agent status at a glance**: Color-coded dots in Space tabs and the sidebar surface agent activity, waits, and failures. Agent CLI processes also appear as running when shell integration is unavailable, including in Errors Only mode.
 - **Files and Git Review**: Browse, copy, and rename files, edit Markdown with syntax highlighting, line numbers and line navigation, zoom documents, search and replace text, and inspect unstaged Git changes.
 - **Notes and Board**: Keep workspace notes and organize tasks on a Kanban board.
 - **Agent Monitor**: Built-in local Claude Code / Codex / Antigravity / OpenCode / ZCode / Grok session activity, current tools, context usage in the Monitor tab. No abtop installation or external collector is required.

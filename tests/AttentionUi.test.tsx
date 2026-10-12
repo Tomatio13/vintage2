@@ -53,7 +53,7 @@ function renderSidebar(attentionItems: SidebarAttentionItem[]) {
 }
 
 describe("Attention UI", () => {
-  it("keeps every workspace's Spaces visible when switching locations", () => {
+  it("toggles workspace Spaces without changing their selected state", () => {
     const home = {
       id: "home",
       name: "Home",
@@ -72,6 +72,7 @@ describe("Attention UI", () => {
       activeTabId: "project-space-2",
     };
     const onSelectWorkspace = vi.fn();
+    const onRemoveWorkspace = vi.fn();
     const props = {
       workspaces: [home, project],
       attentionItems: [],
@@ -79,6 +80,7 @@ describe("Attention UI", () => {
       onOpenWorkspace: () => {},
       onNewSpace: () => {},
       onSelectWorkspace,
+      onRemoveWorkspace,
       onSelectTab: () => {},
       onSelectAttention: () => {},
       onDismissAttention: () => {},
@@ -94,7 +96,13 @@ describe("Attention UI", () => {
     fireEvent.click(projectButton);
     expect(onSelectWorkspace).toHaveBeenCalledWith("project");
 
+    expect(projectButton).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("Space 2", { exact: true })).not.toBeVisible();
     rerender(<Sidebar {...props} activeWorkspaceId="project" />);
+    expect(screen.getByText("Space 2", { exact: true })).not.toBeVisible();
+    fireEvent.click(projectButton);
+    expect(projectButton).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Space 2", { exact: true })).toBeVisible();
 
     expect(screen.getAllByText("Space 1", { exact: true })).toHaveLength(2);
     expect(screen.getByText("Space 2", { exact: true })).toBeInTheDocument();
@@ -105,6 +113,16 @@ describe("Attention UI", () => {
       "aria-pressed",
       "true",
     );
+    expect(screen.queryByRole("menuitem", { name: "Remove" })).not.toBeInTheDocument();
+    const actions = screen.getByRole("button", { name: "Actions for new_vintage" });
+    fireEvent.click(actions);
+    fireEvent.keyDown(actions, { key: "Escape" });
+    expect(screen.queryByRole("menuitem", { name: "Remove" })).not.toBeInTheDocument();
+    fireEvent.click(actions);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
+    expect(onRemoveWorkspace).toHaveBeenCalledWith("project");
+    expect(onRemoveWorkspace).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("menuitem", { name: "Remove" })).not.toBeInTheDocument();
   });
 
   it("uses theme-aware foreground colors for Sidebar navigation icons", () => {

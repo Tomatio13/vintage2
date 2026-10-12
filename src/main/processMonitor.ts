@@ -54,8 +54,10 @@ export function createSharedProcessMonitor(): SharedProcessMonitor {
     tickInFlight = true;
     void listProcessRows().then((rows) => {
       tickInFlight = false;
+      // A failed scan must not look like every agent has exited.
+      if (!rows) return;
       for (const watcher of watchers.values()) {
-        watcher.onSnapshot(rows ? foregroundSnapshotFor(watcher.pid, rows) : null);
+        watcher.onSnapshot(foregroundSnapshotFor(watcher.pid, rows));
       }
     });
   };

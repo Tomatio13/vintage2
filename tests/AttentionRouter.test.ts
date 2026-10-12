@@ -44,6 +44,35 @@ describe("AttentionRouter", () => {
     expect(states.map((state) => state.status)).not.toContain("completed");
   });
 
+  it.each(["ignore_until_error", "monitor", "mute", "ignore"] as const)(
+    "shows a detected Claude CLI without shell integration in %s mode and clears it on exit",
+    (monitorMode) => {
+      const { router, states } = recorder(undefined, { monitorMode });
+      router.observeProcess("claude", ["claude"]);
+      expect(states.at(-1)).toMatchObject({
+        status: "running",
+        attentionLevel: 0,
+        userActionRequired: false,
+        monitorMode,
+      });
+      router.observeProcess(undefined);
+      expect(states.at(-1)).toMatchObject({ status: "idle", attentionLevel: 0 });
+      expect(router.snapshot().status).toBe("idle");
+      router.dispose();
+    },
+  );
+
+  it("shows a Claude CLI launched through node and keeps ordinary runtimes idle", () => {
+    const { router, states } = recorder(undefined, { monitorMode: "ignore_until_error" });
+    router.observeProcess("node", ["node"], false);
+    expect(router.snapshot().status).toBe("idle");
+    router.observeProcess("node", ["node"], true);
+    expect(states.at(-1)).toMatchObject({ status: "running", attentionLevel: 0 });
+    router.observeProcess("node", ["node"], false);
+    expect(states.at(-1)?.status).toBe("idle");
+    router.dispose();
+  });
+
   it("applies the app attention threshold without changing terminal state detection", () => {
     const { router, states } = recorder(undefined, {
       attentionSettings: {

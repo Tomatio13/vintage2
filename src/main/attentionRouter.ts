@@ -157,6 +157,9 @@ export class AttentionRouter {
     this.foregroundProcess = nextProcess;
     this.processTree = nextTree;
     this.agentCliDetected = agentCliDetected;
+    // Process activity is visible even when shell integration is unavailable or
+    // attention notifications are filtered by Errors Only / Ignore.
+    if (previousHadAgentProcess !== this.hasKnownAgentProcess()) this.publishCurrentState();
     if (this.commandRunning) this.scheduleHeuristicEvaluation();
     if (this.monitorMode === "agent_monitor" && this.hasKnownAgentProcess()) {
       this.promptVisible = false;
@@ -839,6 +842,7 @@ export class AttentionRouter {
   private projectState(state: TerminalAttentionState): TerminalAttentionState {
     const projected: TerminalAttentionState = {
       ...state,
+      status: state.status === "idle" && this.hasKnownAgentProcess() ? "running" : state.status,
       monitorMode: this.monitorMode,
       notificationThreshold: this.attentionSettings.notificationThreshold,
     };
@@ -846,7 +850,7 @@ export class AttentionRouter {
     if (this.monitorMode === "ignore" || (this.monitorMode === "ignore_until_error" && !isError)) {
       return {
         sessionId: state.sessionId,
-        status: this.commandRunning ? "running" : "idle",
+        status: this.commandRunning || this.hasKnownAgentProcess() ? "running" : "idle",
         attentionLevel: 0,
         userActionRequired: false,
         source: state.source,

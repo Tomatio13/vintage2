@@ -394,8 +394,12 @@ function deliverProcessSnapshot(
   terminal: OwnedTerminal,
   snapshot: ForegroundProcessSnapshot | null,
 ): void {
-  if (!sessions.has(terminal.id) || !snapshot) return;
-  terminal.attention.observeProcess(snapshot.process, snapshot.tree, snapshot.agentCli);
+  if (!sessions.has(terminal.id)) return;
+  terminal.attention.observeProcess(
+    snapshot?.process,
+    snapshot?.tree ?? [],
+    snapshot?.agentCli ?? false,
+  );
 }
 
 function terminalProfileKey(

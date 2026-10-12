@@ -1,7 +1,9 @@
 import {
   Check,
   CircleAlert,
+  Folder,
   FolderOpen,
+  MoreHorizontal,
   Home,
   OctagonAlert,
   Plus,
@@ -150,6 +152,8 @@ export function Sidebar({
   const [updateStatus, setUpdateStatus] = useState<DesktopUpdateStatus | null>(null);
   const [updateCheckBusy, setUpdateCheckBusy] = useState(false);
   const [updateNotice, setUpdateNotice] = useState<string | null>(null);
+  const [collapsedWorkspaceIds, setCollapsedWorkspaceIds] = useState<Set<string>>(new Set());
+  const [menuWorkspaceId, setMenuWorkspaceId] = useState<string | null>(null);
   const desktop = window.desktop;
 
   useEffect(() => {
@@ -245,20 +249,45 @@ export function Sidebar({
 
   const renderWorkspace = (workspace: SidebarWorkspace) => {
     const active = workspace.id === activeWorkspaceId;
+    const expanded = !collapsedWorkspaceIds.has(workspace.id);
     const attentionCount = attentionCountByWorkspace.get(workspace.id) ?? 0;
     const workspaceAgentStatus = strongestAgentStatus(
       workspace.tabs.map((tab) => agentStatusByTabId?.[tab.id]),
     );
     return (
       <section className="mb-2" key={workspace.id}>
-        <div className="flex items-center gap-1">
+        <div
+          className="group/workspace relative flex items-center gap-1"
+          onMouseLeave={() => setMenuWorkspaceId(null)}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setMenuWorkspaceId(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setMenuWorkspaceId(null);
+              event.currentTarget.querySelector<HTMLButtonElement>("[aria-haspopup]")?.focus();
+            }
+          }}
+        >
           <button
             aria-pressed={active}
+            aria-expanded={expanded}
             className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-left text-ui-sm ${active ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
-            onClick={() => onSelectWorkspace(workspace.id)}
+            onClick={() => {
+              setMenuWorkspaceId(null);
+              setCollapsedWorkspaceIds((previous) => {
+                const next = new Set(previous);
+                if (next.has(workspace.id)) next.delete(workspace.id);
+                else next.add(workspace.id);
+                return next;
+              });
+              onSelectWorkspace(workspace.id);
+            }}
           >
             {workspace.kind === "home" ? (
               <Home className="size-4 shrink-0 text-foreground" />
+            ) : !expanded ? (
+              <Folder className="size-4 shrink-0 text-foreground" />
             ) : (
               <FolderOpen className="size-4 shrink-0 text-foreground" />
             )}
@@ -289,17 +318,40 @@ export function Sidebar({
                 </button>
               )}
               <button
-                aria-label={`Remove ${workspace.name} from list`}
-                className="grid size-7 place-items-center rounded-md text-foreground-subtle hover:bg-hover hover:text-foreground"
-                title={`Remove ${workspace.name} from list`}
-                onClick={() => onRemoveWorkspace(workspace.id)}
+                aria-label={`Actions for ${workspace.name}`}
+                aria-haspopup="menu"
+                aria-expanded={menuWorkspaceId === workspace.id}
+                className="invisible grid size-7 place-items-center rounded-md text-foreground-subtle hover:bg-hover hover:text-foreground group-hover/workspace:visible group-focus-within/workspace:visible"
+                title={`Actions for ${workspace.name}`}
+                onClick={() =>
+                  setMenuWorkspaceId((current) => (current === workspace.id ? null : workspace.id))
+                }
               >
-                <X aria-hidden="true" className="size-3.5" />
+                <MoreHorizontal aria-hidden="true" className="size-3.5" />
               </button>
+              {menuWorkspaceId === workspace.id && (
+                <div
+                  role="menu"
+                  aria-label={`Actions for ${workspace.name}`}
+                  className="absolute right-0 top-full z-30 rounded-lg border border-border bg-panel p-1 shadow-lg"
+                >
+                  <button
+                    role="menuitem"
+                    className="flex items-center gap-2 rounded-md px-3 py-1.5 text-ui-sm text-foreground hover:bg-hover"
+                    onClick={() => {
+                      setMenuWorkspaceId(null);
+                      onRemoveWorkspace(workspace.id);
+                    }}
+                  >
+                    <X aria-hidden="true" className="size-3.5" />
+                    Remove
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
-        <div className="ml-3 mt-1 border-l border-border pl-2">
+        <div hidden={!expanded} className="ml-3 mt-1 border-l border-border pl-2">
           {workspace.tabs.map((tab) => {
             const selected = active && tab.id === workspace.activeTabId;
             const tabAgentStatus = agentStatusByTabId?.[tab.id] ?? null;
@@ -316,9 +368,6 @@ export function Sidebar({
                   <span className="size-1.5 rounded-full bg-foreground" />
                 )}
                 <span className="min-w-0 flex-1 truncate">{tab.title}</span>
-                <span className="font-mono text-ui-xs text-foreground-subtlest">
-                  {tab.panes.length}
-                </span>
               </button>
             );
           })}
