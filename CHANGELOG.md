@@ -1,5 +1,18 @@
 # VINTAGE Changelog
 
+## [0.2.28] - 2026-10-13
+
+### Fixed
+
+- **Browser tabs:** Remove the 288px width cap and nested scrolling from the Browser tab strip. Added tabs extend horizontally alongside the other panel tabs, and the panel header scrolls when needed.
+
+### Validation and limitations
+
+- Automated validation passed: boundaries, TypeScript, lint, formatting, tests, and the production build.
+- Live Electron display and installed-app updater verification remain pending. Windows Monitor remains experimental, with physical Windows/macOS runtime testing pending.
+
+**Full Changelog:** [v0.2.27...v0.2.28](https://github.com/Tomatio13/vintage2/compare/v0.2.27...v0.2.28)
+
 ## [0.2.27] - 2026-10-13
 
 ### Added

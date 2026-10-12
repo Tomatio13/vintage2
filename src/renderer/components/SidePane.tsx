@@ -265,7 +265,7 @@ export function SidePane({
           <>
             <div
               aria-label="Browser tabs"
-              className="flex min-w-0 max-w-72 shrink-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]"
+              className="flex shrink-0 items-center gap-1"
               role="group"
             >
               {browserTabs
