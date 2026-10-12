@@ -1,5 +1,19 @@
 # VINTAGE Changelog
 
+## [0.2.25] - 2026-10-12
+
+### Changed
+
+- **Monitor AI Usage:** Prefer CodexBar limit reset credits over regular credits when provided, showing the available balance and next expiry. Hide Today and 30 days costs in this mode; retain the existing credits and costs display otherwise.
+
+### Validation and limitations
+
+- Automated validation passed: boundaries, TypeScript, lint, formatting, 383 tests (one skipped), and the production build.
+- Regression coverage includes available and zero limit reset credits, hidden costs, and regular credits fallback.
+- Windows Monitor remains experimental. Live app display, physical Windows/macOS runtime testing, and installed-app updater verification remain pending.
+
+**Full Changelog:** [v0.2.24...v0.2.25](https://github.com/Tomatio13/vintage2/compare/v0.2.24...v0.2.25)
+
 ## [0.2.24] - 2026-10-12
 
 ### Fixed

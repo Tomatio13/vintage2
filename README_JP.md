@@ -73,7 +73,7 @@ Windowsでは同梱のRustヘルパーでプロセス検出とCPU／RAMを取得
 
 ローカルの実行状況は、Monitorとアプリの画面が表示されている間、約2秒ごとに更新します。終了したプロセスは次の更新で除外します。ZCodeはワーカープロセスが残っていても、最終更新から1時間以上経過すると非表示になります。同じディレクトリに複数のZCodeワーカーがある場合、直近1時間のSessionが1つなら重複せず表示し、複数ある場合は紐付け不明として扱います。MonitorのAI Usageカードは常に2列で表示します。サービス名の横と残量バーをProvider別の色で表示し、残量低下時は警告色を優先します。共有ZCodeワーカーのCPU・RAMはグループで集計します。ZCodeの状態上書きとセッション選択はワーカー数によらずメッセージ・ツールの更新時刻を比較し、ZCode／OpenCodeでは最新メッセージ内の並列ツールも実行状態に反映します。Codexのapp-server・MCP server・remote-controlサービスと、CodexBarが起動するAgentの確認用プロセスは非表示にし、紐付け不明・読み取り不可のローカルAgentはUnknownとして表示を残します。状態とセッションの紐付けはローカルのプロセス・ログ情報による推定で、曖昧・読み取り不可の場合は **Unknown**、未取得の値は **—** になります。ローカル監視にabtopや外部収集ツールのインストールは不要です。
 
-任意の **AI Usage** はCPU／Memoryの直下に表示され、サイズを揃えたコンパクトなProviderカードでクォータ、リセット時刻、クレジット、コストを確認できます。**Settings → Usage → Show Usage in Monitor**で有効にし、[CodexBar CLI](https://github.com/steipete/codexbar)を設定します。既存のUsage設定は引き継がれ、独立したUsageタブはありません。UsageはMonitorの表示中、専用の更新間隔で取得します。情報源と制限は[機能ガイド](docs/FEATURES_JP.md#monitor)、CodexBarの導入方法は[Usage制限のガイド](docs/FEATURES_JP.md#usage制限codexbar)をご覧ください。
+任意の **AI Usage** はCPU／Memoryの直下に表示され、サイズを揃えたコンパクトなProviderカードでクォータ、リセット時刻、クレジット、コストを確認できます。CodexBarが`limitResetCredits`を返す場合は、通常のCreditsに代えて利用可能数と次の有効期限を表示し、Today／30 daysのコストは非表示にします。**Settings → Usage → Show Usage in Monitor**で有効にし、[CodexBar CLI](https://github.com/steipete/codexbar)を設定します。既存のUsage設定は引き継がれ、独立したUsageタブはありません。UsageはMonitorの表示中、専用の更新間隔で取得します。情報源と制限は[機能ガイド](docs/FEATURES_JP.md#monitor)、CodexBarの導入方法は[Usage制限のガイド](docs/FEATURES_JP.md#usage制限codexbar)をご覧ください。
 
 **Settings → Panels**でFiles・Review・Notes・Board・Monitor・Browserを個別にON/OFFできます。変更は自動保存され、タブ表示の切り替えにはショートカットも設定できます。
 

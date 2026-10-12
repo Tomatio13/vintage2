@@ -267,6 +267,7 @@ export interface CodexbarProviderRow {
   identity?: CodexbarIdentity | null;
   windows?: CodexbarWindow[] | null;
   credits?: { remaining?: number | null; unit?: string | null } | null;
+  limitResetCredits?: { available?: number | null; nextExpiresAt?: string | null } | null;
   cost?: { todayUSD?: number | null; last30DaysUSD?: number | null } | null;
   display?: { accentColor?: string | null; sortKey?: number | null } | null;
   error?: unknown;

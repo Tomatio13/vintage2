@@ -181,11 +181,18 @@ function ProviderCard({
   const accounts = provider.accounts ?? [];
   const showAccounts = accounts.length > 0;
   const windows = showAccounts ? [] : (provider.windows ?? []).filter((window) => !window.idle);
-  const credits =
-    typeof provider.credits?.remaining === "number" ? provider.credits.remaining : null;
-  const creditsUnit = provider.credits?.unit ?? "credits";
-  const todayUsd = provider.cost?.todayUSD;
-  const last30DaysUsd = provider.cost?.last30DaysUSD;
+  const hasLimitResetCredits = provider.limitResetCredits != null;
+  const creditValue = hasLimitResetCredits
+    ? provider.limitResetCredits?.available
+    : provider.credits?.remaining;
+  const credits = typeof creditValue === "number" ? creditValue : null;
+  const creditsUnit = hasLimitResetCredits ? "credits" : (provider.credits?.unit ?? "credits");
+  const creditsLabel = hasLimitResetCredits ? "Limit reset credits" : "Credits";
+  const creditsExpiry = hasLimitResetCredits
+    ? formatResetTime(provider.limitResetCredits?.nextExpiresAt)
+    : null;
+  const todayUsd = hasLimitResetCredits ? null : provider.cost?.todayUSD;
+  const last30DaysUsd = hasLimitResetCredits ? null : provider.cost?.last30DaysUSD;
   const statusLevel = provider.status?.level;
   return (
     <section
@@ -240,7 +247,8 @@ function ProviderCard({
           <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-2 text-ui-xs text-foreground-subtlest">
             {credits !== null && (
               <span>
-                Credits: {credits} {creditsUnit} left
+                {creditsLabel}: {credits} {creditsUnit} left
+                {creditsExpiry && ` · Expires ${creditsExpiry}`}
               </span>
             )}
             {typeof todayUsd === "number" && <span>Today: {formatUsd(todayUsd)}</span>}

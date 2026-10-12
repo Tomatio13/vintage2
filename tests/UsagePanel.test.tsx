@@ -111,6 +111,51 @@ describe("UsagePanel", () => {
     expect(screen.getByTitle("Resets in 5h")).toBeInTheDocument();
   });
 
+  it.each([3, 0])("prioritizes limit reset credits with available=%s", async (available) => {
+    enableUsagePanel();
+    const expiresAt = new Date(2026, 9, 22, 19, 29, 0).toISOString();
+    window.desktop = {
+      getCodexbarUsage: vi.fn().mockResolvedValue({
+        ok: true,
+        snapshot: {
+          ...snapshot,
+          providers: [
+            {
+              ...snapshot.providers[0]!,
+              limitResetCredits: { available, nextExpiresAt: expiresAt },
+            },
+          ],
+        },
+      }),
+    } as unknown as DesktopBridge;
+    render(<UsagePanel active embedded />);
+
+    expect(
+      await screen.findByText(
+        `Limit reset credits: ${available} credits left · Expires 2026/10/22 19:29`,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Credits: 112.4 credits left")).not.toBeInTheDocument();
+    expect(screen.queryByText("Today: $1.04")).not.toBeInTheDocument();
+    expect(screen.queryByText("30 days: $18.22")).not.toBeInTheDocument();
+  });
+
+  it("keeps regular credits when limit reset credits is null", async () => {
+    enableUsagePanel();
+    window.desktop = {
+      getCodexbarUsage: vi.fn().mockResolvedValue({
+        ok: true,
+        snapshot: {
+          ...snapshot,
+          providers: [{ ...snapshot.providers[0]!, limitResetCredits: null }],
+        },
+      }),
+    } as unknown as DesktopBridge;
+    render(<UsagePanel active embedded />);
+
+    expect(await screen.findByText("Credits: 112.4 credits left")).toBeInTheDocument();
+  });
+
   it("skips idle windows and shows provider errors", async () => {
     enableUsagePanel();
     window.desktop = {
