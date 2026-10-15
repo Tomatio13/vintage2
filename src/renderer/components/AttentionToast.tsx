@@ -25,11 +25,15 @@ export function AttentionToast({
   onOpen,
   onDismiss,
   onClose,
+  summary,
+  openLabel = "Open terminal",
 }: {
   item: SidebarAttentionItem;
   onOpen(): void;
   onDismiss(): void;
   onClose(): void;
+  summary?: string;
+  openLabel?: string;
 }) {
   const critical = item.attentionLevel === 4;
   const Icon = critical ? OctagonAlert : CircleAlert;
@@ -67,7 +71,9 @@ export function AttentionToast({
           <h2 className="mt-0.5 truncate text-ui-sm font-semibold text-foreground">
             {item.workspaceName} · {item.tabTitle} · {item.paneTitle}
           </h2>
-          <p className="mt-1 text-ui-sm text-foreground-subtle">{attentionSummary(item)}</p>
+          <p className="mt-1 text-ui-sm text-foreground-subtle">
+            {summary ?? attentionSummary(item)}
+          </p>
           <p className="mt-1 text-ui-xs text-foreground-subtlest">
             Source: {item.source.toUpperCase()}
             {item.judgmentConfidence === undefined
@@ -80,7 +86,7 @@ export function AttentionToast({
               className="rounded-md bg-destructive px-3 py-1.5 text-ui-xs font-semibold text-background hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-foreground"
               onClick={onOpen}
             >
-              Open terminal
+              {openLabel}
             </button>
             <button
               className="rounded-md px-3 py-1.5 text-ui-xs font-medium text-foreground-subtle hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"

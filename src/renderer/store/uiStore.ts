@@ -117,6 +117,7 @@ export interface VintageSettings {
   shell: TerminalShell;
   browserDefaultUrl: string;
   desktopNotifications: boolean;
+  sessionWaitNotifications?: boolean;
   filesPanelEnabled: boolean;
   reviewPanelEnabled: boolean;
   browserPanelEnabled: boolean;
@@ -138,6 +139,8 @@ interface UiState extends VintageSettings {
   sidePaneWidth: number;
   activityHeight: number;
   activeSidePaneTabId: string;
+  monitorSessionRequest: { id: string } | null;
+  openMonitorSession(id: string): void;
   browserTabs: BrowserTabState[];
   browserBookmarks: BrowserBookmark[];
   browserWorkspaceId: string | null;
@@ -237,6 +240,7 @@ export const useUiStore = create<UiState>()(
       shell: "system",
       browserDefaultUrl: DEFAULT_BROWSER_START_URL,
       desktopNotifications: true,
+      sessionWaitNotifications: true,
       filesPanelEnabled: true,
       reviewPanelEnabled: true,
       browserPanelEnabled: true,
@@ -414,6 +418,14 @@ export const useUiStore = create<UiState>()(
               }
             : state,
         ),
+      monitorSessionRequest: null,
+      openMonitorSession: (id) =>
+        set({
+          monitorSessionRequest: { id },
+          monitorPanelEnabled: true,
+          activeSidePaneTabId: "monitor",
+          sidePaneOpen: true,
+        }),
       showSidePaneTab: (tabId) =>
         set((state) => {
           if (!isSidePaneTabEnabled(state, tabId)) return state;
@@ -602,6 +614,7 @@ export const useUiStore = create<UiState>()(
         expandedFileFolders,
         activeSidePaneTabId,
         desktopNotifications,
+        sessionWaitNotifications,
         filesPanelEnabled,
         reviewPanelEnabled,
         browserPanelEnabled,
@@ -633,6 +646,7 @@ export const useUiStore = create<UiState>()(
         expandedFileFolders,
         activeSidePaneTabId,
         desktopNotifications,
+        sessionWaitNotifications,
         filesPanelEnabled,
         reviewPanelEnabled,
         browserPanelEnabled,

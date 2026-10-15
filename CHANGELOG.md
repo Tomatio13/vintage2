@@ -1,5 +1,26 @@
 # VINTAGE Changelog
 
+## [0.2.29] - 2026-10-16
+
+### Added
+
+- **Session wait notifications:** Notify when a Monitor session changes from Thinking or Executing to Waiting, including ZCode and other sessions without a VINTAGE terminal. Reuse Attention toasts and desktop notifications, with a Session wait notifications toggle in Settings > Attention.
+- **Notification navigation:** Open the owning Space and focus its terminal from a bound session notification. Sessions without a terminal open their details in Monitor.
+
+### Changed
+
+- **Space status dots:** Reflect Monitor session activity using collector-provided terminal ownership, even when the Monitor tab is closed. Keep the existing terminal status as a fallback.
+- **Notification behavior:** Respect terminal Monitor Mode, priority thresholds, Mute, and desktop notification settings. Collect session transitions while minimized, suppress initial/recovery notifications, and coalesce nearby terminal/session wait notifications.
+
+### Validation and limitations
+
+- Automated validation passed: boundaries, TypeScript, lint, formatting, 445 tests (one skipped), and the production build.
+- Automated validation covers session transitions, stale metadata, failed collection, multiple sessions, notification preferences, background polling, and notification navigation.
+- Waiting can mean a completed response or an input request; notifications describe both possibilities. Only observed transitions trigger notifications.
+- Native OS notification display and installed-app updater verification remain pending. Windows Monitor remains experimental, with physical Windows/macOS runtime testing pending.
+
+**Full Changelog:** [v0.2.28...v0.2.29](https://github.com/Tomatio13/vintage2/compare/v0.2.28...v0.2.29)
+
 ## [0.2.28] - 2026-10-13
 
 ### Fixed

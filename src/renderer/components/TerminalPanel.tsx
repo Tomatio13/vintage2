@@ -650,7 +650,8 @@ export function TerminalPanel({
           .showAttentionNotification({
             title: `VINTAGE · ${tabTitleRef.current} · ${titleRef.current}`.slice(0, 120),
             body: attentionNotificationBody(state),
-            dedupeKey: notificationEventKey,
+            dedupeKey:
+              state.status === "waiting_input" ? `input-wait:${paneId}` : notificationEventKey,
             attentionLevel: state.attentionLevel as AttentionLevel,
             targetPaneId: paneId,
             ...(mode === "always_notify" ? { force: true } : {}),

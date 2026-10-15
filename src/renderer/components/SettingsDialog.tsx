@@ -398,6 +398,7 @@ export function SettingsDialog() {
       shell: store.shell,
       browserDefaultUrl: store.browserDefaultUrl,
       desktopNotifications: store.desktopNotifications,
+      sessionWaitNotifications: store.sessionWaitNotifications ?? true,
       filesPanelEnabled: store.filesPanelEnabled,
       reviewPanelEnabled: store.reviewPanelEnabled,
       browserPanelEnabled: store.browserPanelEnabled,
@@ -418,6 +419,7 @@ export function SettingsDialog() {
       store.shell,
       store.browserDefaultUrl,
       store.desktopNotifications,
+      store.sessionWaitNotifications,
       store.filesPanelEnabled,
       store.reviewPanelEnabled,
       store.browserPanelEnabled,
@@ -1329,6 +1331,18 @@ export function SettingsDialog() {
               Choose the minimum priority shown in Attention and desktop notifications.
             </p>
             <div className="rounded-xl border border-border bg-panel">
+              <div className="border-b border-border px-5 py-4">
+                <Field
+                  label="Session wait notifications"
+                  description="Notify when a running Monitor session finishes responding or waits for input, including sessions outside VINTAGE terminals."
+                >
+                  <SettingsToggle
+                    label="Session wait notifications"
+                    checked={draft.sessionWaitNotifications ?? true}
+                    onChange={(sessionWaitNotifications) => change({ sessionWaitNotifications })}
+                  />
+                </Field>
+              </div>
               <div className="px-5 py-4">
                 <Field
                   label="Attention threshold"

@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useUiStore } from "../src/renderer/store/uiStore.js";
 import { MonitorPanel } from "../src/renderer/components/MonitorPanel.js";
 import type { DesktopBridge } from "../src/shared/desktop.js";
 import type { MonitorSession, MonitorSnapshot } from "../src/shared/monitor.js";
@@ -265,4 +266,17 @@ it("keeps ambiguous local background agents visible as Unknown", async () => {
   const list = within(screen.getByLabelText("Sessions"));
   for (const name of ["ZCode", "OpenCode", "Antigravity", "Grok"])
     expect(list.getByText(name)).toBeInTheDocument();
+});
+
+it("selects the session targeted by a notification when Monitor opens", async () => {
+  bridge(
+    vi.fn().mockResolvedValue(snapshot([session("first"), session("target", "/target-project")])),
+  );
+  render(<MonitorPanel active />);
+  await flush();
+  act(() => useUiStore.getState().openMonitorSession("target"));
+  expect(
+    within(screen.getByLabelText("Sessions")).getByText("target-project").closest("button"),
+  ).toHaveAttribute("aria-pressed", "true");
+  act(() => useUiStore.setState({ monitorSessionRequest: null }));
 });

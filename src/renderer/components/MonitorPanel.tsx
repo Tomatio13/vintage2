@@ -68,11 +68,16 @@ export function MonitorPanel({
   active: boolean;
   onOpenTerminal?: ((paneId: string) => void) | undefined;
 }) {
+  const sessionRequest = useUiStore((state) => state.monitorSessionRequest);
   const usageEnabled = useUiStore((state) => state.usagePanelEnabled);
   const { snapshot, error, refreshing } = useMonitorSnapshot(active);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const dialog = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (sessionRequest) setSelectedId(sessionRequest.id);
+  }, [sessionRequest]);
 
   useEffect(() => {
     if (!active) setExpanded(false);

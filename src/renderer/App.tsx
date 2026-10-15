@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { WORKSPACE_LIMITS } from "../shared/desktop.js";
 
 import type {
+  AttentionNotificationTarget,
   RegisteredWorkspace,
   RestoredWorkspaceState,
   TerminalAttentionState,
@@ -19,6 +20,8 @@ import { FileViewer } from "./components/FileViewer.js";
 import { ResizeHandle } from "./components/ResizeHandle.js";
 import { SettingsDialog } from "./components/SettingsDialog.js";
 import { SidePane } from "./components/SidePane.js";
+import { useMonitorSessionNotifications } from "./hooks/useMonitorSessionNotifications.js";
+import { claimWaitToast, monitorWaitSummary } from "./lib/monitorSessionAttention.js";
 import { useMonitorSnapshot } from "./hooks/useMonitorSnapshot.js";
 import { monitorStatusByPane, strongestAgentStatus } from "./lib/agentStatus.js";
 import { eventKey, findInTerminalEvent, shortcutBinding, shortcutLabel } from "./lib/shortcuts.js";
@@ -557,12 +560,19 @@ export function App() {
   const seenAttentionEventsRef = useRef(new Set<string>());
   const activeAttentionEventByPaneRef = useRef(new Map<string, string>());
   const pendingAttentionDismissalsRef = useRef(new Set<string>());
-  const notificationNavigateRef = useRef<(paneId: string) => void>(() => {});
+  const notificationNavigateRef = useRef<(target: AttentionNotificationTarget) => void>(() => {});
   const homeWorkspaceRequestRef = useRef<Promise<RegisteredWorkspace> | null>(null);
   const userSelectedWorkspaceRef = useRef(false);
   const active = workspaces.find((workspace) => workspace.id === activeId) ?? null;
   const attentionItems = collectAttentionItems(workspaces, attentionByPane);
-  const { snapshot: monitorSnapshot } = useMonitorSnapshot();
+  const { snapshot: monitorSnapshot } = useMonitorSnapshot(true, true);
+  const { notices: monitorNotices, closeNotice: closeMonitorNotice } =
+    useMonitorSessionNotifications(
+      monitorSnapshot,
+      attentionByPane,
+      ui.desktopNotifications,
+      ui.sessionWaitNotifications ?? true,
+    );
   const sessionStatusByPane = monitorStatusByPane(monitorSnapshot?.sessions ?? []);
   const agentStatusByTabId: Record<string, TerminalAttentionState> = {};
   for (const workspace of workspaces) {
@@ -1077,7 +1087,7 @@ export function App() {
     setAttentionHistory((items) =>
       [{ ...item, id: nextEventId, outcome: "active" as const }, ...items].slice(0, 100),
     );
-    if (state.attentionLevel >= 3) {
+    if (state.attentionLevel >= 3 && (state.status !== "waiting_input" || claimWaitToast(paneId))) {
       setAttentionToasts((items) => {
         const next = [
           { id: nextEventId, item },
@@ -1571,7 +1581,10 @@ export function App() {
       }
     }
   };
-  notificationNavigateRef.current = navigateToPane;
+  notificationNavigateRef.current = (target) => {
+    if (typeof target === "string") navigateToPane(target);
+    else ui.openMonitorSession(target.monitorSessionId);
+  };
 
   useEffect(() => {
     const subscribe = window.desktop?.onAttentionNotificationClick;
@@ -1797,6 +1810,21 @@ export function App() {
         aria-label="Attention notifications"
         className="pointer-events-none fixed right-5 top-16 z-[80] flex w-[min(24rem,calc(100vw-2.5rem))] flex-col gap-2"
       >
+        {monitorNotices.map(({ id, session, item }) => (
+          <AttentionToast
+            key={id}
+            item={item}
+            summary={monitorWaitSummary}
+            openLabel={session.paneId ? "Open Space" : "Open Monitor"}
+            onOpen={() => {
+              if (session.paneId) navigateToPane(session.paneId);
+              else ui.openMonitorSession(session.id);
+              closeMonitorNotice(id);
+            }}
+            onDismiss={() => closeMonitorNotice(id)}
+            onClose={() => closeMonitorNotice(id)}
+          />
+        ))}
         {attentionToasts.map(({ id, item }) => (
           <AttentionToast
             item={item}

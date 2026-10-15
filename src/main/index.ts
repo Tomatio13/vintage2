@@ -342,7 +342,7 @@ function resolveSenderWindow(event: Electron.IpcMainInvokeEvent): BrowserWindow 
 
 function parseAttentionNotification(raw: unknown): AttentionNotification {
   if (!raw || typeof raw !== "object") throw new TypeError("Notification is required");
-  const { title, body, dedupeKey, attentionLevel, targetPaneId, force } =
+  const { title, body, dedupeKey, attentionLevel, targetPaneId, targetMonitorSessionId, force } =
     raw as Partial<AttentionNotification>;
   if (typeof title !== "string" || !title.trim() || title.length > 120) {
     throw new TypeError("Notification title must be 1-120 characters");
@@ -361,7 +361,12 @@ function parseAttentionNotification(raw: unknown): AttentionNotification {
   ) {
     throw new TypeError("Notification attention level must be between 1 and 4");
   }
-  if (typeof targetPaneId !== "string" || !targetPaneId || targetPaneId.length > 120) {
+  const validTarget = (value: unknown, max: number) =>
+    typeof value === "string" && value.length > 0 && value.length <= max;
+  if (targetMonitorSessionId !== undefined) {
+    if (!validTarget(targetMonitorSessionId, 500) || targetPaneId !== undefined)
+      throw new TypeError("A single valid notification target is required");
+  } else if (!validTarget(targetPaneId, 120)) {
     throw new TypeError("Notification target pane is required");
   }
   if (force !== undefined && typeof force !== "boolean") {
@@ -372,7 +377,9 @@ function parseAttentionNotification(raw: unknown): AttentionNotification {
     body: body.trim(),
     dedupeKey,
     attentionLevel,
-    targetPaneId,
+    ...(targetMonitorSessionId !== undefined
+      ? { targetMonitorSessionId }
+      : { targetPaneId: targetPaneId! }),
     ...(force ? { force: true } : {}),
   };
 }
@@ -449,7 +456,12 @@ function registerDesktopIpc(
       if (window.isMinimized()) window.restore();
       window.show();
       window.focus();
-      window.webContents.send(DesktopChannels.attentionNotificationClicked, payload.targetPaneId);
+      window.webContents.send(
+        DesktopChannels.attentionNotificationClicked,
+        payload.targetMonitorSessionId !== undefined
+          ? { monitorSessionId: payload.targetMonitorSessionId }
+          : payload.targetPaneId,
+      );
     });
     notification.show();
     return true;
@@ -876,6 +888,8 @@ async function createMainWindow(): Promise<BrowserWindow> {
       nodeIntegration: false,
       sandbox: true,
       webviewTag: true,
+      // Session transitions must still be collected while minimized.
+      backgroundThrottling: false,
     },
   });
   configureWebviewSecurity(window);

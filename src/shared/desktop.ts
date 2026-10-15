@@ -199,12 +199,15 @@ export interface JevSettingsStatus {
   storageBackend: string | null;
 }
 
+export type AttentionNotificationTarget = string | { monitorSessionId: string };
+
 export interface AttentionNotification {
   title: string;
   body: string;
   dedupeKey: string;
   attentionLevel: AttentionLevel;
-  targetPaneId: string;
+  targetPaneId?: string;
+  targetMonitorSessionId?: string;
   force?: boolean;
 }
 
@@ -441,7 +444,7 @@ export interface DesktopBridge {
   onWindowStateChanged(listener: (state: DesktopWindowState) => void): () => void;
   openExternal(url: string): Promise<void>;
   showAttentionNotification(notification: AttentionNotification): Promise<boolean>;
-  onAttentionNotificationClick(listener: (paneId: string) => void): () => void;
+  onAttentionNotificationClick(listener: (target: AttentionNotificationTarget) => void): () => void;
   writeClipboardText(text: string): Promise<void>;
   getJevSettings(): Promise<JevSettingsStatus>;
   setJevApiKey(apiKey: string): Promise<JevSettingsStatus>;

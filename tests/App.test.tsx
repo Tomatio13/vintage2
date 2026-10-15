@@ -11,6 +11,7 @@ import {
   useUiStore,
 } from "../src/renderer/store/uiStore.js";
 import type {
+  AttentionNotificationTarget,
   DesktopBridge,
   RestoredWorkspaceState,
   TerminalAttentionState,
@@ -575,7 +576,7 @@ describe("VINTAGE workspace shell", () => {
   });
 
   it("navigates to the pane targeted by a native notification click", async () => {
-    let notificationClick: ((paneId: string) => void) | undefined;
+    let notificationClick: ((target: AttentionNotificationTarget) => void) | undefined;
     window.desktop = {
       platform: "linux",
       chooseWorkspace: vi.fn().mockResolvedValue({
@@ -615,6 +616,10 @@ describe("VINTAGE workspace shell", () => {
       expect(updatedTabs[0]).toHaveAttribute("data-active", "true");
       expect(updatedTabs[1]).toHaveAttribute("data-active", "false");
     });
+    act(() => notificationClick?.({ monitorSessionId: "unbound-zcode" }));
+    expect(useUiStore.getState().activeSidePaneTabId).toBe("monitor");
+    expect(useUiStore.getState().sidePaneOpen).toBe(true);
+    expect(useUiStore.getState().monitorSessionRequest?.id).toBe("unbound-zcode");
   });
 
   it("executes shortcuts before terminal input stops key propagation", () => {

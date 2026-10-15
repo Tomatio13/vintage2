@@ -7,6 +7,7 @@ import {
   type DesktopWindowState,
   type DesktopUpdateStatus,
   type AttentionNotification,
+  type AttentionNotificationTarget,
   type TerminalDataEvent,
   type TerminalExitEvent,
   type TerminalAttentionState,
@@ -55,7 +56,8 @@ const bridge: DesktopBridge = {
   showAttentionNotification: (notification: AttentionNotification) =>
     ipcRenderer.invoke(DesktopChannels.showAttentionNotification, notification),
   onAttentionNotificationClick(listener) {
-    const wrapped = (_event: Electron.IpcRendererEvent, paneId: string) => listener(paneId);
+    const wrapped = (_event: Electron.IpcRendererEvent, target: AttentionNotificationTarget) =>
+      listener(target);
     ipcRenderer.on(DesktopChannels.attentionNotificationClicked, wrapped);
     return () => ipcRenderer.removeListener(DesktopChannels.attentionNotificationClicked, wrapped);
   },
