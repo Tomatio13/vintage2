@@ -9,10 +9,11 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useMonitorSnapshot, refreshMonitorSnapshot } from "../hooks/useMonitorSnapshot.js";
 import { UsagePanel } from "./UsagePanel.js";
 import { useUiStore } from "../store/uiStore.js";
 import { createPortal } from "react-dom";
-import type { MonitorSession, MonitorSnapshot, MonitorStatus } from "../../shared/monitor.js";
+import type { MonitorSession, MonitorStatus } from "../../shared/monitor.js";
 import {
   MonitorBlock,
   MonitorMeter,
@@ -68,57 +69,10 @@ export function MonitorPanel({
   onOpenTerminal?: ((paneId: string) => void) | undefined;
 }) {
   const usageEnabled = useUiStore((state) => state.usagePanelEnabled);
-  const [snapshot, setSnapshot] = useState<MonitorSnapshot | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshVersion, setRefreshVersion] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
+  const { snapshot, error, refreshing } = useMonitorSnapshot(active);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const inFlight = useRef(false);
   const dialog = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    if (!active || !window.desktop?.getMonitorSnapshot) return;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const poll = async () => {
-      clearTimeout(timer);
-      if (cancelled || document.visibilityState === "hidden") return;
-      if (inFlight.current) {
-        timer = setTimeout(() => void poll(), 2000);
-        return;
-      }
-      inFlight.current = true;
-      setRefreshing(true);
-      try {
-        const next = await window.desktop!.getMonitorSnapshot();
-        if (!cancelled) {
-          setSnapshot(next);
-          setError(null);
-        }
-      } catch {
-        if (!cancelled)
-          setError("Unable to refresh local agent sessions. Showing the last available snapshot.");
-      } finally {
-        inFlight.current = false;
-        if (!cancelled) {
-          setRefreshing(false);
-          timer = setTimeout(() => void poll(), 2000);
-        }
-      }
-    };
-    const visibility = () => {
-      if (document.visibilityState === "hidden") clearTimeout(timer);
-      else void poll();
-    };
-    void poll();
-    document.addEventListener("visibilitychange", visibility);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-      document.removeEventListener("visibilitychange", visibility);
-    };
-  }, [active, refreshVersion]);
 
   useEffect(() => {
     if (!active) setExpanded(false);
@@ -214,7 +168,7 @@ export function MonitorPanel({
             title="Refresh monitor"
             disabled={refreshing || !active}
             className="rounded-lg p-1.5 text-foreground-subtle hover:bg-hover disabled:opacity-40"
-            onClick={() => setRefreshVersion((version) => version + 1)}
+            onClick={() => void refreshMonitorSnapshot()}
           >
             <RefreshCw className={`size-3.5${refreshing ? " animate-spin" : ""}`} />
           </button>

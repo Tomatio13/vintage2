@@ -17,7 +17,7 @@ VINTAGEは、プロジェクト、Space、ターミナルをまとめて管理�
 - **エージェント状態の表示**: Spaceタブとサイドバーの色付きドットで、作業中・待機中・失敗などの状態を確認できます。 シェル連携が使えない場合も、Errors Onlyを含む各モードでAI CLIの起動を検出して実行中のドットを表示します。
 - **FilesとGit Review**: ファイルの閲覧・コピー・リネーム、シンタックスハイライト・行番号・行移動に対応したMarkdown編集、ドキュメントの拡大・縮小、テキストの検索・置換、未ステージのGit差分確認に対応しています。
 - **NotesとBoard**: WorkspaceごとのメモとKanbanボードで作業を管理。カードにラベル・優先度・期限・Subtaskの進捗を表示し、Board拡大時は一覧の横に詳細ドロワーを開きます。検索・Filter・Sort・ドラッグやキーボードでの並べ替えに対応します。 [vintage-board Agent Skill](skills/vintage-board/SKILL.md)を配布すると、Agentから同梱Pythonでカード・Notes・Subtaskを更新できます。
-- **Agent Monitor**: Monitorタブで、Claude Code / Codex / Antigravity / OpenCode / ZCode / Grokの実行状態、現在のツール、コンテキスト使用率を確認できます。abtopや外部収集ツールのインストールは不要です。
+- **Agent Monitor**: Monitorタブで、Claude Code / Codex / Antigravity / OpenCode / ZCode / Grokの実行状態、現在のツール、コンテキスト使用率を確認できます。abtopや外部収集ツールのインストールは不要です。 Space横の状態表示にもSession情報が反映され、Monitorタブを閉じている間も更新されます。
 - **AI使用制限の表示**: CodexやClaude CodeなどのAI CLIの残りクォータ、リセット時刻、クレジットをMonitor内で確認できます。任意の [CodexBar CLI](https://github.com/steipete/codexbar) が必要です。
 - **複数のシェルに対応**: zsh、bash、fish、またはOSの既定シェルを選べます。Windows ではコマンドプロンプト、Windows PowerShell、PowerShell 7、Git Bash に対応しています。
 - **テキストの自動コピー**: ターミナル出力をマウスで選択するとクリップボードへコピーします。

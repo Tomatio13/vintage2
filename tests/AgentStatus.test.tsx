@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { TerminalAttentionState } from "../src/shared/desktop.js";
 import { Sidebar, type SidebarWorkspace } from "../src/renderer/components/Sidebar.js";
 import {
+  monitorStatusByPane,
   agentStatusScore,
   agentStatusVisual,
   strongestAgentStatus,
@@ -132,5 +133,39 @@ describe("agent status dots in the Sidebar", () => {
 
     expect(screen.queryByLabelText(/Agent status:/)).toBeNull();
     expect(document.querySelector(".rounded-full.bg-foreground")).not.toBeNull();
+  });
+});
+
+describe("Monitor session navigation status", () => {
+  const session = (
+    status: import("../src/shared/monitor.js").MonitorStatus,
+    paneId: string | null = "pane-1",
+  ) =>
+    ({
+      status,
+      paneId,
+      lastActivityAt: 100,
+      loading: false,
+    }) as import("../src/shared/monitor.js").MonitorSession;
+  it("maps session activity, waits, completion and failures", () => {
+    for (const [input, output] of [
+      ["Thinking", "thinking"],
+      ["Executing", "running"],
+      ["Waiting", "waiting_input"],
+      ["RateLimited", "warning"],
+      ["Done", "completed"],
+      ["Error", "failed"],
+    ] as const) {
+      expect(monitorStatusByPane([session(input)])["pane-1"]?.status).toBe(output);
+    }
+  });
+  it("ignores unowned and unknown sessions and clears removed sessions", () => {
+    expect(monitorStatusByPane([session("Thinking", null), session("Unknown")])).toEqual({});
+    expect(monitorStatusByPane([])).toEqual({});
+  });
+  it("retains active work when another agent in the same pane is done", () => {
+    expect(monitorStatusByPane([session("Executing"), session("Done")])["pane-1"]?.status).toBe(
+      "running",
+    );
   });
 });

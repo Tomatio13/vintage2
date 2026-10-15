@@ -53,3 +53,34 @@ export function strongestAgentStatus(
   }
   return best;
 }
+
+// Session ownership is supplied by the collector; never infer it from cwd.
+export function monitorStatusByPane(
+  sessions: import("../../shared/monitor.js").MonitorSession[],
+): Record<string, TerminalAttentionState> {
+  const result: Record<string, TerminalAttentionState> = {};
+  const statuses: Record<import("../../shared/monitor.js").MonitorStatus, TerminalAttentionStatus> =
+    {
+      Thinking: "thinking",
+      Executing: "running",
+      Waiting: "waiting_input",
+      RateLimited: "warning",
+      Done: "completed",
+      Error: "failed",
+      Unknown: "unknown",
+    };
+  for (const session of sessions) {
+    if (!session.paneId || session.loading || session.status === "Unknown") continue;
+    const next: TerminalAttentionState = {
+      sessionId: session.paneId,
+      status: statuses[session.status],
+      attentionLevel: 0,
+      userActionRequired: session.status === "Waiting",
+      source: "session",
+      lastActivityAt: session.lastActivityAt ?? 0,
+    };
+    const best = strongestAgentStatus([result[session.paneId], next]);
+    if (best) result[session.paneId] = best;
+  }
+  return result;
+}

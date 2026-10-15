@@ -19,7 +19,8 @@ import { FileViewer } from "./components/FileViewer.js";
 import { ResizeHandle } from "./components/ResizeHandle.js";
 import { SettingsDialog } from "./components/SettingsDialog.js";
 import { SidePane } from "./components/SidePane.js";
-import { strongestAgentStatus } from "./lib/agentStatus.js";
+import { useMonitorSnapshot } from "./hooks/useMonitorSnapshot.js";
+import { monitorStatusByPane, strongestAgentStatus } from "./lib/agentStatus.js";
 import { eventKey, findInTerminalEvent, shortcutBinding, shortcutLabel } from "./lib/shortcuts.js";
 import {
   Sidebar,
@@ -561,10 +562,14 @@ export function App() {
   const userSelectedWorkspaceRef = useRef(false);
   const active = workspaces.find((workspace) => workspace.id === activeId) ?? null;
   const attentionItems = collectAttentionItems(workspaces, attentionByPane);
+  const { snapshot: monitorSnapshot } = useMonitorSnapshot();
+  const sessionStatusByPane = monitorStatusByPane(monitorSnapshot?.sessions ?? []);
   const agentStatusByTabId: Record<string, TerminalAttentionState> = {};
   for (const workspace of workspaces) {
     for (const tab of workspace.tabs) {
-      const state = strongestAgentStatus(tab.panes.map((pane) => attentionByPane[pane.id]));
+      const state = strongestAgentStatus(
+        tab.panes.map((pane) => sessionStatusByPane[pane.id] ?? attentionByPane[pane.id]),
+      );
       if (state) agentStatusByTabId[tab.id] = state;
     }
   }
