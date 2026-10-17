@@ -1,5 +1,25 @@
 # VINTAGE Changelog
 
+## [0.2.30] - 2026-10-17
+
+### Performance and fixes
+
+- Keep Git Review responsive with large changesets through bounded file/diff rendering and oversized-diff preview fallback.
+- Preserve the current diff when additional context exceeds the display budget or refresh fails, improve fold expansion positioning, and reuse pinned branch comparison revisions.
+- Virtualize the Files tree and limit concurrent directory reads.
+- Reduce Browser metadata updates, filter and page bookmarks, and add an explicit Suspend background tabs action. Suspended pages reload when reopened; unsaved page input is cleared.
+- Keep source previews continuously scrollable with at most 600 rendered lines, search the full loaded text, preserve the reading position when search closes, and avoid duplicate JSON formatting.
+- Stabilize the Review smoke test by identifying the visible terminal from its executed marker and ignoring unrelated terminal replay events.
+
+### Validation and limitations
+
+- Boundaries, TypeScript, lint, formatting, 466 passing tests (one skipped), and production builds passed.
+- Linux Electron smoke tests covered 15,001 files, 20,000 source lines, 1,000 bookmarks, background-page suspension, source scroll/search positioning, large Review context, and a continuing live terminal session.
+- The Review smoke test passed five consecutive runs with deterministic unrelated terminal events.
+- Windows Monitor remains experimental. Physical Windows/macOS runtime testing and installed-app updater verification remain pending.
+
+**Full Changelog:** [v0.2.29...v0.2.30](https://github.com/Tomatio13/vintage2/compare/v0.2.29...v0.2.30)
+
 ## [0.2.29] - 2026-10-16
 
 ### Added
