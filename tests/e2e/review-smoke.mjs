@@ -80,8 +80,28 @@ try {
   await page.evaluate(() => {
     window.reviewSmokeData = [];
     window.reviewSmokeExits = [];
-    window.desktop.onTerminalData((event) => window.reviewSmokeData.push(event));
-    window.desktop.onTerminalExit((event) => window.reviewSmokeExits.push(event));
+    window.reviewSmokeStreams = new Map();
+    window.reviewSmokeSession = null;
+    window.reviewSmokeIgnoredData = 0;
+    window.reviewSmokeIgnoredExits = 0;
+    window.reviewSmokeStopData = window.desktop.onTerminalData((event) => {
+      if (window.reviewSmokeSession && event.sessionId !== window.reviewSmokeSession) {
+        window.reviewSmokeIgnoredData++;
+        return;
+      }
+      window.reviewSmokeData.push(event);
+      window.reviewSmokeStreams.set(
+        event.sessionId,
+        (window.reviewSmokeStreams.get(event.sessionId) ?? "") + event.data,
+      );
+    });
+    window.reviewSmokeStopExit = window.desktop.onTerminalExit((event) => {
+      if (window.reviewSmokeSession && event.sessionId !== window.reviewSmokeSession) {
+        window.reviewSmokeIgnoredExits++;
+        return;
+      }
+      window.reviewSmokeExits.push(event);
+    });
     window.reviewSmokeLast = performance.now();
     window.reviewSmokeGap = 0;
     window.reviewSmokeTimer = setInterval(() => {
@@ -97,17 +117,57 @@ try {
     await terminal.focus();
     await page.keyboard.type(`printf 'VINTAGE_REVIEW_%s\\n' ${suffix}`);
     await page.keyboard.press("Enter");
-    await page.waitForFunction(
+    // Output can be chunked or interleaved with a hidden Home terminal's replay.
+    // Identify the visible terminal by its executed marker, never by the last event.
+    const match = await page.waitForFunction(
       (marker) =>
-        window.reviewSmokeData
-          .map((event) => event.data)
-          .join("")
-          .includes(marker),
+        [...window.reviewSmokeStreams].find(
+          ([sessionId, data]) =>
+            (!window.reviewSmokeSession || sessionId === window.reviewSmokeSession) &&
+            data.includes(marker),
+        )?.[0],
       `VINTAGE_REVIEW_${suffix}`,
     );
+    const sessionId = await match.jsonValue();
+    await match.dispose();
+    return sessionId;
   };
-  await checkTerminal("BEFORE");
-  const session = await page.evaluate(() => window.reviewSmokeData.at(-1).sessionId);
+  // Exercise unrelated IPC traffic deterministically, including before target discovery.
+  // No live session uses this test-only id, so other terminal views ignore these events.
+  await app.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0].webContents.send("terminal:data", {
+      sessionId: "review-smoke-unrelated",
+      data: "replayed hidden terminal prompt\r\n",
+    });
+  });
+  const session = await checkTerminal("BEFORE");
+  await page.evaluate((sessionId) => {
+    window.reviewSmokeSession = sessionId;
+    window.reviewSmokeIgnoredData += window.reviewSmokeData.filter(
+      (event) => event.sessionId !== sessionId,
+    ).length;
+    window.reviewSmokeIgnoredExits += window.reviewSmokeExits.filter(
+      (event) => event.sessionId !== sessionId,
+    ).length;
+    window.reviewSmokeData = window.reviewSmokeData.filter(
+      (event) => event.sessionId === sessionId,
+    );
+    window.reviewSmokeExits = window.reviewSmokeExits.filter(
+      (event) => event.sessionId === sessionId,
+    );
+    window.reviewSmokeStreams = new Map([[sessionId, window.reviewSmokeStreams.get(sessionId)]]);
+  }, session);
+  await app.evaluate(({ BrowserWindow }) => {
+    const contents = BrowserWindow.getAllWindows()[0].webContents;
+    contents.send("terminal:data", {
+      sessionId: "review-smoke-unrelated",
+      data: "late hidden terminal replay\r\n",
+    });
+    contents.send("terminal:exit", { sessionId: "review-smoke-unrelated", exitCode: 0 });
+  });
+  await page.waitForFunction(
+    () => window.reviewSmokeIgnoredData >= 2 && window.reviewSmokeIgnoredExits >= 1,
+  );
   const start = Date.now();
   await review.getByRole("button", { name: /^a-large\.ts/ }).click();
   await review.getByText("line_0", { exact: true }).waitFor();
@@ -143,15 +203,21 @@ try {
   await page.getByRole("button", { name: "Files", exact: true }).click();
   await page.getByRole("button", { name: "Review", exact: true }).click();
   await review.getByRole("button", { name: /^file-00098\.ts/ }).waitFor();
-  await checkTerminal("AFTER");
+  assert.equal(await checkTerminal("AFTER"), session, "the visible terminal must keep its session");
   const state = await page.evaluate(() => {
     clearInterval(window.reviewSmokeTimer);
+    window.reviewSmokeStopData();
+    window.reviewSmokeStopExit();
     return {
+      ignoredDataEvents: window.reviewSmokeIgnoredData,
+      ignoredExitEvents: window.reviewSmokeIgnoredExits,
       maxGapMs: Math.round(window.reviewSmokeGap),
       exits: window.reviewSmokeExits,
       sessions: [...new Set(window.reviewSmokeData.map((event) => event.sessionId))],
     };
   });
+  assert.ok(state.ignoredDataEvents >= 2, "unrelated replay events must be ignored");
+  assert.ok(state.ignoredExitEvents >= 1, "unrelated exit events must be ignored");
   assert.equal(state.exits.length, 0);
   assert.deepEqual(state.sessions, [session]);
   assert.ok(state.maxGapMs < 2000, `renderer stalled for ${state.maxGapMs}ms`);
