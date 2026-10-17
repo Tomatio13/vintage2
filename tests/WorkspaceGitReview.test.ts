@@ -210,6 +210,7 @@ describe("workspace Git review", () => {
     expect(branch.patch).toContain("+committed change");
     expect(branch.patch).not.toContain("working change");
     const branchTrace = readFileSync(trace, "utf8");
+    expect(branchTrace.match(/ merge-base /gu)).toHaveLength(1);
     expect(branchTrace).not.toContain("--numstat");
     expect(branchTrace).not.toContain("status --porcelain");
     writeFileSync(trace, "");

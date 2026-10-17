@@ -417,7 +417,11 @@ async function getBranchChanges(
   context: GitContext,
   baseRef: GitBranchRef | null,
   paths?: string[],
-): Promise<{ changes: WorkspaceGitReviewChange[]; message: string | null }> {
+): Promise<{
+  changes: WorkspaceGitReviewChange[];
+  message: string | null;
+  comparison?: { base: string; head: string };
+}> {
   if (!baseRef) {
     return {
       changes: [],
@@ -441,7 +445,8 @@ async function getBranchChanges(
     "-M",
     "--no-ext-diff",
     "--no-textconv",
-    `${baseRef.ref}...HEAD`,
+    mergeBase.trim(),
+    head.trim(),
     "--",
     ...(paths ? paths.map(pathSpec) : ["."]),
   ];
@@ -462,7 +467,7 @@ async function getBranchChanges(
       removed: counts?.removed ?? null,
     };
   });
-  return { changes, message: null };
+  return { changes, message: null, comparison: { base: mergeBase.trim(), head: head.trim() } };
 }
 
 export async function getWorkspaceGitReviewView(
@@ -682,25 +687,20 @@ export async function getWorkspaceGitReviewDiff(
           summary: "This branch change is no longer available.",
         };
       }
-      const mergeBase = await runGit(
-        context.repositoryRoot,
-        ["merge-base", baseBranch.ref, "HEAD"],
-        [1],
-      );
-      if (!mergeBase.trim()) {
+      if (!snapshot.comparison)
         return {
           availability: "unavailable",
           patch: null,
-          summary: `No common ancestor was found for ${baseBranch.name} and HEAD.`,
+          summary: snapshot.message ?? "No branch comparison is available.",
         };
-      }
       const args = [
         "diff",
         "--no-ext-diff",
         "--no-textconv",
         "--no-color",
         `--unified=${contextLines}`,
-        `${baseBranch.ref}...HEAD`,
+        snapshot.comparison.base,
+        snapshot.comparison.head,
         "--",
         pathSpec(path),
       ];

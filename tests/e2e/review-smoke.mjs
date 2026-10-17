@@ -14,6 +14,11 @@ try {
   git("config", "user.name", "VINTAGE review smoke");
   git("config", "user.email", "review@example.invalid");
   await writeFile(join(root, "a-large.ts"), "export const baseline = 0;\n");
+  const contextLines = Array.from(
+    { length: 30000 },
+    (_, i) => `${String(i).padStart(5, "0")}:${"a".repeat(90)}`,
+  );
+  await writeFile(join(root, "a-context.ts"), contextLines.join("\n") + "\n");
   git("add", ".");
   git("commit", "-qm", "baseline");
   git("checkout", "-qb", "feature");
@@ -24,7 +29,9 @@ try {
     join(root, "a-large.ts"),
     Array.from({ length: 1200 }, (_, i) => `line_${i}`).join("\n") + "\n",
   );
-  await writeFile(join(root, "a-huge.ts"), "x".repeat(600000) + "\n");
+  await writeFile(join(root, "a-huge.ts"), "x".repeat(1200000) + "\n");
+  contextLines[15000] = "context_changed_15000";
+  await writeFile(join(root, "a-context.ts"), contextLines.join("\n") + "\n");
   // Keep filesystem concurrency bounded too; these are real Git changes, not bridge mocks.
   for (let start = 0; start < 5000; start += 100) {
     await Promise.all(
@@ -112,6 +119,19 @@ try {
   // Allow a real automatic refresh and verify the user's diff page is retained.
   await page.waitForTimeout(3800);
   await review.getByText("line_250", { exact: true }).waitFor();
+  await review.getByRole("button", { name: /^a-context\.ts/ }).click();
+  await review.getByText("context_changed_15000", { exact: true }).waitFor();
+  for (let step = 0; step < 4; step++) {
+    await review
+      .getByRole("button", { name: /^\d+ unmodified lines$/ })
+      .first()
+      .click();
+    await review.getByText("Loading more context…", { exact: true }).waitFor({ state: "hidden" });
+  }
+  await review
+    .getByText("Additional context exceeds the display limit.", { exact: false })
+    .waitFor();
+  await review.getByText("context_changed_15000", { exact: true }).waitFor();
   await review.getByRole("button", { name: /^a-huge\.ts/ }).click();
   await review.getByText("Diff exceeds the display limit.", { exact: false }).waitFor();
   await review.getByRole("button", { name: /^a-huge\.ts/ }).click();
@@ -139,7 +159,7 @@ try {
   await page.screenshot({ path: "/tmp/vintage-review-smoke.png" });
   console.log(
     JSON.stringify({
-      changedFiles: 5002,
+      changedFiles: 5003,
       openMs,
       ...state,
       result: "branch/local diffs, paging, auto-refresh, oversized fallback, tabs and live PTY OK",

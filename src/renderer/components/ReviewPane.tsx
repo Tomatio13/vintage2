@@ -16,7 +16,16 @@ import {
   Terminal,
   type LucideIcon,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import type {
   WorkspaceGitReviewChange,
@@ -29,9 +38,15 @@ import { Button } from "./Button.js";
 
 const filesPerPage = 100;
 const diffRowsPerPage = 200;
-const maxDiffCharacters = 500_000;
-const maxDiffLines = 10_000;
+const maxDiffCharacters = 1_000_000;
+const maxDiffLines = 20_000;
 const maxLineCharacters = 2_000;
+
+function exceedsDiffBudget(patch: string): boolean {
+  return (
+    patch.length > maxDiffCharacters || patch.split("\n", maxDiffLines + 1).length > maxDiffLines
+  );
+}
 
 function ReviewPagination({
   page,
@@ -39,7 +54,9 @@ function ReviewPagination({
   pageSize,
   label,
   onChange,
+  start,
 }: {
+  start?: number;
   page: number;
   total: number;
   pageSize: number;
@@ -47,6 +64,7 @@ function ReviewPagination({
   onChange(page: number): void;
 }) {
   if (total <= pageSize) return null;
+  const offset = start ?? page * pageSize;
   return (
     <nav
       aria-label={label}
@@ -55,18 +73,18 @@ function ReviewPagination({
       <Button
         size="compact"
         variant="ghost"
-        disabled={page === 0}
+        disabled={offset === 0}
         onClick={() => onChange(page - 1)}
       >
         Previous
       </Button>
       <span>
-        {page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} of {total}
+        {offset + 1}–{Math.min(offset + pageSize, total)} of {total}
       </span>
       <Button
         size="compact"
         variant="ghost"
-        disabled={(page + 1) * pageSize >= total}
+        disabled={offset + pageSize >= total}
         onClick={() => onChange(page + 1)}
       >
         Next
@@ -874,13 +892,11 @@ const DiffPatch = memo(function DiffPatch({
   onToggleFold(fold: DiffFold): void;
   onOpenFile(path: string, line: number): void;
 }) {
-  const [requestedPage, setPage] = useState(0);
+  const [requestedStart, setStart] = useState(0);
+  const scroll = useRef<HTMLDivElement>(null);
+  const focusedFold = useRef<string | null>(null);
   const entries = useMemo(() => {
-    if (
-      patch.length > maxDiffCharacters ||
-      patch.split("\n", maxDiffLines + 1).length > maxDiffLines
-    )
-      return null;
+    if (exceedsDiffBudget(patch)) return null;
     return parseDiffPatch(patch);
   }, [patch]);
   const visibleEntries = useMemo(
@@ -892,10 +908,23 @@ const DiffPatch = memo(function DiffPatch({
       ) ?? [],
     [entries, expandedFolds],
   );
-  const page = Math.min(
-    requestedPage,
-    Math.max(0, Math.ceil(visibleEntries.length / diffRowsPerPage) - 1),
-  );
+  const start =
+    visibleEntries.length <= diffRowsPerPage
+      ? 0
+      : Math.min(requestedStart, Math.max(0, visibleEntries.length - 1));
+  const page = Math.floor(start / diffRowsPerPage);
+  const previousStart = useRef(start);
+  useLayoutEffect(() => {
+    if (scroll.current) {
+      if (previousStart.current !== start) scroll.current.scrollTop = 0;
+      if (focusedFold.current)
+        scroll.current
+          .querySelector(`[data-diff-fold="${focusedFold.current}"]`)
+          ?.scrollIntoView?.({ block: "nearest" });
+    }
+    previousStart.current = start;
+    focusedFold.current = null;
+  }, [start, expandedFolds]);
   if (!entries)
     return (
       <div className="p-2 text-ui-xs text-foreground-subtle">
@@ -906,15 +935,21 @@ const DiffPatch = memo(function DiffPatch({
       </div>
     );
   return (
-    <div className="max-h-[62vh] overflow-auto bg-terminal-surface py-1 font-mono text-ui-sm leading-5">
+    <div
+      ref={scroll}
+      className="max-h-[62vh] overflow-auto bg-terminal-surface py-1 font-mono text-ui-sm leading-5"
+    >
       <ReviewPagination
         page={page}
         total={visibleEntries.length}
         pageSize={diffRowsPerPage}
         label="Diff pages"
-        onChange={setPage}
+        start={start}
+        onChange={(next) =>
+          setStart(Math.max(0, start + (next > page ? diffRowsPerPage : -diffRowsPerPage)))
+        }
       />
-      {visibleEntries.slice(page * diffRowsPerPage, (page + 1) * diffRowsPerPage).map((entry) => {
+      {visibleEntries.slice(start, start + diffRowsPerPage).map((entry) => {
         if (entry.kind === "hunk")
           return (
             <div
@@ -947,9 +982,16 @@ const DiffPatch = memo(function DiffPatch({
           <div key={entry.id}>
             <button
               aria-expanded={expanded}
+              data-diff-fold={entry.id}
               className="flex w-full min-w-max items-center gap-2 bg-terminal-surface px-3 py-1 text-left text-ui-xs text-foreground-subtle hover:bg-hover"
               type="button"
-              onClick={() => onToggleFold(entry)}
+              onClick={() => {
+                focusedFold.current = entry.id;
+                const index = visibleEntries.indexOf(entry);
+                if (!expanded && entry.lines && index - start >= diffRowsPerPage - 20)
+                  setStart(index);
+                onToggleFold(entry);
+              }}
             >
               {expanded ? (
                 <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
@@ -982,6 +1024,7 @@ export function ReviewPane({
   const [expandedPath, setExpandedPath] = useState<string | null>(null);
   const [diff, setDiff] = useState<WorkspaceGitReviewDiff | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
+  const [contextNotice, setContextNotice] = useState<string | null>(null);
   const [diffContextLines, setDiffContextLines] = useState(500);
   const [expandedFolds, setExpandedFolds] = useState<Set<string>>(() => new Set());
   const diffRequestId = useRef(0);
@@ -997,6 +1040,7 @@ export function ReviewPane({
     setSnapshot(null);
     setDiffLoading(false);
     setDiffContextLines(500);
+    setContextNotice(null);
     setExpandedFolds(new Set());
     diffRequestId.current += 1;
   }, [workspaceId, mode, baseRef]);
@@ -1102,6 +1146,7 @@ export function ReviewPane({
     setExpandedPath(key);
     setDiff(null);
     setDiffContextLines(500);
+    setContextNotice(null);
     setExpandedFolds(new Set());
     if (!workspaceId || !getDiff) {
       setDiff({
@@ -1167,6 +1212,15 @@ export function ReviewPane({
       })
         .then((result) => {
           if (requestId !== diffRequestId.current) return;
+          if (result.availability !== "patch" || !result.patch || exceedsDiffBudget(result.patch)) {
+            setContextNotice(
+              result.availability === "patch"
+                ? "Additional context exceeds the display limit. The current diff is kept."
+                : (result.summary ?? "Unable to load more context. The current diff is kept."),
+            );
+            return;
+          }
+          setContextNotice(null);
           setDiff(result);
           setDiffContextLines(nextContextLines);
           if (result.availability === "patch") {
@@ -1175,11 +1229,7 @@ export function ReviewPane({
         })
         .catch(() => {
           if (requestId === diffRequestId.current) {
-            setDiff({
-              availability: "unavailable",
-              patch: null,
-              summary: "Unable to load more context for this diff.",
-            });
+            setContextNotice("Unable to load more context. The current diff is kept.");
           }
         })
         .finally(() => {
@@ -1264,7 +1314,24 @@ export function ReviewPane({
                 </div>
                 {expanded && (
                   <div className="border-t border-border">
-                    {diffLoading ? (
+                    {contextNotice && (
+                      <p role="status" className="p-2 text-ui-xs text-foreground-subtle">
+                        {contextNotice}{" "}
+                        <button
+                          type="button"
+                          className="text-brand"
+                          onClick={() => onOpenFile(change.path, 1)}
+                        >
+                          Preview file
+                        </button>
+                      </p>
+                    )}
+                    {diffLoading && diff?.patch && (
+                      <p className="p-2 text-ui-xs text-foreground-subtlest">
+                        Loading more context…
+                      </p>
+                    )}
+                    {diffLoading && !diff?.patch ? (
                       <p className="p-2 text-ui-xs text-foreground-subtlest">Loading diff…</p>
                     ) : diff?.availability === "patch" && diff.patch ? (
                       <DiffPatch
@@ -1347,7 +1414,7 @@ export function ReviewPane({
           </p>
         ) : loading && !snapshot ? (
           <p className="p-2 text-ui-sm text-foreground-subtle">Loading Git changes…</p>
-        ) : error ? (
+        ) : error && !snapshot ? (
           <p role="alert" className="p-2 text-ui-sm text-destructive">
             {error}
           </p>
@@ -1359,6 +1426,11 @@ export function ReviewPane({
           </p>
         ) : (
           <div className="space-y-2">
+            {error && (
+              <p role="alert" className="p-2 text-ui-xs text-destructive">
+                {error}
+              </p>
+            )}
             {snapshot?.comparisonMessage && mode === "branch" ? (
               <p className="rounded-lg border border-border bg-background px-2.5 py-2 text-ui-xs text-foreground-subtle">
                 {snapshot.comparisonMessage}
