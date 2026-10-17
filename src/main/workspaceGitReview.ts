@@ -297,6 +297,7 @@ function scopeChangesToWorkspace(
 async function getWorkspaceChanges(
   workspace: RegisteredWorkspace,
   source: WorkspaceGitReviewWorkingSource,
+  paths?: string[],
 ): Promise<{ context: GitContext; changes: WorkspaceGitReviewChange[] }> {
   const context = await resolveGitContext(workspace);
   const output = await runGit(context.workspaceRoot, [
@@ -305,9 +306,11 @@ async function getWorkspaceChanges(
     "-z",
     "--untracked-files=all",
     "--",
-    ".",
+    ...(paths ? paths.map(pathSpec) : ["."]),
   ]);
   const scopedChanges = scopeChangesToWorkspace(context, parseWorkspaceGitStatus(output, source));
+  // Expanding one file only validates that selection; line counts belong to the list.
+  if (paths) return { context, changes: scopedChanges };
   const numstatArgs = ["diff"];
   if (source === "staged") numstatArgs.push("--cached");
   numstatArgs.push("--numstat", "-z", "--", ".");
@@ -413,6 +416,7 @@ function parseNameStatus(output: string): WorkspaceGitReviewChange[] {
 async function getBranchChanges(
   context: GitContext,
   baseRef: GitBranchRef | null,
+  paths?: string[],
 ): Promise<{ changes: WorkspaceGitReviewChange[]; message: string | null }> {
   if (!baseRef) {
     return {
@@ -432,29 +436,18 @@ async function getBranchChanges(
   if (!mergeBase.trim()) {
     return { changes: [], message: `No common ancestor was found for ${baseRef.name} and HEAD.` };
   }
+  const diffArgs = [
+    "-z",
+    "-M",
+    "--no-ext-diff",
+    "--no-textconv",
+    `${baseRef.ref}...HEAD`,
+    "--",
+    ...(paths ? paths.map(pathSpec) : ["."]),
+  ];
   const [nameStatus, numstat] = await Promise.all([
-    runGit(context.workspaceRoot, [
-      "diff",
-      "--name-status",
-      "-z",
-      "-M",
-      "--no-ext-diff",
-      "--no-textconv",
-      `${baseRef.ref}...HEAD`,
-      "--",
-      ".",
-    ]),
-    runGit(context.workspaceRoot, [
-      "diff",
-      "--numstat",
-      "-z",
-      "-M",
-      "--no-ext-diff",
-      "--no-textconv",
-      `${baseRef.ref}...HEAD`,
-      "--",
-      ".",
-    ]),
+    runGit(context.workspaceRoot, ["diff", "--name-status", ...diffArgs]),
+    paths ? Promise.resolve("") : runGit(context.workspaceRoot, ["diff", "--numstat", ...diffArgs]),
   ]);
   const stats = parseNumstat(numstat);
   const changes = scopeChangesToWorkspace(context, parseNameStatus(nameStatus)).map((change) => {
@@ -673,10 +666,11 @@ export async function getWorkspaceGitReviewDiff(
           summary: "The selected base branch is no longer available.",
         };
       }
-      const snapshot = await getWorkspaceGitReviewView(workspace, {
-        mode: "branch",
-        baseRef: baseBranch.name,
-      });
+      const snapshot = await getBranchChanges(
+        context,
+        baseBranch,
+        originalPath ? [path, originalPath] : [path],
+      );
       if (
         !snapshot.changes.some(
           (change) => change.source === "branch" && isSameChange(change, normalizedRequest),
@@ -730,7 +724,11 @@ export async function getWorkspaceGitReviewDiff(
         : { availability: "unavailable", patch: null, summary: "No diff is available." };
     }
 
-    const { context, changes } = await getWorkspaceChanges(workspace, request.source);
+    const { context, changes } = await getWorkspaceChanges(
+      workspace,
+      request.source,
+      originalPath ? [path, originalPath] : [path],
+    );
     if (!changes.some((change) => isSameChange(change, normalizedRequest))) {
       return {
         availability: "unavailable",

@@ -16,7 +16,7 @@ import {
   Terminal,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import type {
   WorkspaceGitReviewChange,
@@ -26,6 +26,54 @@ import type {
 } from "../../shared/desktop.js";
 import { PanePicker, type PanePickerOption } from "./PanePicker.js";
 import { Button } from "./Button.js";
+
+const filesPerPage = 100;
+const diffRowsPerPage = 200;
+const maxDiffCharacters = 500_000;
+const maxDiffLines = 10_000;
+const maxLineCharacters = 2_000;
+
+function ReviewPagination({
+  page,
+  total,
+  pageSize,
+  label,
+  onChange,
+}: {
+  page: number;
+  total: number;
+  pageSize: number;
+  label: string;
+  onChange(page: number): void;
+}) {
+  if (total <= pageSize) return null;
+  return (
+    <nav
+      aria-label={label}
+      className="flex items-center justify-between gap-2 py-2 text-ui-xs text-foreground-subtle"
+    >
+      <Button
+        size="compact"
+        variant="ghost"
+        disabled={page === 0}
+        onClick={() => onChange(page - 1)}
+      >
+        Previous
+      </Button>
+      <span>
+        {page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} of {total}
+      </span>
+      <Button
+        size="compact"
+        variant="ghost"
+        disabled={(page + 1) * pageSize >= total}
+        onClick={() => onChange(page + 1)}
+      >
+        Next
+      </Button>
+    </nav>
+  );
+}
 
 interface ReviewPaneProps {
   workspaceId: string | null;
@@ -615,7 +663,7 @@ function parseDiffPatch(patch: string): DiffEntry[] {
       oldStart: hunk.oldStart,
       newStart: hunk.newStart,
     });
-    entries.push(...hunk.lines);
+    for (const line of hunk.lines) entries.push(line);
   });
   return collapseContext(entries);
 }
@@ -720,6 +768,9 @@ function markdownLine(content: string): ReactNode {
 const quotedStringPattern = String.raw`"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'` + "|`(?:\\.|[^`\\])*`";
 
 function highlightedCodeLine(content: string, path: string): ReactNode {
+  // Generated/minified lines must not create thousands of tokens or huge layout widths.
+  if (content.length > maxLineCharacters)
+    return `${content.slice(0, maxLineCharacters)}… [line truncated]`;
   const language = languageInfoForPath(path).language;
   if (language === "markdown") return markdownLine(content);
 
@@ -782,7 +833,7 @@ function highlightedCodeLine(content: string, path: string): ReactNode {
   return nodes.length ? nodes : content || " ";
 }
 
-function DiffLineRow({ line, path }: { line: DiffLine; path: string }) {
+const DiffLineRow = memo(function DiffLineRow({ line, path }: { line: DiffLine; path: string }) {
   const number = line.newLine ?? line.oldLine;
   const color =
     line.kind === "added"
@@ -808,9 +859,9 @@ function DiffLineRow({ line, path }: { line: DiffLine; path: string }) {
       </code>
     </div>
   );
-}
+});
 
-function DiffPatch({
+const DiffPatch = memo(function DiffPatch({
   patch,
   path,
   expandedFolds,
@@ -823,17 +874,54 @@ function DiffPatch({
   onToggleFold(fold: DiffFold): void;
   onOpenFile(path: string, line: number): void;
 }) {
-  const entries = parseDiffPatch(patch);
+  const [requestedPage, setPage] = useState(0);
+  const entries = useMemo(() => {
+    if (
+      patch.length > maxDiffCharacters ||
+      patch.split("\n", maxDiffLines + 1).length > maxDiffLines
+    )
+      return null;
+    return parseDiffPatch(patch);
+  }, [patch]);
+  const visibleEntries = useMemo(
+    () =>
+      entries?.flatMap((entry) =>
+        entry.kind === "fold" && expandedFolds.has(entry.id) && entry.lines
+          ? [entry, ...entry.lines]
+          : [entry],
+      ) ?? [],
+    [entries, expandedFolds],
+  );
+  const page = Math.min(
+    requestedPage,
+    Math.max(0, Math.ceil(visibleEntries.length / diffRowsPerPage) - 1),
+  );
+  if (!entries)
+    return (
+      <div className="p-2 text-ui-xs text-foreground-subtle">
+        <p>Diff exceeds the display limit. Open the file preview to inspect its contents.</p>
+        <Button size="compact" variant="ghost" onClick={() => onOpenFile(path, 1)}>
+          Preview file
+        </Button>
+      </div>
+    );
   return (
     <div className="max-h-[62vh] overflow-auto bg-terminal-surface py-1 font-mono text-ui-sm leading-5">
-      {entries.map((entry) => {
+      <ReviewPagination
+        page={page}
+        total={visibleEntries.length}
+        pageSize={diffRowsPerPage}
+        label="Diff pages"
+        onChange={setPage}
+      />
+      {visibleEntries.slice(page * diffRowsPerPage, (page + 1) * diffRowsPerPage).map((entry) => {
         if (entry.kind === "hunk")
           return (
             <div
               key={entry.id}
               className="flex min-w-max items-center justify-between gap-3 border-y border-border bg-background/40 px-2 py-1 text-ui-xs text-foreground-subtle"
             >
-              <code>{entry.header}</code>
+              <code>{entry.header.slice(0, maxLineCharacters)}</code>
               <button
                 aria-label={`Open ${path} at line ${entry.newStart || entry.oldStart}`}
                 className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 font-sans text-brand hover:bg-hover"
@@ -872,20 +960,12 @@ function DiffPatch({
                 {entry.count} unmodified {entry.count === 1 ? "line" : "lines"}
               </span>
             </button>
-            {expanded &&
-              entry.lines?.map((line) => (
-                <DiffLineRow
-                  key={`${entry.id}-${line.oldLine}-${line.newLine}-${line.content}`}
-                  line={line}
-                  path={path}
-                />
-              ))}
           </div>
         );
       })}
     </div>
   );
-}
+});
 
 export function ReviewPane({
   workspaceId,
@@ -905,12 +985,14 @@ export function ReviewPane({
   const [diffContextLines, setDiffContextLines] = useState(500);
   const [expandedFolds, setExpandedFolds] = useState<Set<string>>(() => new Set());
   const diffRequestId = useRef(0);
+  const [sectionPages, setSectionPages] = useState<Record<string, number>>({});
 
   const selectionRef = useRef({ expandedPath, diffContextLines, diffLoading });
   selectionRef.current = { expandedPath, diffContextLines, diffLoading };
 
   useEffect(() => {
     setExpandedPath(null);
+    setSectionPages({});
     setDiff(null);
     setSnapshot(null);
     setDiffLoading(false);
@@ -994,11 +1076,12 @@ export function ReviewPane({
     return () => {
       cancelled = true;
       clearTimeout(timer);
-      diffRequestId.current += 1;
+      // Polling results check cancelled themselves. Keep a user's pending expansion alive
+      // across tab switches/manual refresh; workspace and scope changes invalidate it above.
     };
   }, [active, baseRef, mode, refreshVersion, workspaceId]);
 
-  const changes = snapshot?.status === "ready" ? snapshot.changes : [];
+  const changes = useMemo(() => (snapshot?.status === "ready" ? snapshot.changes : []), [snapshot]);
   const branchChanges = changes.filter((change) => change.source === "branch");
   const stagedChanges = changes.filter((change) => change.source === "staged");
   const unstagedChanges = changes.filter((change) => change.source === "unstaged");
@@ -1055,56 +1138,60 @@ export function ReviewPane({
       });
   };
 
-  const toggleFold = (fold: DiffFold) => {
-    if (fold.lines) {
-      setExpandedFolds((current) => {
-        const next = new Set(current);
-        if (next.has(fold.id)) next.delete(fold.id);
-        else next.add(fold.id);
-        return next;
-      });
-      return;
-    }
+  const toggleFold = useCallback(
+    (fold: DiffFold) => {
+      if (fold.lines) {
+        setExpandedFolds((current) => {
+          const next = new Set(current);
+          if (next.has(fold.id)) next.delete(fold.id);
+          else next.add(fold.id);
+          return next;
+        });
+        return;
+      }
 
-    const change = changes.find((candidate) => changeKey(candidate) === expandedPath);
-    const getDiff = window.desktop?.getWorkspaceGitReviewDiff;
-    const nextContextLines = Math.min(diffContextLines * 2, 10_000);
-    if (!change || !workspaceId || !getDiff || nextContextLines === diffContextLines) return;
-    const source = change.source ?? "unstaged";
-    const requestId = ++diffRequestId.current;
-    setDiffLoading(true);
-    void getDiff(workspaceId, {
-      source,
-      path: change.path,
-      ...(change.originalPath ? { originalPath: change.originalPath } : {}),
-      kind: change.kind,
-      contextLines: nextContextLines,
-      ...(source === "branch" && snapshot?.baseRef ? { baseRef: snapshot.baseRef } : {}),
-    })
-      .then((result) => {
-        if (requestId !== diffRequestId.current) return;
-        setDiff(result);
-        setDiffContextLines(nextContextLines);
-        if (result.availability === "patch") {
-          setExpandedFolds((current) => new Set(current).add(fold.id));
-        }
+      const change = changes.find((candidate) => changeKey(candidate) === expandedPath);
+      const getDiff = window.desktop?.getWorkspaceGitReviewDiff;
+      const nextContextLines = Math.min(diffContextLines * 2, 10_000);
+      if (!change || !workspaceId || !getDiff || nextContextLines === diffContextLines) return;
+      const source = change.source ?? "unstaged";
+      const requestId = ++diffRequestId.current;
+      setDiffLoading(true);
+      void getDiff(workspaceId, {
+        source,
+        path: change.path,
+        ...(change.originalPath ? { originalPath: change.originalPath } : {}),
+        kind: change.kind,
+        contextLines: nextContextLines,
+        ...(source === "branch" && snapshot?.baseRef ? { baseRef: snapshot.baseRef } : {}),
       })
-      .catch(() => {
-        if (requestId === diffRequestId.current) {
-          setDiff({
-            availability: "unavailable",
-            patch: null,
-            summary: "Unable to load more context for this diff.",
-          });
-        }
-      })
-      .finally(() => {
-        if (requestId === diffRequestId.current) setDiffLoading(false);
-      });
-  };
+        .then((result) => {
+          if (requestId !== diffRequestId.current) return;
+          setDiff(result);
+          setDiffContextLines(nextContextLines);
+          if (result.availability === "patch") {
+            setExpandedFolds((current) => new Set(current).add(fold.id));
+          }
+        })
+        .catch(() => {
+          if (requestId === diffRequestId.current) {
+            setDiff({
+              availability: "unavailable",
+              patch: null,
+              summary: "Unable to load more context for this diff.",
+            });
+          }
+        })
+        .finally(() => {
+          if (requestId === diffRequestId.current) setDiffLoading(false);
+        });
+    },
+    [changes, diffContextLines, expandedPath, snapshot?.baseRef, workspaceId],
+  );
 
   const renderSection = (title: string, items: WorkspaceGitReviewChange[]) => {
     if (items.length === 0) return null;
+    const page = Math.min(sectionPages[title] ?? 0, Math.ceil(items.length / filesPerPage) - 1);
     return (
       <section className="space-y-1.5">
         <div className="flex min-w-0 items-center gap-2 px-1 pt-2">
@@ -1114,7 +1201,14 @@ export function ReviewPane({
           <span className="text-ui-xs text-foreground-subtlest">{items.length}</span>
         </div>
         <div className="space-y-1">
-          {items.map((change) => {
+          <ReviewPagination
+            page={page}
+            total={items.length}
+            pageSize={filesPerPage}
+            label={`${title} file pages`}
+            onChange={(next) => setSectionPages((current) => ({ ...current, [title]: next }))}
+          />
+          {items.slice(page * filesPerPage, (page + 1) * filesPerPage).map((change) => {
             const key = changeKey(change);
             const expanded = expandedPath === key;
             return (
@@ -1174,6 +1268,7 @@ export function ReviewPane({
                       <p className="p-2 text-ui-xs text-foreground-subtlest">Loading diff…</p>
                     ) : diff?.availability === "patch" && diff.patch ? (
                       <DiffPatch
+                        key={key}
                         expandedFolds={expandedFolds}
                         patch={diff.patch}
                         path={change.path}

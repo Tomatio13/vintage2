@@ -1,10 +1,18 @@
 import { execFile } from "node:child_process";
-import { existsSync, mkdtempSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RegisteredWorkspace, WorkspaceGitReviewDiffRequest } from "../src/shared/desktop.js";
 import {
@@ -59,6 +67,7 @@ async function initializeRepository(
 }
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const path of temporaryDirectories.splice(0)) rmSync(path, { recursive: true, force: true });
 });
 
@@ -173,6 +182,46 @@ describe("workspace Git review", () => {
     expect(diffs[7]?.availability).toBe("patch");
     expect(diffs[7]?.patch).toContain("+untracked through filter");
     expect(existsSync(filterMarker)).toBe(false);
+  });
+
+  it("validates only the selected paths without collecting line counts or local changes for a branch diff", async () => {
+    const repository = createTemporaryDirectory();
+    await initializeRepository(repository);
+    await git(repository, "branch", "-M", "main");
+    await git(repository, "checkout", "-qb", "feature");
+    write(repository, "scope/modified.txt", "committed change\n");
+    await git(repository, "add", "scope/modified.txt");
+    await git(repository, "commit", "-qm", "feature");
+    write(repository, "scope/modified.txt", "working change\n");
+    const trace = join(repository, "git-trace.log");
+    vi.stubEnv("GIT_TRACE", trace);
+    const workspace: RegisteredWorkspace = {
+      id: "targeted",
+      name: "scope",
+      path: join(repository, "scope"),
+      kind: "project",
+    };
+    const branch = await getWorkspaceGitReviewDiff(workspace, {
+      source: "branch",
+      baseRef: "main",
+      path: "modified.txt",
+      kind: "modified",
+    });
+    expect(branch.patch).toContain("+committed change");
+    expect(branch.patch).not.toContain("working change");
+    const branchTrace = readFileSync(trace, "utf8");
+    expect(branchTrace).not.toContain("--numstat");
+    expect(branchTrace).not.toContain("status --porcelain");
+    writeFileSync(trace, "");
+    const working = await getWorkspaceGitReviewDiff(workspace, {
+      source: "unstaged",
+      path: "modified.txt",
+      kind: "modified",
+    });
+    expect(working.patch).toContain("+working change");
+    const workingTrace = readFileSync(trace, "utf8");
+    expect(workingTrace).not.toContain("--numstat");
+    expect(workingTrace).toContain("--untracked-files=all -- ':(literal)modified.txt'");
   });
 
   it("reports a workspace outside Git cleanly and rejects paths outside the workspace", async () => {
