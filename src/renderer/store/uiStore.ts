@@ -150,6 +150,7 @@ interface UiState extends VintageSettings {
   setBrowserWorkspace(workspaceId: string): void;
   moveBrowserTab(tabId: string, workspaceId: string | null): void;
   setBrowserZoom(tabId: string, factor: number): void;
+  suspendBackgroundBrowserTabs(): void;
   updateBrowserPage(tabId: string, url: string, title?: string): void;
   toggleBrowserBookmark(url: string, title: string, workspaceId?: string | null): void;
   renameBrowserBookmark(url: string, title: string, workspaceId?: string | null): void;
@@ -325,6 +326,16 @@ export const useUiStore = create<UiState>()(
           ),
         }));
       },
+      suspendBackgroundBrowserTabs: () => {
+        const state = get();
+        if (!state.browserTabs.some((tab) => tab.mounted && tab.id !== state.activeSidePaneTabId))
+          return;
+        set({
+          browserTabs: state.browserTabs.map((tab) =>
+            tab.id === state.activeSidePaneTabId || !tab.mounted ? tab : { ...tab, mounted: false },
+          ),
+        });
+      },
       updateBrowserPage: (tabId, url, title) => {
         let normalized: string;
         try {
@@ -332,11 +343,13 @@ export const useUiStore = create<UiState>()(
         } catch {
           return;
         }
+        const nextTitle = title?.trim().slice(0, 200) || normalized;
+        const current = get().browserTabs.find((tab) => tab.id === tabId);
+        // Check before calling set: persist writes even when its updater returns the same state.
+        if (!current || (current.initialUrl === normalized && current.title === nextTitle)) return;
         set((state) => ({
           browserTabs: state.browserTabs.map((tab) =>
-            tab.id === tabId
-              ? { ...tab, initialUrl: normalized, title: title?.trim().slice(0, 200) || normalized }
-              : tab,
+            tab.id === tabId ? { ...tab, initialUrl: normalized, title: nextTitle } : tab,
           ),
         }));
       },

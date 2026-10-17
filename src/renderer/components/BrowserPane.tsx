@@ -14,7 +14,7 @@ import {
   RefreshCw,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 import { normalizeBrowserUrl } from "../lib/browserUrl.js";
@@ -132,7 +132,7 @@ const ELEMENT_PICKER_SCRIPT = `(() => {
   });
 })()`;
 
-export function BrowserPane({
+export const BrowserPane = memo(function BrowserPane({
   initialUrl,
   tabId,
   workspaceName,
@@ -161,9 +161,33 @@ export function BrowserPane({
   const moveTab = useUiStore((state) => state.moveBrowserTab);
   const [bookmarkScope, setBookmarkScope] = useState<string | null>(workspaceId);
   useEffect(() => setBookmarkScope(workspaceId), [workspaceId]);
-  const bookmarks = allBookmarks.filter(
-    (item) => !item.workspaceId || item.workspaceId === workspaceId,
+  const bookmarks = useMemo(
+    () => allBookmarks.filter((item) => !item.workspaceId || item.workspaceId === workspaceId),
+    [allBookmarks, workspaceId],
   );
+  const bookmarkCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const bookmark of bookmarks) counts.set(bookmark.url, (counts.get(bookmark.url) ?? 0) + 1);
+    return counts;
+  }, [bookmarks]);
+  const [bookmarkPage, setBookmarkPage] = useState(0);
+  const [bookmarkQuery, setBookmarkQuery] = useState("");
+  const filteredBookmarks = useMemo(
+    () =>
+      bookmarks.filter((item) =>
+        `${item.title} ${item.url}`.toLowerCase().includes(bookmarkQuery.toLowerCase()),
+      ),
+    [bookmarks, bookmarkQuery],
+  );
+  const currentBookmarkPage = Math.min(
+    bookmarkPage,
+    Math.max(0, Math.ceil(filteredBookmarks.length / 50) - 1),
+  );
+  useEffect(() => setBookmarkPage(0), [bookmarkQuery, workspaceId]);
+  useEffect(() => {
+    if (bookmarkPage !== currentBookmarkPage) setBookmarkPage(currentBookmarkPage);
+  }, [bookmarkPage, currentBookmarkPage]);
+  const suspendTabs = useUiStore((state) => state.suspendBackgroundBrowserTabs);
 
   const updatePage = useUiStore((state) => state.updateBrowserPage);
   const toggleBookmark = useUiStore((state) => state.toggleBrowserBookmark);
@@ -250,7 +274,14 @@ export function BrowserPane({
       setFindResult(
         (event as Event & { result: { activeMatchOrdinal: number; matches: number } }).result,
       );
-    const titleUpdated = () => syncNavigationState();
+    let titleTimer: ReturnType<typeof setTimeout> | undefined;
+    const titleUpdated = () => {
+      if (titleTimer) return;
+      titleTimer = setTimeout(() => {
+        titleTimer = undefined;
+        syncNavigationState();
+      }, 500);
+    };
     const ready = () => {
       setBrowserAvailable(true);
       if (activeRef.current) guest.setZoomFactor(zoomRef.current);
@@ -266,6 +297,7 @@ export function BrowserPane({
 
     return () => {
       pickerGenerationRef.current += 1;
+      clearTimeout(titleTimer);
       guest.removeEventListener("dom-ready", ready);
       guest.removeEventListener("found-in-page", found);
       guest.removeEventListener("page-title-updated", titleUpdated);
@@ -662,6 +694,19 @@ export function BrowserPane({
                 </span>
               </button>
               <button
+                type="button"
+                className="w-full rounded-md px-2 py-1.5 text-left text-ui-sm hover:bg-hover"
+                onClick={() => {
+                  suspendTabs();
+                  setMoreMenuOpen(false);
+                }}
+              >
+                Suspend background tabs
+                <span className="block text-ui-xs text-foreground-subtle">
+                  Reloads pages when reopened; clears unsaved page input.
+                </span>
+              </button>
+              <button
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-ui-sm text-foreground hover:bg-hover disabled:pointer-events-none disabled:opacity-50"
                 disabled={!browserAvailable}
                 onClick={openDeveloperTools}
@@ -695,47 +740,89 @@ export function BrowserPane({
               Use the star to bookmark this page.
             </p>
           )}
-          {bookmarks.map((item) => (
-            <div
-              key={JSON.stringify([item.workspaceId ?? null, item.url])}
-              className="flex items-center gap-1 py-1"
+          <input
+            aria-label="Filter bookmarks"
+            placeholder="Filter bookmarks"
+            className="my-2 h-7 w-full rounded-md border border-border bg-background px-2 text-ui-sm"
+            value={bookmarkQuery}
+            onChange={(event) => setBookmarkQuery(event.target.value)}
+          />
+          {filteredBookmarks.length > 50 && (
+            <nav
+              aria-label="Bookmark pages"
+              className="flex items-center justify-between text-ui-xs"
             >
-              <div className="min-w-0 flex-1">
-                <span className="text-ui-xs text-foreground-subtle">
-                  {item.workspaceId ? (workspaceName ?? "This project") : "Common"}
-                </span>
-                <input
-                  aria-label={`Bookmark name for ${item.url}${bookmarks.filter((bookmark) => bookmark.url === item.url).length > 1 ? ` (${item.workspaceId ? (workspaceName ?? "This project") : "Common"})` : ""}`}
-                  className="w-full bg-transparent text-ui-sm"
-                  value={item.title}
-                  onChange={(event) =>
-                    renameBookmark(item.url, event.target.value, item.workspaceId ?? null)
-                  }
-                />
-                <div className="truncate text-ui-xs text-foreground-subtle" title={item.url}>
-                  {item.url}
-                </div>
-              </div>
-              <Button size="compact" variant="ghost" onClick={() => openBookmark(item.url)}>
-                Open
-              </Button>
               <Button
                 size="compact"
                 variant="ghost"
-                onClick={() => openBookmark(item.url, { newTab: true })}
+                disabled={currentBookmarkPage === 0}
+                onClick={() => setBookmarkPage(currentBookmarkPage - 1)}
               >
-                New tab
+                Previous
               </Button>
+              <span>
+                {currentBookmarkPage * 50 + 1}–
+                {Math.min((currentBookmarkPage + 1) * 50, filteredBookmarks.length)} of{" "}
+                {filteredBookmarks.length}
+              </span>
               <Button
-                aria-label={`Delete bookmark ${item.title}`}
-                size="icon"
+                size="compact"
                 variant="ghost"
-                onClick={() => toggleBookmark(item.url, item.title, item.workspaceId ?? null)}
+                disabled={(currentBookmarkPage + 1) * 50 >= filteredBookmarks.length}
+                onClick={() => setBookmarkPage(currentBookmarkPage + 1)}
               >
-                <X className="size-4" />
+                Next
               </Button>
-            </div>
-          ))}
+            </nav>
+          )}
+          {filteredBookmarks
+            .slice(currentBookmarkPage * 50, (currentBookmarkPage + 1) * 50)
+            .map((item) => (
+              <div
+                key={JSON.stringify([item.workspaceId ?? null, item.url])}
+                className="flex items-center gap-1 py-1"
+              >
+                <div className="min-w-0 flex-1">
+                  <span className="text-ui-xs text-foreground-subtle">
+                    {item.workspaceId ? (workspaceName ?? "This project") : "Common"}
+                  </span>
+                  <input
+                    aria-label={`Bookmark name for ${item.url}${(bookmarkCounts.get(item.url) ?? 0) > 1 ? ` (${item.workspaceId ? (workspaceName ?? "This project") : "Common"})` : ""}`}
+                    className="w-full bg-transparent text-ui-sm"
+                    key={item.title}
+                    defaultValue={item.title}
+                    onBlur={(event) => {
+                      if (event.target.value !== item.title)
+                        renameBookmark(item.url, event.target.value, item.workspaceId ?? null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.currentTarget.blur();
+                    }}
+                  />
+                  <div className="truncate text-ui-xs text-foreground-subtle" title={item.url}>
+                    {item.url}
+                  </div>
+                </div>
+                <Button size="compact" variant="ghost" onClick={() => openBookmark(item.url)}>
+                  Open
+                </Button>
+                <Button
+                  size="compact"
+                  variant="ghost"
+                  onClick={() => openBookmark(item.url, { newTab: true })}
+                >
+                  New tab
+                </Button>
+                <Button
+                  aria-label={`Delete bookmark ${item.title}`}
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => toggleBookmark(item.url, item.title, item.workspaceId ?? null)}
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+            ))}
         </div>
       )}
       {findOpen && (
@@ -823,4 +910,4 @@ export function BrowserPane({
       </div>
     </section>
   );
-}
+});
