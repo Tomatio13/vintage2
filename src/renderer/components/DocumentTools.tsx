@@ -65,6 +65,8 @@ export function DocumentSearch({
   canReplace = false,
   onReplace,
   onEditorSelection,
+  onSourceSelection,
+  searchContent,
   replaceHint,
   open,
   onClose,
@@ -77,6 +79,8 @@ export function DocumentSearch({
   replaceHint?: string;
   onReplace?: (content: string) => void;
   onEditorSelection?: (offset: number) => void;
+  onSourceSelection?: ((query: string, offset: number | null) => void) | undefined;
+  searchContent?: string | undefined;
   open: boolean;
   onClose: () => void;
 }) {
@@ -91,6 +95,9 @@ export function DocumentSearch({
   const searchInput = useRef<HTMLInputElement>(null);
   const notifySelection = useRef(onEditorSelection);
   notifySelection.current = onEditorSelection;
+  const sourceSelection = useRef(onSourceSelection);
+  sourceSelection.current = onSourceSelection;
+  const sourceMode = Boolean(onSourceSelection);
 
   useEffect(() => {
     if (open) searchInput.current?.focus();
@@ -103,7 +110,10 @@ export function DocumentSearch({
     selectionMatches.current = [];
     ranges.current = [];
     if (open && query) {
-      if (editor?.current && content !== undefined) {
+      if (sourceMode && searchContent !== undefined) {
+        matches.current = findMatches(searchContent, query);
+        setCount(matches.current.length);
+      } else if (editor?.current && content !== undefined) {
         matches.current = findMatches(content, query);
         selectionMatches.current = findMatches(editor.current.value, query);
         setCount(selectionMatches.current.length);
@@ -155,7 +165,7 @@ export function DocumentSearch({
     return () => {
       if (typeof CSS !== "undefined") CSS.highlights?.delete(name);
     };
-  }, [open, query, content, revision, editor, root, name, canReplace]);
+  }, [open, query, content, revision, editor, root, name, canReplace, sourceMode, searchContent]);
 
   useEffect(() => {
     const match = open
@@ -166,6 +176,11 @@ export function DocumentSearch({
       notifySelection.current?.(match.end);
       scrollEditorToOffset(editor.current, editor.current.value, match.start);
     }
+    if (sourceMode)
+      sourceSelection.current?.(
+        open ? query : "",
+        open ? (matches.current[index]?.start ?? null) : null,
+      );
     const range = open ? ranges.current[index] : undefined;
     range?.startContainer.parentElement?.scrollIntoView?.({ block: "center", inline: "nearest" });
     if (typeof Highlight !== "undefined" && CSS.highlights)
@@ -173,7 +188,7 @@ export function DocumentSearch({
     return () => {
       if (typeof CSS !== "undefined") CSS.highlights?.delete(`${name}-active`);
     };
-  }, [open, index, count, query, content, revision, editor, name]);
+  }, [open, index, count, query, content, revision, editor, name, sourceMode, searchContent]);
 
   if (!open) return null;
   const replace = (all: boolean) => {

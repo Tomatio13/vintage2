@@ -8,7 +8,7 @@ import {
   Search,
   WrapText,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { DocumentSearch, ZoomControls } from "./DocumentTools.js";
 import { MarkdownEditor } from "./MarkdownEditor.js";
@@ -19,6 +19,7 @@ import {
   CopySourceButton,
   DelimitedPreview,
   FormattedJsonPreview,
+  parseJsonPreview,
   ImageFilePreview,
   WorkspaceHtmlPreview,
   WorkspaceMediaPreview,
@@ -45,6 +46,11 @@ export function FileViewer({
   const [view, setView] = useState<"preview" | "source">("preview");
   const [wrap, setWrap] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [sourceSelection, setSourceSelection] = useState({
+    query: "",
+    line: undefined as number | undefined,
+    column: undefined as number | undefined,
+  });
   const contentRoot = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [replacing, setReplacing] = useState(false);
@@ -159,6 +165,17 @@ export function FileViewer({
     kind === "json" ||
     kind === "csv" ||
     (view === "source" && (kind === "markdown" || kind === "html"));
+  const sourceSearch =
+    kind === "code" ||
+    kind === "json" ||
+    (view === "source" && (kind === "csv" || kind === "html"));
+  const jsonPreview = useMemo(
+    () => (file && kind === "json" && view === "preview" ? parseJsonPreview(file.content) : null),
+    [file, kind, view],
+  );
+  const searchContent = jsonPreview?.formatted ?? file?.content ?? "";
+  const selectedSourceLine = searchOpen && sourceSelection.query ? sourceSelection.line : undefined;
+  const sourceQuery = searchOpen ? sourceSelection.query : "";
   const modeLabels =
     kind === "json"
       ? { preview: "Formatted", source: "Raw" }
@@ -295,6 +312,23 @@ export function FileViewer({
         content={file?.content}
         replaceHint="Replacements are saved to the file immediately."
         revision={view}
+        searchContent={searchContent}
+        onSourceSelection={
+          sourceSearch
+            ? (query, offset) =>
+                setSourceSelection({
+                  query,
+                  column:
+                    offset === null
+                      ? undefined
+                      : offset -
+                        (offset > 0 ? searchContent.lastIndexOf("\n", offset - 1) : -1) -
+                        1,
+                  line:
+                    offset === null ? undefined : searchContent.slice(0, offset).split("\n").length,
+                })
+            : undefined
+        }
         open={searchOpen && supportsSearch}
         onClose={() => setSearchOpen(false)}
         canReplace={Boolean(
@@ -352,8 +386,10 @@ export function FileViewer({
                   content={file.content}
                   path={path}
                   targetLine={targetLine}
+                  searchLine={selectedSourceLine}
+                  search={sourceQuery}
+                  searchColumn={sourceSelection.column}
                   wrap={wrap}
-                  showAll={searchOpen}
                 />
               ) : previewUrl ? (
                 <WorkspaceHtmlPreview url={previewUrl} />
@@ -364,15 +400,24 @@ export function FileViewer({
               <WorkspaceMediaPreview kind={kind} url={previewUrl} />
             ) : null}
             {kind === "json" && file ? (
-              view === "preview" ? (
-                <FormattedJsonPreview content={file.content} path={path} showAll={searchOpen} />
+              view === "preview" && jsonPreview ? (
+                <FormattedJsonPreview
+                  parsed={jsonPreview}
+                  path={path}
+                  targetLine={targetLine}
+                  searchLine={selectedSourceLine}
+                  search={sourceQuery}
+                  searchColumn={sourceSelection.column}
+                />
               ) : (
                 <CodeSourcePreview
                   content={file.content}
                   path={path}
                   targetLine={targetLine}
+                  searchLine={selectedSourceLine}
+                  search={sourceQuery}
+                  searchColumn={sourceSelection.column}
                   wrap={wrap}
-                  showAll={searchOpen}
                 />
               )
             ) : null}
@@ -384,8 +429,10 @@ export function FileViewer({
                   content={file.content}
                   path={path}
                   targetLine={targetLine}
+                  searchLine={selectedSourceLine}
+                  search={sourceQuery}
+                  searchColumn={sourceSelection.column}
                   wrap={wrap}
-                  showAll={searchOpen}
                 />
               )
             ) : null}
@@ -394,8 +441,10 @@ export function FileViewer({
                 content={file.content}
                 path={path}
                 targetLine={targetLine}
+                searchLine={selectedSourceLine}
+                search={sourceQuery}
+                searchColumn={sourceSelection.column}
                 wrap={wrap}
-                showAll={searchOpen}
               />
             ) : null}
             {kind === "unsupported" ? (

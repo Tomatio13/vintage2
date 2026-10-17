@@ -1,6 +1,17 @@
 import { Check, Copy, Maximize2, ZoomIn, ZoomOut } from "lucide-react";
-import { Fragment, memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  memo,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
+import { Button } from "./Button.js";
 import type { FilePreviewKind } from "../lib/filePreview.js";
 
 export function ImageFilePreview({
@@ -158,10 +169,7 @@ export function ImageFilePreview({
 }
 
 const maxHighlightedLineCharacters = 30_000;
-const maxDisplayedSourceLines = 10_000;
 const initialCodePreviewLines = 600;
-const codePreviewLineBatch = 400;
-const codePreviewLoadAheadPixels = 600;
 const languageKeywords: Record<string, ReadonlySet<string>> = {
   c: new Set(
     "auto break case char const continue default do else enum extern for goto if int return short signed sizeof static struct switch typedef union unsigned void volatile while".split(
@@ -233,7 +241,7 @@ function highlightSearchText(content: string, search: string, sourceOffset = 0):
   const nodes: ReactNode[] = [];
   let cursor = 0;
   let matchIndex = source.indexOf(query);
-  while (matchIndex >= 0) {
+  while (matchIndex >= 0 && nodes.length < 256) {
     if (matchIndex > cursor) nodes.push(content.slice(cursor, matchIndex));
     nodes.push(
       <mark
@@ -367,7 +375,9 @@ const CodeSourceLine = memo(function CodeSourceLine({
   lineNumbers,
   path,
   search,
+  highlightSyntax,
 }: {
+  highlightSyntax: boolean;
   hasNextLine: boolean;
   index: number;
   line: string;
@@ -375,10 +385,14 @@ const CodeSourceLine = memo(function CodeSourceLine({
   path: string;
   search: string;
 }) {
+  const displayed =
+    line.length > 20_000
+      ? `${line.slice(0, 20_000)}… [line truncated; copy source for full text]`
+      : line;
   const value =
-    line.length <= maxHighlightedLineCharacters
+    highlightSyntax && line.length <= 2_000
       ? highlightedLine(line, codeSyntaxProfile(path), search)
-      : highlightedPlainLine(line, search);
+      : highlightedPlainLine(displayed, search);
 
   return lineNumbers ? (
     <span data-code-line={index + 1} className="grid grid-cols-[3.5rem_minmax(0,1fr)]">
@@ -404,89 +418,206 @@ export function CodeSourcePreview({
   search = "",
   lineNumbers = true,
   targetLine,
-  showAll = false,
+  searchColumn,
+  searchLine,
 }: {
   content: string;
   path: string;
   wrap: boolean;
   search?: string;
   lineNumbers?: boolean;
-  showAll?: boolean;
   targetLine?: number | undefined;
+  searchColumn?: number | undefined;
+  searchLine?: number | undefined;
 }) {
-  const { hasMoreLines, lines } = useMemo(() => {
-    const splitLines = content.split("\n", maxDisplayedSourceLines + 1);
-    return {
-      hasMoreLines: splitLines.length > maxDisplayedSourceLines,
-      lines: splitLines.slice(0, maxDisplayedSourceLines),
-    };
-  }, [content]);
+  const lines = useMemo(() => content.split("\n"), [content]);
+  const highlightName = `source-active-${useId().replace(/[^a-z0-9-]/giu, "")}`;
   const containerRef = useRef<HTMLDivElement>(null);
-  const [lineWindow, setLineWindow] = useState({ content, count: initialCodePreviewLines });
-  const displayedLineCount = Math.min(
-    lines.length,
-    lineWindow.content === content ? lineWindow.count : initialCodePreviewLines,
+  const [navigation, setNavigation] = useState({
+    content,
+    start:
+      Math.floor(Math.max(0, (searchLine ?? targetLine ?? 1) - 1) / initialCodePreviewLines) *
+      initialCodePreviewLines,
+  });
+  const previousRequest = useRef({ content, targetLine, searchLine, searchColumn });
+  const pendingTarget = useRef<number | undefined>(searchLine ?? targetLine);
+  const anchor = useRef<{ line: string; offset: number } | null>(null);
+  const start = Math.max(
+    0,
+    Math.min(
+      navigation.content === content ? navigation.start : 0,
+      Math.max(0, lines.length - initialCodePreviewLines),
+    ),
   );
-  const searchLineIndex = useMemo(() => {
-    if (!search) return -1;
-    const query = search.toLowerCase();
-    return lines.findIndex((line) => line.toLowerCase().includes(query));
-  }, [lines, search]);
-  const lineCountToShow = Math.min(
-    lines.length,
-    Math.max(showAll ? lines.length : displayedLineCount, searchLineIndex + 1, targetLine ?? 0),
+  const end = Math.min(start + initialCodePreviewLines, lines.length);
+  const activeLine = searchLine ?? targetLine;
+  const highlightSyntax = useMemo(
+    () => lines.slice(start, end).reduce((total, line) => total + line.length, 0) <= 50_000,
+    [lines, start, end],
   );
-
-  useEffect(() => {
-    setLineWindow({ content, count: initialCodePreviewLines });
+  const adjustingScroll = useRef(false);
+  const deferScroll = () => {
+    adjustingScroll.current = true;
+    requestAnimationFrame(() => {
+      adjustingScroll.current = false;
+    });
+  };
+  const navigate = (next: number) => {
+    deferScroll();
+    anchor.current = null;
     if (containerRef.current) containerRef.current.scrollTop = 0;
-  }, [content]);
-
+    setNavigation({ content, start: Math.max(0, next) });
+  };
+  useLayoutEffect(() => {
+    const previous = previousRequest.current;
+    previousRequest.current = { content, targetLine, searchLine, searchColumn };
+    const changed =
+      content !== previous.content ||
+      targetLine !== previous.targetLine ||
+      (searchLine !== undefined &&
+        (searchLine !== previous.searchLine || searchColumn !== previous.searchColumn));
+    if (!changed) return;
+    const line = searchLine ?? targetLine;
+    pendingTarget.current = line;
+    anchor.current = null;
+    if (line !== undefined && (line - 1 < start || line - 1 >= end))
+      setNavigation({
+        content,
+        start:
+          Math.floor(Math.max(0, line - 1) / initialCodePreviewLines) * initialCodePreviewLines,
+      });
+    else if (content !== previous.content) setNavigation({ content, start: 0 });
+  }, [content, targetLine, searchLine, searchColumn, start, end]);
+  useLayoutEffect(() => {
+    const host = containerRef.current;
+    if (!host) return;
+    const saved = anchor.current;
+    if (saved) {
+      const row = host.querySelector(`[data-code-line="${saved.line}"]`);
+      if (row)
+        host.scrollTop +=
+          row.getBoundingClientRect().top - host.getBoundingClientRect().top - saved.offset;
+      anchor.current = null;
+    }
+    if (pendingTarget.current !== undefined) {
+      const row = host.querySelector(`[data-code-line="${pendingTarget.current}"]`);
+      if (row) {
+        row.scrollIntoView?.({ block: "center", inline: "nearest" });
+        pendingTarget.current = undefined;
+      }
+    }
+  }, [content, start, activeLine, searchColumn]);
+  const shiftWindow = (host: HTMLDivElement, next: number) => {
+    if (adjustingScroll.current) return;
+    deferScroll();
+    const top = host.getBoundingClientRect().top;
+    const row = [...host.querySelectorAll<HTMLElement>("[data-code-line]")].find(
+      (row) => row.getBoundingClientRect().bottom > top,
+    );
+    if (row)
+      anchor.current = {
+        line: row.dataset.codeLine!,
+        offset: row.getBoundingClientRect().top - top,
+      };
+    setNavigation({ content, start: next });
+  };
+  const scrollWindow = (host: HTMLDivElement, direction = 0) => {
+    if (adjustingScroll.current || host.scrollHeight <= host.clientHeight) return;
+    if (
+      direction >= 0 &&
+      host.scrollTop > 0 &&
+      host.scrollHeight - host.scrollTop - host.clientHeight < 100 &&
+      end < lines.length
+    )
+      shiftWindow(
+        host,
+        Math.min(
+          start + initialCodePreviewLines / 2,
+          Math.max(0, lines.length - initialCodePreviewLines),
+        ),
+      );
+    else if (direction <= 0 && host.scrollTop < 100 && start > 0)
+      shiftWindow(host, Math.max(0, start - initialCodePreviewLines / 2));
+  };
+  const focusedMatch = useRef<{
+    content: string;
+    line: number;
+    column: number;
+    search: string;
+    wrap: boolean;
+  } | null>(null);
   useEffect(() => {
-    if (!search) return;
-    containerRef.current
-      ?.querySelector("[data-file-search-hit]")
-      ?.scrollIntoView({ block: "center", inline: "nearest" });
-  }, [search]);
-
-  useEffect(() => {
-    if (!targetLine) return;
-    containerRef.current
-      ?.querySelector(`[data-code-line="${targetLine}"]`)
-      ?.scrollIntoView({ block: "center", inline: "nearest" });
-  }, [content, lineCountToShow, targetLine]);
+    if (
+      !search ||
+      searchColumn === undefined ||
+      !activeLine ||
+      typeof Highlight === "undefined" ||
+      !CSS.highlights
+    )
+      return;
+    const host = containerRef.current;
+    const text = host?.querySelector(`[data-code-line="${activeLine}"] [data-file-search-text]`);
+    if (!text) return;
+    const walker = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    let cursor = 0;
+    let started = false;
+    let node: Node | null;
+    const endColumn = searchColumn + search.split("\n")[0]!.length;
+    while ((node = walker.nextNode())) {
+      const end = cursor + (node.textContent?.length ?? 0);
+      if (!started && searchColumn < end) {
+        range.setStart(node, searchColumn - cursor);
+        started = true;
+      }
+      if (started && endColumn <= end) {
+        range.setEnd(node, endColumn - cursor);
+        CSS.highlights.set(highlightName, new Highlight(range));
+        const previous = focusedMatch.current;
+        if (
+          !previous ||
+          previous.content !== content ||
+          previous.line !== activeLine ||
+          previous.column !== searchColumn ||
+          previous.search !== search ||
+          previous.wrap !== wrap
+        ) {
+          focusedMatch.current = { content, line: activeLine, column: searchColumn, search, wrap };
+          const rect = range.getBoundingClientRect();
+          const bounds = host!.getBoundingClientRect();
+          host!.scrollTop += rect.top - bounds.top - host!.clientHeight / 2;
+          host!.scrollLeft += rect.left - bounds.left - host!.clientWidth / 2;
+        }
+        break;
+      }
+      cursor = end;
+    }
+    return () => {
+      CSS.highlights.delete(highlightName);
+    };
+  }, [content, start, activeLine, search, searchColumn, highlightName, path, wrap, lineNumbers]);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
+      <style>{`::highlight(${highlightName}) { background: #f9731699; color: inherit; }`}</style>
       <div
         ref={containerRef}
         className="min-h-0 flex-1 overflow-auto rounded-lg bg-terminal-surface py-2 font-mono text-ui-sm leading-5"
-        onScroll={(event) => {
-          const container = event.currentTarget;
-          const remainingScroll =
-            container.scrollHeight - container.scrollTop - container.clientHeight;
-          if (remainingScroll <= codePreviewLoadAheadPixels && lineCountToShow < lines.length) {
-            setLineWindow((current) => ({
-              content,
-              count: Math.min(
-                lines.length,
-                Math.max(
-                  current.content === content ? current.count : initialCodePreviewLines,
-                  lineCountToShow,
-                ) + codePreviewLineBatch,
-              ),
-            }));
-          }
+        data-source-scroll
+        onScroll={(event) => scrollWindow(event.currentTarget)}
+        onWheel={(event) => {
+          if (event.deltaY) scrollWindow(event.currentTarget, event.deltaY);
         }}
       >
         <pre
           className={`m-0 min-w-full ${wrap ? "whitespace-pre-wrap break-words" : "w-max whitespace-pre"}`}
         >
-          {lines.slice(0, lineCountToShow).map((line, index) => (
+          {lines.slice(start, end).map((line, row) => (
             <CodeSourceLine
-              index={index}
-              hasNextLine={index < lines.length - 1}
-              key={index}
+              highlightSyntax={highlightSyntax}
+              index={start + row}
+              hasNextLine={start + row < lines.length - 1}
+              key={start + row}
               line={line}
               lineNumbers={lineNumbers}
               path={path}
@@ -495,37 +626,60 @@ export function CodeSourcePreview({
           ))}
         </pre>
       </div>
-      {hasMoreLines ? (
-        <p className="shrink-0 text-ui-xs text-foreground-subtle">
-          Source preview limited to the first {maxDisplayedSourceLines.toLocaleString()} lines.
-        </p>
-      ) : null}
+      {lines.length > initialCodePreviewLines && (
+        <nav
+          aria-label="Source pages"
+          className="flex shrink-0 items-center justify-between text-ui-xs text-foreground-subtle"
+          data-document-search-ignore
+        >
+          <Button
+            size="compact"
+            variant="ghost"
+            disabled={start === 0}
+            onClick={() => navigate(start - initialCodePreviewLines)}
+          >
+            Previous
+          </Button>
+          <span>
+            Lines {start + 1}–{end} of {lines.length}
+          </span>
+          <Button
+            size="compact"
+            variant="ghost"
+            disabled={end >= lines.length}
+            onClick={() => navigate(start + initialCodePreviewLines)}
+          >
+            Next
+          </Button>
+        </nav>
+      )}
     </div>
   );
 }
 
+export function parseJsonPreview(content: string) {
+  try {
+    return { formatted: JSON.stringify(JSON.parse(content), null, 2), error: null };
+  } catch (error) {
+    return { formatted: content, error: error instanceof Error ? error.message : "Invalid JSON" };
+  }
+}
+
 export function FormattedJsonPreview({
-  content,
+  parsed,
   path,
-  showAll = false,
+  targetLine,
   search,
+  searchColumn,
+  searchLine,
 }: {
-  content: string;
+  parsed: ReturnType<typeof parseJsonPreview>;
   path: string;
   search?: string;
-  showAll?: boolean;
+  searchColumn?: number | undefined;
+  searchLine?: number | undefined;
+  targetLine?: number | undefined;
 }) {
-  const parsed = useMemo(() => {
-    try {
-      return { formatted: JSON.stringify(JSON.parse(content), null, 2), error: null };
-    } catch (error) {
-      return {
-        formatted: content,
-        error: error instanceof Error ? error.message : "Invalid JSON",
-      };
-    }
-  }, [content]);
-
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
       {parsed.error ? (
@@ -534,11 +688,13 @@ export function FormattedJsonPreview({
         </p>
       ) : null}
       <CodeSourcePreview
-        showAll={showAll}
+        targetLine={targetLine}
+        searchLine={searchLine}
         content={parsed.formatted}
         path={path}
         wrap={false}
         search={search ?? ""}
+        searchColumn={searchColumn}
       />
     </div>
   );

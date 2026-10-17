@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FileViewer } from "../src/renderer/components/FileViewer.js";
 import type { DesktopBridge } from "../src/shared/desktop.js";
@@ -122,7 +122,93 @@ describe("Document tools", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Replace all" }));
     expect(await screen.findByText("File changed outside this editor")).toBeInTheDocument();
-    expect(screen.getByText("old text")).toBeInTheDocument();
+    expect(document.querySelector("[data-file-search-text]")).toHaveTextContent(/^old text$/);
     expect(save).toHaveBeenCalledOnce();
   });
+});
+
+it("searches and replaces matches outside the displayed source page without rendering all lines", async () => {
+  const lines = Array.from({ length: 20000 }, (_, i) =>
+    i === 8500 || i === 19000 ? "far_marker" : `line_${i}`,
+  );
+  const save = bridge(lines.join("\n"));
+  const { container } = render(<FileViewer workspaceId="tools" path="huge.ts" />);
+  await screen.findByText("line_0");
+  fireEvent.click(screen.getByRole("button", { name: "Find in file" }));
+  expect(container.querySelectorAll("[data-code-line]").length).toBeLessThanOrEqual(600);
+  fireEvent.change(screen.getByRole("textbox", { name: "Find in file" }), {
+    target: { value: "far_marker" },
+  });
+  expect(screen.getByText("1 / 2")).toBeInTheDocument();
+  expect(container.querySelector('[data-code-line="8501"]')).toHaveTextContent("far_marker");
+  fireEvent.click(screen.getByRole("button", { name: "Next match" }));
+  expect(container.querySelector('[data-code-line="19001"]')).toHaveTextContent("far_marker");
+  expect(container.querySelectorAll("[data-code-line]").length).toBeLessThanOrEqual(600);
+  fireEvent.change(screen.getByRole("textbox", { name: "Replace with" }), {
+    target: { value: "replaced_marker" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Replace all" }));
+  await waitFor(() =>
+    expect(save).toHaveBeenCalledWith(
+      "tools",
+      "huge.ts",
+      lines.join("\n").replaceAll("far_marker", "replaced_marker"),
+      lines.join("\n"),
+    ),
+  );
+});
+
+it("searches the formatted JSON source beyond the first page", async () => {
+  bridge(JSON.stringify(Array.from({ length: 2000 }, (_, i) => ({ label: `json_item_${i}` }))));
+  const { container } = render(<FileViewer workspaceId="tools" path="huge.json" />);
+  await screen.findByText('"json_item_0"');
+  fireEvent.click(screen.getByRole("button", { name: "Find in file" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Find in file" }), {
+    target: { value: '"label": "json_item_1999"' },
+  });
+  expect(screen.getByText("1 / 1")).toBeInTheDocument();
+  expect(screen.getByText('"json_item_1999"')).toBeInTheDocument();
+  expect(container.querySelectorAll("[data-code-line]").length).toBeLessThanOrEqual(600);
+});
+
+it("retains the source position when search closes after manual navigation", async () => {
+  bridge(
+    Array.from({ length: 4000 }, (_, i) => (i === 2000 ? "far_marker" : `line_${i}`)).join("\n"),
+  );
+  const { container } = render(
+    <FileViewer workspaceId="tools" path="position.ts" targetLine={1} />,
+  );
+  await screen.findByText("line_0");
+  fireEvent.click(screen.getByRole("button", { name: "Find in file" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Find in file" }), {
+    target: { value: "far_marker" },
+  });
+  expect(container.querySelector('[data-code-line="2001"]')).toBeInTheDocument();
+  fireEvent.click(
+    within(screen.getByRole("navigation", { name: "Source pages" })).getByRole("button", {
+      name: "Next",
+    }),
+  );
+  const first = container.querySelector("[data-code-line]")?.getAttribute("data-code-line");
+  fireEvent.click(screen.getByRole("button", { name: "Close search" }));
+  expect(container.querySelector("[data-code-line]")?.getAttribute("data-code-line")).toBe(first);
+  expect(screen.queryByText("line_0")).not.toBeInTheDocument();
+});
+
+it("parses formatted JSON once for both rendering and search", async () => {
+  const content = '{"unique_parse_marker":"value"}';
+  bridge(content);
+  const parse = vi.spyOn(JSON, "parse");
+  try {
+    render(<FileViewer workspaceId="tools" path="once.json" />);
+    await screen.findByText('"unique_parse_marker"');
+    fireEvent.click(screen.getByRole("button", { name: "Find in file" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Find in file" }), {
+      target: { value: "value" },
+    });
+    expect(screen.getByText("1 / 1")).toBeInTheDocument();
+    expect(parse.mock.calls.filter((call) => call[0] === content)).toHaveLength(1);
+  } finally {
+    parse.mockRestore();
+  }
 });
