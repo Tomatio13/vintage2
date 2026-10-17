@@ -1,7 +1,5 @@
 import {
   Activity,
-  ChevronDown,
-  ChevronRight,
   Eye,
   EyeOff,
   Folder,
@@ -9,19 +7,19 @@ import {
   Globe2,
   GitBranch,
   Plus,
-  RefreshCw,
   X,
 } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { MouseEvent as ReactMouseEvent } from "react";
+import { WorkspaceFiles } from "./WorkspaceFiles.js";
 import { FileActions } from "./FileActions.js";
 import type { WorkspaceFileEntry } from "../../shared/desktop.js";
 import { firstEnabledSidePaneTab, isSidePaneTabEnabled, useUiStore } from "../store/uiStore.js";
 import { BrowserScopePicker } from "./BrowserScopePicker.js";
 import { BrowserPane } from "./BrowserPane.js";
 import { Button } from "./Button.js";
-import { LanguageIcon, ReviewPane } from "./ReviewPane.js";
+import { ReviewPane } from "./ReviewPane.js";
 import { NotesPane } from "./NotesPane.js";
 import { MonitorPanel } from "./MonitorPanel.js";
 
@@ -88,63 +86,20 @@ export function SidePane({
     y: number;
   } | null>(null);
   const [copied, setCopied] = useState<{ workspaceId: string; path: string } | null>(null);
-  const openMenu = (event: ReactMouseEvent, entry: WorkspaceFileEntry | null) => {
+  const openMenu = useCallback((event: ReactMouseEvent, entry: WorkspaceFileEntry | null) => {
     event.preventDefault();
     event.stopPropagation();
     setMenu({ entry, x: event.clientX, y: event.clientY });
-  };
+  }, []);
   useEffect(() => setMenu(null), [workspaceId, activeTabId, visible]);
-  const [files, setFiles] = useState<WorkspaceFileEntry[]>([]);
-  const [filesWorkspaceId, setFilesWorkspaceId] = useState<string | null>(null);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [reviewRefreshVersion, setReviewRefreshVersion] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [revealHiddenFiles, setRevealHiddenFiles] = useState(false);
-  const currentFiles = filesWorkspaceId === workspaceId ? files : [];
   const showHiddenFiles = workspaceName !== "Home" || revealHiddenFiles;
-  const visibleFiles = showHiddenFiles
-    ? currentFiles
-    : currentFiles.filter((entry) => !entry.name.startsWith("."));
-  useEffect(() => {
-    setError(null);
-    if (!workspaceId || !window.desktop) {
-      setFiles([]);
-      setFilesWorkspaceId(null);
-      setLoading(false);
-      return;
-    }
-    if (!visible || activeTabId !== "files") {
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    setLoading(true);
-    void window.desktop
-      .listWorkspaceFiles(workspaceId)
-      .then((entries) => {
-        if (!cancelled) {
-          setFiles(entries);
-          setFilesWorkspaceId(workspaceId);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError("Unable to read this location.");
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-          if (visible && activeTabId === "files") {
-            timer = setTimeout(() => setRefreshVersion((version) => version + 1), 3000);
-          }
-        }
-      });
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [workspaceId, refreshVersion, visible, activeTabId]);
+  const openFileRef = useRef(onOpenFile);
+  openFileRef.current = onOpenFile;
+  const selectFile = useCallback((path: string) => openFileRef.current(path), []);
+  const refreshFiles = useCallback(() => setRefreshVersion((version) => version + 1), []);
 
   useEffect(() => {
     const target =
@@ -178,21 +133,6 @@ export function SidePane({
     activeTabId,
     activateSidePaneTab,
   ]);
-
-  const refreshFilesButton = (
-    <Button
-      aria-label="Refresh"
-      className="size-7 px-0"
-      disabled={loading}
-      size="icon"
-      title="Refresh"
-      type="button"
-      variant="ghost"
-      onClick={() => setRefreshVersion((version) => version + 1)}
-    >
-      <RefreshCw aria-hidden="true" className={`size-4${loading ? " animate-spin" : ""}`} />
-    </Button>
-  );
 
   return (
     <aside className="flex h-full min-w-0 flex-col bg-panel">
@@ -364,57 +304,17 @@ export function SidePane({
           className="absolute inset-0"
           hidden={!filesPanelEnabled || activeTabId !== "files"}
         >
-          <div
-            className="h-full overflow-y-auto p-2"
-            onContextMenu={(event) => openMenu(event, null)}
-          >
-            {error ? (
-              <div className="flex items-center justify-between gap-2 p-2">
-                <p className="text-ui-sm text-destructive">{error}</p>
-                {workspaceId && refreshFilesButton}
-              </div>
-            ) : workspaceId ? (
-              <>
-                <div className="flex items-center justify-between gap-2 px-2 pb-1 pt-1">
-                  {workspaceName ? (
-                    <span className="min-w-0 truncate text-ui-xs font-medium text-foreground-subtlest">
-                      {workspaceName === "Home" ? "Home directory" : workspaceName}
-                    </span>
-                  ) : (
-                    <span />
-                  )}
-                  {refreshFilesButton}
-                </div>
-                {loading && visibleFiles.length === 0 ? (
-                  <p className="p-2 text-ui-sm text-foreground-subtle">
-                    {currentFiles.length > 0 ? "Refreshing files…" : "Loading files…"}
-                  </p>
-                ) : visibleFiles.length > 0 ? (
-                  visibleFiles.map((entry) => (
-                    <FileTree
-                      key={`${workspaceId}:${entry.kind}:${entry.path}`}
-                      entry={entry}
-                      workspaceId={workspaceId}
-                      refreshVersion={refreshVersion}
-                      showHiddenFiles={showHiddenFiles}
-                      onContextMenu={openMenu}
-                      onSelect={onOpenFile}
-                    />
-                  ))
-                ) : (
-                  <p className="p-2 text-ui-sm text-foreground-subtle">
-                    {currentFiles.length > 0
-                      ? "Hidden files are hidden."
-                      : "No files in this location."}
-                  </p>
-                )}
-              </>
-            ) : (
-              <p className="p-2 text-ui-sm text-foreground-subtle">
-                Open a workspace to browse its files.
-              </p>
-            )}
-          </div>
+          <WorkspaceFiles
+            key={workspaceId}
+            workspaceId={workspaceId}
+            workspaceName={workspaceName}
+            active={filesPanelEnabled && visible && activeTabId === "files"}
+            refreshVersion={refreshVersion}
+            showHiddenFiles={showHiddenFiles}
+            onRefresh={refreshFiles}
+            onSelect={selectFile}
+            onContextMenu={openMenu}
+          />
         </div>
         <div
           aria-hidden={!reviewPanelEnabled || activeTabId !== "review"}
@@ -522,136 +422,5 @@ export function SidePane({
         />
       )}
     </aside>
-  );
-}
-function FileTree({
-  entry,
-  workspaceId,
-  refreshVersion,
-  showHiddenFiles,
-  onSelect,
-  onContextMenu,
-}: {
-  entry: WorkspaceFileEntry;
-  workspaceId: string;
-  refreshVersion: number;
-  showHiddenFiles: boolean;
-  onContextMenu(event: ReactMouseEvent, entry: WorkspaceFileEntry): void;
-  onSelect(path: string): void;
-}) {
-  const expanded = useUiStore(
-    (state) => state.expandedFileFolders[workspaceId]?.includes(entry.path) ?? false,
-  );
-  const setFileFolderExpanded = useUiStore((state) => state.setFileFolderExpanded);
-  const [children, setChildren] = useState<WorkspaceFileEntry[] | null>(entry.children ?? null);
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState(false);
-  const expandedRef = useRef(expanded);
-  const refreshVersionRef = useRef(refreshVersion);
-  const requestVersionRef = useRef(0);
-  const loadChildrenRef = useRef<(force?: boolean) => void>(() => {});
-  expandedRef.current = expanded;
-  const visibleChildren = children?.filter(
-    (child) => showHiddenFiles || !child.name.startsWith("."),
-  );
-  const loadChildren = (force = false) => {
-    if ((loading && !force) || (!force && children !== null)) return;
-    const listFiles = window.desktop?.listWorkspaceFiles;
-    if (!listFiles) {
-      setLoadError(true);
-      return;
-    }
-    const requestVersion = ++requestVersionRef.current;
-    setLoadError(false);
-    setLoading(true);
-    void listFiles(workspaceId, entry.path)
-      .then((entries) => {
-        if (requestVersion === requestVersionRef.current) setChildren(entries);
-      })
-      .catch(() => {
-        if (requestVersion === requestVersionRef.current) setLoadError(true);
-      })
-      .finally(() => {
-        if (requestVersion === requestVersionRef.current) setLoading(false);
-      });
-  };
-  loadChildrenRef.current = loadChildren;
-  useEffect(() => {
-    if (expanded && entry.kind === "directory") loadChildrenRef.current();
-  }, [expanded, entry.kind]);
-  useEffect(
-    () => () => {
-      requestVersionRef.current += 1;
-    },
-    [],
-  );
-  useEffect(() => {
-    if (refreshVersionRef.current === refreshVersion) return;
-    refreshVersionRef.current = refreshVersion;
-    if (expandedRef.current) loadChildrenRef.current(true);
-    else setChildren(null);
-  }, [refreshVersion]);
-  if (entry.kind === "file")
-    return (
-      <button
-        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-ui-sm hover:bg-hover"
-        onContextMenu={(event) => onContextMenu(event, entry)}
-        onDoubleClick={() => onSelect(entry.path)}
-      >
-        <LanguageIcon path={entry.path} />
-        <span className="truncate">{entry.name}</span>
-      </button>
-    );
-  return (
-    <div>
-      <button
-        onContextMenu={(event) => onContextMenu(event, entry)}
-        aria-expanded={expanded}
-        aria-busy={loading}
-        className="flex w-full items-center gap-1 rounded-md px-1 py-1.5 text-left text-ui-sm hover:bg-hover"
-        onClick={() => {
-          const nextExpanded = !expanded;
-          setFileFolderExpanded(workspaceId, entry.path, nextExpanded);
-        }}
-      >
-        {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-        {expanded ? (
-          <FolderOpen className="size-4 text-foreground" />
-        ) : (
-          <Folder className="size-4 text-foreground" />
-        )}
-        <span className="truncate">{entry.name}</span>
-      </button>
-      {expanded && (
-        <div className="ml-3 border-l border-border pl-1">
-          {loading && !visibleChildren?.length ? (
-            <p className="px-2 py-1 text-ui-xs text-foreground-subtlest">Loading…</p>
-          ) : loadError ? (
-            <button
-              className="px-2 py-1 text-ui-xs text-destructive hover:underline"
-              onClick={() => loadChildren(true)}
-            >
-              Unable to load folder · Retry
-            </button>
-          ) : visibleChildren?.length ? (
-            visibleChildren.map((child) => (
-              <FileTree
-                key={child.path}
-                entry={child}
-                workspaceId={workspaceId}
-                refreshVersion={refreshVersion}
-                showHiddenFiles={showHiddenFiles}
-                onContextMenu={onContextMenu}
-                onSelect={onSelect}
-              />
-            ))
-          ) : (
-            <p className="px-2 py-1 text-ui-xs text-foreground-subtlest">
-              {children?.length ? "Hidden files are hidden." : "Empty folder"}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
   );
 }
