@@ -1,5 +1,27 @@
 # VINTAGE Changelog
 
+## [0.2.32] - 2026-10-19
+
+### Added
+
+- **Browser controls:** Zoom with Ctrl + mouse wheel or Ctrl + + / - / 0, select the address with Ctrl+L, close and reopen tabs with Ctrl+W / Ctrl+Shift+T, and cycle visible Browser tabs with Ctrl+Tab / Ctrl+Shift+Tab.
+- **Mouse navigation:** Middle-click links to open background tabs in the same scope, middle-click tabs to close them, and use mouse back/forward commands on Windows and Linux.
+- **Document zoom:** Use Ctrl + mouse wheel over text/source previews and Markdown preview/edit.
+- **Terminal close shortcut:** Ctrl+W closes the focused terminal pane. Closing the last pane closes its Space; held-key repeats do not close additional panes. The shortcut is consumed by VINTAGE instead of being sent to the shell.
+
+### Changed
+
+- Keep the last 20 closed Browser tabs during the app session and restore their URL, scope, and zoom with a fresh tab identity. Form input and navigation history are not restored.
+- Load a suspended/background neighbor when it becomes selected after closing a Browser tab.
+
+### Validation and limitations
+
+- Boundaries, TypeScript, lint, formatting, 477 passing tests (one skipped), and production builds passed.
+- Linux Electron smoke tests covered guest zoom and address shortcuts, link/tab middle-click, tab switching and reopening, back/forward command routing, Ctrl-wheel zoom, terminal pane closure, sibling session continuity, held-key repeats, and final-Space closure.
+- Physical mouse back/forward buttons, physical Windows/macOS runtime behavior, and installed-app updater verification remain pending. Windows Monitor remains experimental.
+
+**Full Changelog:** [v0.2.31...v0.2.32](https://github.com/Tomatio13/vintage2/compare/v0.2.31...v0.2.32)
+
 ## [0.2.31] - 2026-10-18
 
 ### Added
