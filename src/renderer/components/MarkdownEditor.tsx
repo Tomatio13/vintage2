@@ -1,3 +1,4 @@
+import { useDocumentWheelZoom } from "../lib/useDocumentWheelZoom.js";
 import {
   Code2,
   Eye,
@@ -44,6 +45,7 @@ export function MarkdownEditor({
   const [truncated, setTruncated] = useState(false);
   const [status, setStatus] = useState("");
   const [zoom, setZoom] = useState(1);
+  const zoomRoot = useDocumentWheelZoom(setZoom);
   const [searchOpen, setSearchOpen] = useState(false);
   const previewRoot = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ line: 1, column: 1 });
@@ -221,6 +223,7 @@ export function MarkdownEditor({
   };
   return (
     <section
+      ref={zoomRoot}
       className="flex h-full min-h-0 flex-col bg-panel"
       onKeyDown={(event) => {
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "g") {

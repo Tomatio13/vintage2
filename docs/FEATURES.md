@@ -80,6 +80,8 @@ Shortcuts can be reassigned in **Settings → Shortcuts**. Changes save automati
 | Find in terminal     | `Ctrl+F`       |
 | Close selected pane  | `Ctrl+Shift+W` |
 
+When focus is inside a terminal pane, `Ctrl+W` also closes that pane. This key is consumed by VINTAGE rather than sent to the shell. Closing the last pane also closes its Space.
+
 ![Shortcut settings for Board and the Notes and Board toggles](../assets/readme/vintage-shortcuts.png)
 
 _Open Board pane, Toggle Notes tab, and Toggle Board tab can all be reassigned in Settings → Shortcuts._
@@ -113,7 +115,7 @@ Files and Review automatically refresh every three seconds after the previous lo
 
 Documents opened from Files also check for file changes every three seconds while their pane is visible and reload when changed. Markdown updates automatically only in Preview mode. Changes made while hidden are loaded when the pane is shown again. Manual Reload remains available.
 
-Document zoom buttons adjust the display from 50% to 300%; click the percentage to reset to 100%. Images retain their existing fit and zoom controls. In searchable text views, use Find in file or `Ctrl+F` (`⌘F` on macOS); matches are highlighted, the counter shows your position, and buttons or `Enter` / `Shift+Enter` move between matches. `Escape` closes search. Search is literal and case-insensitive, within the displayed preview limits. Markdown Preview supports search only; Edit also offers Replace and Replace all, which update the draft until you Save.
+Document zoom buttons or Ctrl + mouse wheel over text/source previews and Markdown preview/edit adjust the display from 50% to 300%; click the percentage to reset to 100%. Images retain their existing fit and zoom controls. In searchable text views, use Find in file or `Ctrl+F` (`⌘F` on macOS); matches are highlighted, the counter shows your position, and buttons or `Enter` / `Shift+Enter` move between matches. `Escape` closes search. Search is literal and case-insensitive, within the displayed preview limits. Markdown Preview supports search only; Edit also offers Replace and Replace all, which update the draft until you Save.
 
 #### Markdown editing
 
@@ -194,10 +196,12 @@ After the address bar, the toolbar offers the bookmark star, **Bookmarks**, and 
 
 Use the star to add or remove the current page’s bookmark. In the actions menu, **Bookmark scope** under **Save bookmarks in** selects Common or the current project for new bookmarks. **Bookmarks** displays both Common and current-project entries with their scope labels. Edit an entry’s name directly, open it in the current tab or a new tab, or delete it. Bookmarks persist across restarts, and the same URL can be saved separately in both scopes.
 
+Within Browser pages and controls, `Ctrl+L` selects the address, `Ctrl+W` closes the tab, and `Ctrl+Shift+T` reopens a closed tab. `Ctrl+Tab` / `Ctrl+Shift+Tab` cycle through the current project's and Common Browser tabs. On macOS, `⌘` also works for L / W / Shift+T and zoom. After closing the final tab, reopening still works while the right pane has focus. The last 20 closed tabs are kept during the app session with their URL, scope, and zoom; form input and page navigation history are not restored. Middle-click a link to open it in a background tab of the same scope, or middle-click a tab to close it. Mouse back/forward buttons navigate history while using Browser on Windows/Linux.
+
 #### Search, zoom, and development tools
 
 - **Find in page**: Press `Ctrl+F` (`⌘F` on macOS) while the Browser has focus, or select it from the actions menu. The search bar shows the current match and total count; use its controls, `Enter`, or `Shift+Enter` to move between matches. Press `Escape` to close it.
-- **Zoom**: Use the actions menu to zoom from 50% to 300% in 10% steps. Click the percentage to reset to 100%. Each tab retains its own zoom across tab switches and restarts.
+- **Zoom**: Use Ctrl + mouse wheel over the page, Ctrl + + / −, or the actions menu to zoom from 50% to 300% in 10% steps. Press Ctrl+0 or click the percentage to reset to 100%. Each tab retains its own zoom across tab switches and restarts.
 - **Responsive preview**: Toggle a narrower viewport from the actions menu to inspect a page’s layout.
 - **Pick element and copy selector**: Select this menu action, then click a page element to copy its CSS selector.
 - **Developer tools**: Open the page’s developer tools from the actions menu. Responsive preview and the element picker appear immediately above this action.

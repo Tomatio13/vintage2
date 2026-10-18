@@ -1,3 +1,4 @@
+import type { BrowserCommand } from "./browserShortcuts.js";
 import type { KanbanDocument, KanbanSnapshot } from "./kanban.js";
 export const WORKSPACE_LIMITS = {
   spacesPerWorkspace: 256,
@@ -13,6 +14,8 @@ export const DesktopChannels = {
   windowStateChanged: "desktop:window-state-changed",
   browserOpenTabRequested: "browser:open-tab-requested",
   browserFindRequested: "browser:find-requested",
+  browserCommandRequested: "browser:command-requested",
+  browserZoomRequested: "browser:zoom-requested",
   openExternal: "desktop:open-external",
   showAttentionNotification: "attention:show-notification",
   attentionNotificationClicked: "attention:notification-clicked",
@@ -439,8 +442,14 @@ export interface DesktopBridge {
   toggleMaximize(): Promise<DesktopWindowState>;
   close(): Promise<void>;
   getWindowState(): Promise<DesktopWindowState>;
-  onBrowserOpenTabRequested(listener: (guestId: number, url: string) => void): () => void;
+  onBrowserOpenTabRequested(
+    listener: (guestId: number, url: string, background: boolean) => void,
+  ): () => void;
+  onBrowserCommandRequested(
+    listener: (guestId: number, command: BrowserCommand) => void,
+  ): () => void;
   onBrowserFindRequested(listener: (guestId: number) => void): () => void;
+  onBrowserZoomRequested(listener: (guestId: number, direction: "in" | "out") => void): () => void;
   onWindowStateChanged(listener: (state: DesktopWindowState) => void): () => void;
   openExternal(url: string): Promise<void>;
   showAttentionNotification(notification: AttentionNotification): Promise<boolean>;

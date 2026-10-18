@@ -1,3 +1,4 @@
+import { browserShortcut } from "../shared/browserShortcuts.js";
 import { Check, CircleAlert, FolderOpen, OctagonAlert, Plus, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
@@ -1011,6 +1012,40 @@ export function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (ui.settingsOpen || commandPaletteOpen || event.defaultPrevented || event.metaKey) return;
       const element = event.target instanceof Element ? event.target : null;
+      const terminalPane = element?.closest<HTMLElement>('[data-pane-kind="terminal"]');
+      if (
+        terminalPane &&
+        event.ctrlKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "w"
+      ) {
+        const tab = active?.tabs.find((item) => item.id === active.activeTabId);
+        const paneId = terminalPane.dataset.paneId;
+        if (
+          active &&
+          tab &&
+          tab.panes.some((pane) => pane.id === paneId && pane.kind === "terminal")
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!event.repeat) closePane(active.id, tab.id, paneId!);
+          return;
+        }
+      }
+      const browserCommand = browserShortcut({
+        key: event.key,
+        control: event.ctrlKey,
+        meta: event.metaKey,
+        alt: event.altKey,
+        shift: event.shiftKey,
+      });
+      if (
+        browserCommand &&
+        (element?.closest("[data-browser-shortcuts]") ||
+          (browserCommand === "restore" && element?.closest("[data-side-pane]")))
+      )
+        return;
       const key = eventKey(event);
       const binding = ui.shortcuts.find(
         (item) =>

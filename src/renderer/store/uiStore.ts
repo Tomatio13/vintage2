@@ -145,6 +145,8 @@ interface UiState extends VintageSettings {
   monitorSessionRequest: { id: string } | null;
   openMonitorSession(id: string): void;
   browserTabs: BrowserTabState[];
+  closedBrowserTabs: BrowserTabState[];
+  restoreBrowserTab(): void;
   browserBookmarks: BrowserBookmark[];
   browserWorkspaceId: string | null;
   browserSelections: Record<string, string>;
@@ -183,7 +185,10 @@ interface UiState extends VintageSettings {
   addBrowserTab(): void;
   closeBrowserTab(tabId: string): void;
   /** Normalizes the URL and shows it in the built-in browser; returns false for unsupported URLs. */
-  openInBrowserTab(url: string, options?: { newTab?: boolean }): boolean;
+  openInBrowserTab(
+    url: string,
+    options?: { newTab?: boolean; background?: boolean; workspaceId?: string | null },
+  ): boolean;
   consumeBrowserNavigateRequest(nonce: number): void;
 }
 
@@ -267,6 +272,7 @@ export const useUiStore = create<UiState>()(
       activityHeight: 180,
       activeSidePaneTabId: "files",
       browserTabs: initialBrowserTabs,
+      closedBrowserTabs: [],
       browserBookmarks: [],
       browserWorkspaceId: null,
       browserSelections: {},
@@ -534,10 +540,40 @@ export const useUiStore = create<UiState>()(
                 "files")
               : state.activeSidePaneTabId;
           return {
-            browserTabs: remainingTabs,
+            closedBrowserTabs: [...state.closedBrowserTabs, visibleTabs[tabIndex]!].slice(-20),
+            browserTabs: remainingTabs.map((tab) =>
+              tab.id === activeSidePaneTabId
+                ? { ...tab, mounted: true, initialUrl: tab.initialUrl ?? state.browserDefaultUrl }
+                : tab,
+            ),
             activeSidePaneTabId,
             browserNavigateRequest:
               state.browserNavigateRequest?.tabId === tabId ? null : state.browserNavigateRequest,
+          };
+        }),
+      restoreBrowserTab: () =>
+        set((state) => {
+          if (!state.browserPanelEnabled) return state;
+          const index = state.closedBrowserTabs.findLastIndex(
+            (tab) => !tab.workspaceId || tab.workspaceId === state.browserWorkspaceId,
+          );
+          const closed = state.closedBrowserTabs[index];
+          if (!closed) return state;
+          const id = `${BROWSER_TAB_PREFIX}${state.browserTabCounter}`;
+          return {
+            closedBrowserTabs: state.closedBrowserTabs.filter((_, i) => i !== index),
+            browserTabs: [
+              ...state.browserTabs,
+              {
+                ...closed,
+                id,
+                mounted: true,
+                initialUrl: closed.initialUrl ?? state.browserDefaultUrl,
+              },
+            ],
+            browserTabCounter: state.browserTabCounter + 1,
+            activeSidePaneTabId: id,
+            sidePaneOpen: true,
           };
         }),
       openInBrowserTab: (url, options) => {
@@ -551,19 +587,21 @@ export const useUiStore = create<UiState>()(
         set((state) => {
           if (options?.newTab === true) {
             const number = state.browserTabCounter;
+            const scope =
+              options.workspaceId === undefined ? state.browserWorkspaceId : options.workspaceId;
             const newTab: BrowserTabState = {
               id: `${BROWSER_TAB_PREFIX}${number}`,
               title: `Browser ${number}`,
               initialUrl: normalizedUrl,
-              mounted: true,
-              ...(state.browserWorkspaceId ? { workspaceId: state.browserWorkspaceId } : {}),
+              mounted: !options.background,
+              ...(scope ? { workspaceId: scope } : {}),
             };
             return {
               browserTabs: [...state.browserTabs, newTab],
               browserTabCounter: number + 1,
-              activeSidePaneTabId: newTab.id,
+              activeSidePaneTabId: options.background ? state.activeSidePaneTabId : newTab.id,
               sidePaneOpen: true,
-              browserNavigateRequest: null,
+              browserNavigateRequest: options.background ? state.browserNavigateRequest : null,
             };
           }
           const visibleTabs = visibleBrowserTabs(state);

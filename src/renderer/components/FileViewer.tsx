@@ -1,3 +1,4 @@
+import { useDocumentWheelZoom } from "../lib/useDocumentWheelZoom.js";
 import {
   Code2,
   ExternalLink,
@@ -60,6 +61,10 @@ export function FileViewer({
   const currentIdentity = useRef(identity);
   currentIdentity.current = identity;
   const kind = getFilePreviewKind(path);
+  const zoomRoot = useDocumentWheelZoom(
+    setZoom,
+    ["code", "json", "csv"].includes(kind) || (kind === "html" && view === "source"),
+  );
   const needsText =
     kind === "code" || kind === "json" || kind === "csv" || (kind === "html" && view === "source");
   const needsPreviewUrl =
@@ -207,6 +212,7 @@ export function FileViewer({
 
   return (
     <section
+      ref={zoomRoot}
       className="flex h-full min-h-0 min-w-0 flex-col bg-panel"
       onKeyDown={(event) => {
         if (supportsSearch && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {

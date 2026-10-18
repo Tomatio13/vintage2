@@ -1,3 +1,4 @@
+import type { BrowserCommand } from "../shared/browserShortcuts.js";
 import { contextBridge, ipcRenderer } from "electron";
 
 import {
@@ -42,8 +43,12 @@ const bridge: DesktopBridge = {
     return () => ipcRenderer.removeListener(DesktopChannels.windowStateChanged, wrapped);
   },
   onBrowserOpenTabRequested(listener) {
-    const wrapped = (_event: Electron.IpcRendererEvent, guestId: number, url: string) =>
-      listener(guestId, url);
+    const wrapped = (
+      _event: Electron.IpcRendererEvent,
+      guestId: number,
+      url: string,
+      background = false,
+    ) => listener(guestId, url, background);
     ipcRenderer.on(DesktopChannels.browserOpenTabRequested, wrapped);
     return () => ipcRenderer.removeListener(DesktopChannels.browserOpenTabRequested, wrapped);
   },
@@ -51,6 +56,18 @@ const bridge: DesktopBridge = {
     const wrapped = (_event: Electron.IpcRendererEvent, guestId: number) => listener(guestId);
     ipcRenderer.on(DesktopChannels.browserFindRequested, wrapped);
     return () => ipcRenderer.removeListener(DesktopChannels.browserFindRequested, wrapped);
+  },
+  onBrowserCommandRequested(listener) {
+    const wrapped = (_event: Electron.IpcRendererEvent, guestId: number, command: BrowserCommand) =>
+      listener(guestId, command);
+    ipcRenderer.on(DesktopChannels.browserCommandRequested, wrapped);
+    return () => ipcRenderer.removeListener(DesktopChannels.browserCommandRequested, wrapped);
+  },
+  onBrowserZoomRequested(listener) {
+    const wrapped = (_event: Electron.IpcRendererEvent, guestId: number, direction: "in" | "out") =>
+      listener(guestId, direction);
+    ipcRenderer.on(DesktopChannels.browserZoomRequested, wrapped);
+    return () => ipcRenderer.removeListener(DesktopChannels.browserZoomRequested, wrapped);
   },
   openExternal: (url) => ipcRenderer.invoke(DesktopChannels.openExternal, url),
   showAttentionNotification: (notification: AttentionNotification) =>

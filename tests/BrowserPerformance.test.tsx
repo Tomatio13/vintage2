@@ -106,3 +106,53 @@ it("normalizes the bookmark page after deleting the final page", () => {
     screen.getByRole("textbox", { name: "Bookmark name for https://docs.example/0" }),
   ).toBeInTheDocument();
 });
+
+it("routes wheel zoom to the active guest and accumulates rapid requests within the zoom limits", () => {
+  let zoom: (guestId: number, direction: "in" | "out") => void = () => {};
+  const unsubscribe = vi.fn();
+  vi.stubGlobal("desktop", {
+    onBrowserZoomRequested: (listener: typeof zoom) => {
+      zoom = listener;
+      return unsubscribe;
+    },
+  });
+  const create = document.createElement.bind(document);
+  vi.spyOn(document, "createElement").mockImplementation(
+    (tag: string, options?: ElementCreationOptions) => {
+      const element = create(tag, options);
+      if (tag === "webview") {
+        Object.assign(element, { getWebContentsId: () => 42, setZoomFactor: vi.fn() });
+      }
+      return element as Electron.WebviewTag;
+    },
+  );
+  const view = render(<BrowserPane tabId="browser-1" initialUrl="https://example.com/" active />);
+  try {
+    act(() => {
+      zoom(99, "in");
+      zoom(42, "in");
+      zoom(42, "in");
+    });
+    expect(useUiStore.getState().browserTabs[0]!.zoomFactor).toBe(1.2);
+    act(() => zoom(42, "out"));
+    expect(useUiStore.getState().browserTabs[0]!.zoomFactor).toBe(1.1);
+    act(() => {
+      for (let i = 0; i < 40; i++) zoom(42, "out");
+    });
+    expect(useUiStore.getState().browserTabs[0]!.zoomFactor).toBe(0.5);
+    act(() => {
+      for (let i = 0; i < 40; i++) zoom(42, "in");
+    });
+    expect(useUiStore.getState().browserTabs[0]!.zoomFactor).toBe(3);
+    view.rerender(
+      <BrowserPane tabId="browser-1" initialUrl="https://example.com/" active={false} />,
+    );
+    act(() => zoom(42, "out"));
+    expect(useUiStore.getState().browserTabs[0]!.zoomFactor).toBe(3);
+    view.unmount();
+    expect(unsubscribe).toHaveBeenCalled();
+  } finally {
+    view.unmount();
+    vi.unstubAllGlobals();
+  }
+});

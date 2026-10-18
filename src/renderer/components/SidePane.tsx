@@ -1,3 +1,5 @@
+import { browserShortcut } from "../../shared/browserShortcuts.js";
+import { runBrowserTabCommand } from "../lib/browserCommands.js";
 import {
   Activity,
   Eye,
@@ -135,7 +137,30 @@ export function SidePane({
   ]);
 
   return (
-    <aside className="flex h-full min-w-0 flex-col bg-panel">
+    <aside
+      tabIndex={-1}
+      data-side-pane
+      data-browser-shortcuts={activeTabId.startsWith("browser-") ? "" : undefined}
+      className="flex h-full min-w-0 flex-col bg-panel"
+      onKeyDownCapture={(event) => {
+        const command = browserShortcut({
+          key: event.key,
+          control: event.ctrlKey,
+          meta: event.metaKey,
+          alt: event.altKey,
+          shift: event.shiftKey,
+        });
+        if (
+          command &&
+          (activeTabId.startsWith("browser-") || command === "restore") &&
+          runBrowserTabCommand(command)
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.currentTarget.focus();
+        }
+      }}
+    >
       <div
         ref={sideTabHeaderRef}
         className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 [scrollbar-width:thin]"
@@ -214,6 +239,16 @@ export function SidePane({
                   const active = activeTabId === browserTab.id;
                   return (
                     <div
+                      onMouseDown={(event) => {
+                        if (event.button === 1) event.preventDefault();
+                      }}
+                      onAuxClick={(event) => {
+                        if (event.button === 1) {
+                          event.preventDefault();
+                          if (active) event.currentTarget.closest<HTMLElement>("aside")?.focus();
+                          closeBrowserTab(browserTab.id);
+                        }
+                      }}
                       key={browserTab.id}
                       ref={(element) => {
                         if (element) browserTabElements.current.set(browserTab.id, element);
@@ -254,7 +289,10 @@ export function SidePane({
                             ? "opacity-100"
                             : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                         }`}
-                        onClick={() => closeBrowserTab(browserTab.id)}
+                        onClick={(event) => {
+                          if (active) event.currentTarget.closest<HTMLElement>("aside")?.focus();
+                          closeBrowserTab(browserTab.id);
+                        }}
                         type="button"
                       >
                         <X aria-hidden="true" className="size-3.5" />

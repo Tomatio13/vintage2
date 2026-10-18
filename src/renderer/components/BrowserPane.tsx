@@ -1,3 +1,5 @@
+import { browserShortcut, type BrowserCommand } from "../../shared/browserShortcuts.js";
+import { runBrowserTabCommand } from "../lib/browserCommands.js";
 import {
   Bug,
   Bookmark,
@@ -210,6 +212,7 @@ export const BrowserPane = memo(function BrowserPane({
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const pickerGenerationRef = useRef(0);
   const initialUrlRef = useRef(initialUrl);
+  const addressInputRef = useRef<HTMLInputElement>(null);
   const addressDirtyRef = useRef(false);
   const [address, setAddress] = useState(initialUrlRef.current);
   const [loading, setLoading] = useState(false);
@@ -317,16 +320,17 @@ export const BrowserPane = memo(function BrowserPane({
   }, [active, browserAvailable, zoomFactor]);
 
   useEffect(() => {
-    return window.desktop?.onBrowserOpenTabRequested?.((guestId, url) => {
+    return window.desktop?.onBrowserOpenTabRequested?.((guestId, url, background) => {
       if (guestRef.current?.getWebContentsId() !== guestId) return;
       // Keep the new tab in its source tab's scope, including Common tabs.
       const state = useUiStore.getState();
       const source = state.browserTabs.find((tab) => tab.id === tabId);
       if (!source) return;
-      if (state.openInBrowserTab(url, { newTab: true })) {
-        const newTabId = useUiStore.getState().activeSidePaneTabId;
-        useUiStore.getState().moveBrowserTab(newTabId, source.workspaceId ?? null);
-      }
+      state.openInBrowserTab(url, {
+        newTab: true,
+        background,
+        workspaceId: source.workspaceId ?? null,
+      });
     });
   }, [tabId]);
 
@@ -338,6 +342,80 @@ export const BrowserPane = memo(function BrowserPane({
       }
     });
   }, []);
+
+  useEffect(() => {
+    return window.desktop?.onBrowserZoomRequested?.((guestId, direction) => {
+      if (!activeRef.current || guestRef.current?.getWebContentsId() !== guestId) return;
+      const state = useUiStore.getState();
+      const tab = state.browserTabs.find((item) => item.id === tabId);
+      if (tab)
+        state.setBrowserZoom(tabId, (tab.zoomFactor ?? 1) + (direction === "in" ? 0.1 : -0.1));
+    });
+  }, [tabId]);
+
+  const runBrowserCommand = (command: BrowserCommand) => {
+    if (runBrowserTabCommand(command)) {
+      hostRef.current?.closest<HTMLElement>("[data-side-pane]")?.focus();
+      return;
+    }
+    const guest = guestRef.current;
+    if (command === "address") {
+      addressInputRef.current?.focus();
+      addressInputRef.current?.select();
+    } else if (command === "back" && guest?.canGoBack()) guest.goBack();
+    else if (command === "forward" && guest?.canGoForward()) guest.goForward();
+    else if (command.startsWith("zoom-")) {
+      const state = useUiStore.getState();
+      const tab = state.browserTabs.find((item) => item.id === tabId);
+      if (tab)
+        state.setBrowserZoom(
+          tabId,
+          command === "zoom-reset"
+            ? 1
+            : (tab.zoomFactor ?? 1) + (command === "zoom-in" ? 0.1 : -0.1),
+        );
+    }
+  };
+  const commandRef = useRef(runBrowserCommand);
+  commandRef.current = runBrowserCommand;
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (
+        !activeRef.current ||
+        event.defaultPrevented ||
+        !(event.target instanceof Element) ||
+        !event.target.closest("[data-side-pane]")
+      )
+        return;
+      const command = browserShortcut({
+        key: event.key,
+        control: event.ctrlKey,
+        meta: event.metaKey,
+        alt: event.altKey,
+        shift: event.shiftKey,
+      });
+      if (!command) return;
+      event.preventDefault();
+      event.stopPropagation();
+      commandRef.current(command);
+    };
+    document.addEventListener("keydown", key, true);
+    return () => document.removeEventListener("keydown", key, true);
+  }, []);
+
+  useEffect(
+    () =>
+      window.desktop?.onBrowserCommandRequested?.((guestId, command) => {
+        if (
+          activeRef.current &&
+          (guestId === -1
+            ? Boolean(document.activeElement?.closest("[data-browser-shortcuts]"))
+            : guestRef.current?.getWebContentsId() === guestId)
+        )
+          commandRef.current(command);
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (!findOpen || !active) return;
@@ -477,8 +555,22 @@ export const BrowserPane = memo(function BrowserPane({
 
   return (
     <section
+      data-browser-shortcuts
       className="flex h-full min-h-0 flex-col bg-panel"
       onKeyDown={(event) => {
+        const command = browserShortcut({
+          key: event.key,
+          control: event.ctrlKey,
+          meta: event.metaKey,
+          alt: event.altKey,
+          shift: event.shiftKey,
+        });
+        if (command) {
+          event.preventDefault();
+          event.stopPropagation();
+          runBrowserCommand(command);
+          return;
+        }
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
           event.preventDefault();
           event.stopPropagation();
@@ -525,6 +617,7 @@ export const BrowserPane = memo(function BrowserPane({
           )}
         </Button>
         <input
+          ref={addressInputRef}
           aria-label="Browser address"
           className="h-7 min-w-0 flex-1 rounded-lg border border-input-border bg-input px-2 text-ui-base text-foreground outline-none placeholder:text-foreground-subtlest hover:border-input-border-hover focus:border-input-border-focused focus:bg-input-focused"
           placeholder="Enter a URL and press Enter"

@@ -212,3 +212,23 @@ it("parses formatted JSON once for both rendering and search", async () => {
     parse.mockRestore();
   }
 });
+
+it("zooms Markdown with Ctrl-wheel while leaving ordinary wheel scrolling alone", async () => {
+  bridge("# Wheel");
+  render(<FileViewer workspaceId="wheel" path="wheel.md" />);
+  const heading = await screen.findByRole("heading", { name: "Wheel" });
+  const percentage = () => screen.getByRole("button", { name: "Reset zoom" });
+  fireEvent.wheel(heading, { deltaY: -100 });
+  expect(percentage()).toHaveTextContent("100%");
+  const wheel = (target: HTMLElement, deltaY: number) => {
+    // happy-dom's WheelEvent omits MouseEvent modifier properties.
+    const event = new Event("wheel", { bubbles: true, cancelable: true });
+    Object.assign(event, { ctrlKey: true, deltaY });
+    return fireEvent(target, event);
+  };
+  expect(wheel(heading, -100)).toBe(false);
+  expect(percentage()).toHaveTextContent("110%");
+  fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+  wheel(screen.getByRole("textbox", { name: "Markdown editor" }), 100);
+  expect(percentage()).toHaveTextContent("100%");
+});
