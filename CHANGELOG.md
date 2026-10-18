@@ -1,5 +1,28 @@
 # VINTAGE Changelog
 
+## [0.2.33] - 2026-10-19
+
+### Added
+
+- Separate System / Light / Dark appearance from light and dark palette choices.
+- Add Vintage, Graphite, Ocean, Grove, Iris, and Ember palettes with round gradient previews, selection rings, and sun/moon badges.
+- Create and duplicate custom themes; edit names, light/dark backgrounds, and accent colors with automatically generated text and borders.
+- Import and export VINTAGE theme JSON, with icon actions and hover descriptions for creation, import, and duplication.
+
+### Improved
+
+- Follow OS appearance changes in System mode and update existing terminal colors without recreating sessions.
+- Preserve existing Vintage and dark Graphite colors and migrate saved Graphite preferences.
+- Synchronize English/Japanese README and feature guides for themes, Git Review comparisons and large diffs, large file previews, Browser bookmarks and suspension, and Monitor wait notifications/background activity.
+
+### Validation and limitations
+
+- Boundaries, TypeScript, lint, formatting, 481 passing tests (one skipped), and production builds passed.
+- Linux Electron checks verified the Appearance screen, palette selection, and round theme previews.
+- Physical Windows/macOS runtime testing and installed-app updater verification remain pending. Windows Monitor remains an experimental pre-release; macOS Monitor remains unverified.
+
+**Full Changelog:** [v0.2.32...v0.2.33](https://github.com/Tomatio13/vintage2/compare/v0.2.32...v0.2.33)
+
 ## [0.2.32] - 2026-10-19
 
 ### Added
