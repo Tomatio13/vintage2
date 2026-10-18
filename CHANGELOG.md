@@ -1,5 +1,25 @@
 # VINTAGE Changelog
 
+## [0.2.31] - 2026-10-18
+
+### Added
+
+- **Character ripple:** Add an optional wave of characters that spreads from each click and fades away. Enable it in Settings > Appearance; it is off by default.
+- **Ripple customization:** Adjust intensity, choose a custom color, or restore automatic theme colors. Preferences are saved across restarts.
+
+### Changed
+
+- Keep ripple characters clear on light backgrounds with a warm accent color, stronger opacity, bolder text, and a delayed smooth fade.
+- Keep the overlay transparent to input, bound simultaneous waves, stop drawing when idle or unfocused, and respect reduced motion. Embedded browser pages are excluded.
+
+### Validation and limitations
+
+- Boundaries, TypeScript, lint, formatting, automated tests, and production builds passed.
+- Browser checks covered light-theme visibility, custom color rendering, persisted settings, reduced motion, automatic clearing, and disabling the overlay.
+- Native Electron interaction and installed-app updater verification remain pending. Windows Monitor remains experimental, with physical Windows/macOS runtime testing pending.
+
+**Full Changelog:** [v0.2.30...v0.2.31](https://github.com/Tomatio13/vintage2/compare/v0.2.30...v0.2.31)
+
 ## [0.2.30] - 2026-10-17
 
 ### Performance and fixes
