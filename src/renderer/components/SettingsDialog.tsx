@@ -391,6 +391,9 @@ export function SettingsDialog() {
   const saved = useMemo<VintageSettings>(
     () => ({
       theme: store.theme,
+      characterRippleEnabled: store.characterRippleEnabled,
+      characterRippleIntensity: store.characterRippleIntensity,
+      characterRippleColor: store.characterRippleColor,
       uiFontSize: store.uiFontSize,
       terminalFontSize: store.terminalFontSize,
       terminalFontFamily: store.terminalFontFamily,
@@ -412,6 +415,9 @@ export function SettingsDialog() {
     }),
     [
       store.theme,
+      store.characterRippleEnabled,
+      store.characterRippleIntensity,
+      store.characterRippleColor,
       store.uiFontSize,
       store.terminalFontSize,
       store.terminalFontFamily,
@@ -1004,6 +1010,73 @@ export function SettingsDialog() {
               </div>
             </div>
           </section>
+          <Card>
+            <Field
+              label="Character ripple"
+              description="Spread a fading wave of characters from each click. Respects reduced motion. Embedded browser pages are excluded."
+            >
+              <SettingsToggle
+                label="Character ripple"
+                checked={draft.characterRippleEnabled}
+                onChange={(characterRippleEnabled) => change({ characterRippleEnabled })}
+              />
+            </Field>
+            <div className="mt-5">
+              <Field
+                label="Ripple color"
+                description="Choose a custom color, or use the color that follows your theme."
+              >
+                <div className="flex items-center gap-3">
+                  <input
+                    aria-label="Ripple color"
+                    type="color"
+                    className="h-9 w-12 cursor-pointer rounded border border-border bg-panel p-1"
+                    value={
+                      draft.characterRippleColor ??
+                      (getComputedStyle(document.documentElement)
+                        .getPropertyValue(
+                          document.documentElement.matches(".dark, .graphite")
+                            ? "--color-foreground-subtle"
+                            : "--color-brand",
+                        )
+                        .trim() ||
+                        "#89682e")
+                    }
+                    onChange={(event) => change({ characterRippleColor: event.target.value })}
+                  />
+                  <span className="text-ui-sm text-foreground-subtle">
+                    {draft.characterRippleColor ?? "Theme"}
+                  </span>
+                  <Button
+                    size="compact"
+                    variant="outline"
+                    disabled={draft.characterRippleColor === null}
+                    onClick={() => change({ characterRippleColor: null })}
+                  >
+                    Use theme color
+                  </Button>
+                </div>
+              </Field>
+            </div>
+            <div className="mt-5">
+              <Field
+                label="Ripple intensity"
+                description="Adjust the visibility and reach of the wave. Changes save automatically; click anywhere here to try it."
+              >
+                <input
+                  aria-label="Ripple intensity"
+                  type="range"
+                  min={10}
+                  max={100}
+                  step={10}
+                  value={draft.characterRippleIntensity}
+                  onChange={(event) =>
+                    change({ characterRippleIntensity: Number(event.target.value) })
+                  }
+                />
+              </Field>
+            </div>
+          </Card>
           <section className="mt-5" aria-labelledby="theme-preview-heading">
             <h3 className="text-ui-lg font-semibold" id="theme-preview-heading">
               Theme preview

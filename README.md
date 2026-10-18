@@ -78,6 +78,8 @@ Optional **AI Usage** appears directly below CPU/Memory, with compact, equally s
 
 Show or hide Files, Review, Notes, Board, Monitor, and Browser in **Settings → Panels**. Changes save automatically; tab visibility also has configurable shortcuts.
 
+Try the optional **Character ripple** in **Settings → Appearance**: clicks reveal a fading wave of characters, with adjustable intensity and a custom color picker (or automatic theme color). It is off by default, respects reduced motion, and does not run inside embedded browser pages.
+
 ## Board and AI agents
 
 Open **Board** with `Ctrl+Shift+K`. Cards show labels, priority, due date, and subtask progress. Opening a card expands Board with the list beside a detail drawer while terminal sessions stay mounted. Add, edit, check, or delete subtasks below Description / Notes, then **Save changes**. Completing the checklist leaves the parent card status unchanged.

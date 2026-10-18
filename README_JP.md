@@ -78,6 +78,8 @@ Windowsでは同梱のRustヘルパーでプロセス検出とCPU／RAMを取得
 
 **Settings → Panels**でFiles・Review・Notes・Board・Monitor・Browserを個別にON/OFFできます。変更は自動保存され、タブ表示の切り替えにはショートカットも設定できます。
 
+**Settings → Appearance → Character ripple**で、クリック位置から文字の波紋が広がるエフェクトを試せます。強度と色を調整でき、色はテーマ連動にも戻せます。初期状態はオフです。OSの「視差効果を減らす」設定に従い、埋め込みブラウザのページ内では動作しません。
+
 ## BoardとAI Agent
 
 `Ctrl+Shift+K`で**Board**を開きます。カードにラベル・優先度・期限・Subtaskの進捗を表示し、カードを開くと一覧の横に詳細ドロワーを表示します。拡大中も端末セッションは維持されます。Description / Notesの下でSubtaskを追加・編集・完了チェック・削除し、**Save changes**で保存します。全Subtaskの完了は親カードのStatusを変更しません。

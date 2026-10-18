@@ -18,6 +18,7 @@ import { AttentionToast } from "./components/AttentionToast.js";
 import { CommandPalette, type CommandPaletteItem } from "./components/CommandPalette.js";
 import { FileViewer } from "./components/FileViewer.js";
 import { ResizeHandle } from "./components/ResizeHandle.js";
+import { CharacterRipple } from "./components/CharacterRipple.js";
 import { SettingsDialog } from "./components/SettingsDialog.js";
 import { SidePane } from "./components/SidePane.js";
 import { useMonitorSessionNotifications } from "./hooks/useMonitorSessionNotifications.js";
@@ -1801,6 +1802,7 @@ export function App() {
         </div>
         <SettingsDialog />
       </WindowFrame>
+      <CharacterRipple />
       <CommandPalette
         open={commandPaletteOpen}
         items={paletteItems}

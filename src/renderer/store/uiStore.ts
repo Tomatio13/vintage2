@@ -110,6 +110,9 @@ export const defaultShortcuts: ShortcutBinding[] = [
 
 export interface VintageSettings {
   theme: Theme;
+  characterRippleEnabled: boolean;
+  characterRippleIntensity: number;
+  characterRippleColor: string | null;
   uiFontSize: number;
   terminalFontSize: number;
   terminalFontFamily: string;
@@ -234,6 +237,9 @@ export const useUiStore = create<UiState>()(
   persist(
     (set, get) => ({
       theme: "system",
+      characterRippleEnabled: false,
+      characterRippleIntensity: 50,
+      characterRippleColor: null,
       uiFontSize: 14,
       terminalFontSize: 13,
       terminalFontFamily: '"Cica", "HackGen", "JetBrains Mono", monospace',
@@ -614,6 +620,9 @@ export const useUiStore = create<UiState>()(
       name: "ai-workspace-starter-ui",
       partialize: ({
         theme,
+        characterRippleEnabled,
+        characterRippleIntensity,
+        characterRippleColor,
         uiFontSize,
         terminalFontSize,
         terminalFontFamily,
@@ -646,6 +655,9 @@ export const useUiStore = create<UiState>()(
         activityHeight,
       }) => ({
         theme,
+        characterRippleEnabled,
+        characterRippleIntensity,
+        characterRippleColor,
         uiFontSize,
         terminalFontSize,
         terminalFontFamily,
@@ -697,6 +709,17 @@ export const useUiStore = create<UiState>()(
         const restored: UiState = {
           ...currentState,
           ...persisted,
+          characterRippleEnabled: persisted.characterRippleEnabled === true,
+          characterRippleColor:
+            typeof persisted.characterRippleColor === "string" &&
+            /^#[0-9a-f]{6}$/i.test(persisted.characterRippleColor)
+              ? persisted.characterRippleColor
+              : null,
+          characterRippleIntensity:
+            typeof persisted.characterRippleIntensity === "number" &&
+            Number.isFinite(persisted.characterRippleIntensity)
+              ? Math.min(100, Math.max(10, persisted.characterRippleIntensity))
+              : 50,
           browserTabs: browserTabs.map((tab) => ({
             ...tab,
             mounted:
