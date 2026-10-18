@@ -791,7 +791,12 @@ export function TerminalPanel({
 
   useEffect(() => {
     const terminal = terminalRef.current;
-    if (terminal) terminal.options.theme = resolveTerminalTheme();
+    const update = () => {
+      if (terminal) terminal.options.theme = resolveTerminalTheme();
+    };
+    update();
+    window.addEventListener("vintage-theme-changed", update);
+    return () => window.removeEventListener("vintage-theme-changed", update);
   }, [theme]);
 
   const attentionText = attentionLabel(attention);

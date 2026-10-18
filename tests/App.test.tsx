@@ -725,9 +725,7 @@ describe("VINTAGE workspace shell", () => {
     renderApp();
     fireEvent.click(screen.getAllByLabelText("Open settings")[0]!);
     expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Graphite preview A neutral charcoal workspace/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Graphite dark palette" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Terminal" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Integrations" }));
     expect(screen.getByRole("switch", { name: "Desktop notifications" })).toBeInTheDocument();

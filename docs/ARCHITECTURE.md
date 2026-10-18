@@ -177,17 +177,17 @@ Browserは`persist:starter-browser`の専用セッションを共有し、アプ
 
 Main側の保存先は原則として`app.getPath("userData")`です。Renderer側のUI設定と下書きはlocalStorageに置きます。
 
-| データ                | 保存先・所有者                                                                   | 保存する内容                                                       |
-| :-------------------- | :------------------------------------------------------------------------------- | :----------------------------------------------------------------- |
-| Workspace配置         | `userData/workspace-state.json`・Main                                            | Projectのパス、Space、Pane ID、分割配置、開いたファイルの相対パス  |
-| Attention設定         | `userData/attention-settings.json`・Main                                         | しきい値、監視間隔、端末プロファイルのハッシュとモード             |
-| Jev資格情報           | `userData/jev-credentials.json`・Main                                            | safeStorageで暗号化したAPIキー                                     |
-| Board                 | `userData/kanban/<実パスのSHA-256>/kanban.json`・Main                            | カードID、タイトル、メモ、状態                                     |
-| Board更新ヘルパー     | Boardと同じディレクトリの`update-card.py`・Main                                  | CLIエージェント向けの参照・更新処理                                |
-| UI設定                | `ai-workspace-starter-ui`・Renderer localStorage                                 | テーマ、サイズ、シェル、ショートカット、各ペインの表示設定など     |
-| Notes・Markdown下書き | `vintage:markdown:<Workspace ID>:<pathまたは:scratchpad>`・Renderer localStorage | 編集内容と読み取り時の内容                                         |
-| Browserセッション     | Electronの専用persistent partition                                               | Browserゲストのセッションデータ                                    |
-| PTY・直近の出力       | Mainのメモリー                                                                   | 実行中のプロセスとRenderer再接続用の出力。アプリ終了後は復元しない |
+| データ                | 保存先・所有者                                                                   | 保存する内容                                                                                   |
+| :-------------------- | :------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------- |
+| Workspace配置         | `userData/workspace-state.json`・Main                                            | Projectのパス、Space、Pane ID、分割配置、開いたファイルの相対パス                              |
+| Attention設定         | `userData/attention-settings.json`・Main                                         | しきい値、監視間隔、端末プロファイルのハッシュとモード                                         |
+| Jev資格情報           | `userData/jev-credentials.json`・Main                                            | safeStorageで暗号化したAPIキー                                                                 |
+| Board                 | `userData/kanban/<実パスのSHA-256>/kanban.json`・Main                            | カードID、タイトル、メモ、状態                                                                 |
+| Board更新ヘルパー     | Boardと同じディレクトリの`update-card.py`・Main                                  | CLIエージェント向けの参照・更新処理                                                            |
+| UI設定                | `ai-workspace-starter-ui`・Renderer localStorage                                 | 明暗モード・明暗別配色・カスタムテーマ、サイズ、シェル、ショートカット、各ペインの表示設定など |
+| Notes・Markdown下書き | `vintage:markdown:<Workspace ID>:<pathまたは:scratchpad>`・Renderer localStorage | 編集内容と読み取り時の内容                                                                     |
+| Browserセッション     | Electronの専用persistent partition                                               | Browserゲストのセッションデータ                                                                |
+| PTY・直近の出力       | Mainのメモリー                                                                   | 実行中のプロセスとRenderer再接続用の出力。アプリ終了後は復元しない                             |
 
 Workspace、Attention設定、Jev資格情報は一時ファイルから置き換え、保存ファイルの権限を`0600`に設定します。Boardもロックと一時ファイルの置き換えを使います。JSON保存の方式と、既存Markdownファイルへの内容比較付き書き込みは異なります。
 

@@ -1,3 +1,4 @@
+import { restoreThemePreferences, type ThemePreferences } from "../lib/themes.js";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -110,6 +111,7 @@ export const defaultShortcuts: ShortcutBinding[] = [
 
 export interface VintageSettings {
   theme: Theme;
+  themePreferences?: ThemePreferences;
   characterRippleEnabled: boolean;
   characterRippleIntensity: number;
   characterRippleColor: string | null;
@@ -658,6 +660,7 @@ export const useUiStore = create<UiState>()(
       name: "ai-workspace-starter-ui",
       partialize: ({
         theme,
+        themePreferences,
         characterRippleEnabled,
         characterRippleIntensity,
         characterRippleColor,
@@ -693,6 +696,7 @@ export const useUiStore = create<UiState>()(
         activityHeight,
       }) => ({
         theme,
+        themePreferences,
         characterRippleEnabled,
         characterRippleIntensity,
         characterRippleColor,
@@ -747,6 +751,10 @@ export const useUiStore = create<UiState>()(
         const restored: UiState = {
           ...currentState,
           ...persisted,
+          themePreferences: restoreThemePreferences(
+            persisted.themePreferences ??
+              (persisted.theme === "graphite" ? { dark: "graphite" } : undefined),
+          ),
           characterRippleEnabled: persisted.characterRippleEnabled === true,
           characterRippleColor:
             typeof persisted.characterRippleColor === "string" &&

@@ -336,7 +336,18 @@ try {
       .getByRole("combobox", { name: "Search actions, workspaces, Spaces, or terminals" })
       .fill("Settings");
     await page.getByRole("option", { name: /Settings/ }).click();
-    await page.getByRole("button", { name: new RegExp(`${theme} preview`) }).click();
+    await page
+      .getByRole("button", {
+        name: `${theme === "Light" ? "Light" : "Dark"} appearance`,
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole("button", {
+        name: `${theme === "Graphite" ? "Graphite" : "Vintage"} ${theme === "Light" ? "light" : "dark"} palette`,
+        exact: true,
+      })
+      .click();
     await page.keyboard.press("Escape");
     await page.getByRole("dialog", { name: "Settings", exact: true }).waitFor({ state: "hidden" });
     await board.getByRole("button", { name: "Expand board", exact: true }).click();

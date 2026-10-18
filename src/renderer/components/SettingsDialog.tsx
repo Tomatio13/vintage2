@@ -1,3 +1,5 @@
+import { restoreThemePreferences } from "../lib/themes.js";
+import { ThemeSettings } from "./ThemeSettings.js";
 import {
   ArrowLeft,
   Bell,
@@ -66,7 +68,6 @@ const themes: Array<{ id: Theme; label: string; description: string }> = [
   { id: "system", label: "System", description: "Match your device" },
   { id: "light", label: "Light", description: "A brighter workspace" },
   { id: "dark", label: "Dark", description: "A warmer workspace" },
-  { id: "graphite", label: "Graphite", description: "A neutral charcoal workspace" },
 ];
 const posixShellOptions: Array<{ id: TerminalShell; label: string }> = [
   { id: "zsh", label: "zsh" },
@@ -132,57 +133,6 @@ const shortcutLabels: Record<ShortcutAction, string> = {
   "open-browser": "Open Browser pane",
   "close-pane": "Close pane",
 };
-
-type PreviewTone = "light" | "dark" | "graphite";
-type PreviewPalette = { base: string; surface: string; line: string; accent: string };
-const previewPalettes: Record<PreviewTone, PreviewPalette> = {
-  light: { base: "#faf8f4", surface: "#e6d9c2", line: "#d0c5b3", accent: "#89682e" },
-  dark: { base: "#191816", surface: "#302d27", line: "#514a3f", accent: "#c6a66b" },
-  graphite: { base: "#181818", surface: "#303030", line: "#4a4a4a", accent: "#d79a54" },
-};
-
-function MiniWindow({ tone }: { tone: PreviewTone }) {
-  const palette = previewPalettes[tone];
-  return (
-    <div
-      className="h-20 overflow-hidden rounded-md border"
-      style={{ borderColor: palette.line, backgroundColor: palette.base }}
-    >
-      <div
-        className="flex h-3 items-center gap-1 px-2"
-        style={{ backgroundColor: palette.surface }}
-      >
-        {[0, 1, 2].map((dot) => (
-          <i className="size-1 rounded-full" key={dot} style={{ backgroundColor: palette.line }} />
-        ))}
-      </div>
-      <div className="flex gap-2 p-2">
-        <div className="h-14 w-1/4 rounded-sm" style={{ backgroundColor: palette.surface }} />
-        <div className="flex-1 space-y-1 pt-1">
-          <div className="h-1 w-1/2 rounded" style={{ backgroundColor: palette.accent }} />
-          <div className="h-1 w-4/5 rounded" style={{ backgroundColor: palette.line }} />
-          <div className="h-1 w-3/5 rounded" style={{ backgroundColor: palette.line }} />
-          <div className="h-6 rounded-sm" style={{ backgroundColor: palette.surface }} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ThemePreview({ theme }: { theme: Theme }) {
-  if (theme === "system")
-    return (
-      <div className="flex h-20 gap-1">
-        <div className="min-w-0 flex-1">
-          <MiniWindow tone="light" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <MiniWindow tone="dark" />
-        </div>
-      </div>
-    );
-  return <MiniWindow tone={theme} />;
-}
 
 function SettingsSelect({
   value,
@@ -391,6 +341,7 @@ export function SettingsDialog() {
   const saved = useMemo<VintageSettings>(
     () => ({
       theme: store.theme,
+      themePreferences: store.themePreferences ?? restoreThemePreferences(undefined),
       characterRippleEnabled: store.characterRippleEnabled,
       characterRippleIntensity: store.characterRippleIntensity,
       characterRippleColor: store.characterRippleColor,
@@ -415,6 +366,7 @@ export function SettingsDialog() {
     }),
     [
       store.theme,
+      store.themePreferences,
       store.characterRippleEnabled,
       store.characterRippleIntensity,
       store.characterRippleColor,
@@ -980,17 +932,39 @@ export function SettingsDialog() {
             </p>
             <div className="rounded-xl border border-border bg-panel">
               <div className="px-5 py-4">
-                <Field
-                  label="App theme"
-                  description="Choose light, dark, graphite, or follow the system theme."
-                >
-                  <SettingsSelect
-                    label="App theme"
-                    options={themes}
-                    value={draft.theme}
-                    onChange={(theme) => change({ theme: theme as Theme })}
-                  />
-                </Field>
+                <h4 className="mb-3 text-ui-base font-medium">Color scheme</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  {themes.map((item) => (
+                    <button
+                      key={item.id}
+                      aria-label={`${item.label} appearance`}
+                      aria-pressed={(draft.theme === "graphite" ? "dark" : draft.theme) === item.id}
+                      onClick={() => change({ theme: item.id })}
+                      className={`overflow-hidden rounded-xl border-2 p-2 text-center focus-visible:outline-2 focus-visible:outline-brand ${(draft.theme === "graphite" ? "dark" : draft.theme) === item.id ? "border-brand" : "border-border hover:bg-hover"}`}
+                    >
+                      <span className="mb-2 flex h-20 overflow-hidden rounded-md border border-border">
+                        {(item.id === "system" ? ["light", "dark"] : [item.id]).map((tone) => (
+                          <span
+                            key={tone}
+                            className="flex flex-1"
+                            style={{ background: tone === "light" ? "#faf8f4" : "#191816" }}
+                          >
+                            <span
+                              className="w-1/4"
+                              style={{ background: tone === "light" ? "#e6dfd3" : "#302d27" }}
+                            />
+                            <span className="flex flex-1 flex-col gap-2 p-3">
+                              <span className="h-2 w-3/4 rounded bg-[#a38b61]" />
+                              <span className="h-1 w-full rounded bg-[#a38b61]/40" />
+                              <span className="mt-auto h-3 rounded border border-[#a38b61]/40" />
+                            </span>
+                          </span>
+                        ))}
+                      </span>
+                      <span className="text-ui-sm font-medium">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="border-t border-border px-5 py-4">
                 <Field
@@ -1010,6 +984,7 @@ export function SettingsDialog() {
               </div>
             </div>
           </section>
+          <ThemeSettings settings={draft} change={change} />
           <Card>
             <Field
               label="Character ripple"
@@ -1077,39 +1052,6 @@ export function SettingsDialog() {
               </Field>
             </div>
           </Card>
-          <section className="mt-5" aria-labelledby="theme-preview-heading">
-            <h3 className="text-ui-lg font-semibold" id="theme-preview-heading">
-              Theme preview
-            </h3>
-            <p className="mb-3 mt-1 text-ui-base text-foreground-subtle">
-              Compare the available themes. Select a preview to choose its theme.
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {themes.map((item) => (
-                <button
-                  aria-pressed={draft.theme === item.id}
-                  key={item.id}
-                  className={`overflow-hidden rounded-xl border bg-panel text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${draft.theme === item.id ? "border-brand" : "border-border hover:border-pane-active-border"}`}
-                  onClick={() => change({ theme: item.id })}
-                >
-                  <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-                    <div>
-                      <span className="text-ui-base font-semibold">{item.label} preview</span>
-                      <p className="mt-1 text-ui-sm text-foreground-subtle">{item.description}</p>
-                    </div>
-                    {draft.theme === item.id && (
-                      <span className="rounded-md bg-hover px-2 py-1 text-ui-xs font-medium text-brand">
-                        Selected
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <ThemePreview theme={item.id} />
-                  </div>
-                </button>
-              ))}
-            </div>
-          </section>
           <section className="mt-5" aria-labelledby="text-preview-heading">
             <h3 className="text-ui-lg font-semibold" id="text-preview-heading">
               Text preview

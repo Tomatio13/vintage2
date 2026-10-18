@@ -130,11 +130,9 @@ try {
   }
   await window.getByRole("button", { name: "Open settings" }).click();
   await window.getByRole("dialog", { name: "Settings" }).waitFor();
-  await window
-    .getByRole("button", { name: /Graphite preview A neutral charcoal workspace/ })
-    .waitFor();
-  await window.getByRole("button", { name: "App theme", exact: true }).click();
-  await window.getByRole("menuitemradio", { name: "Graphite", exact: true }).click();
+  await window.getByRole("button", { name: "Graphite dark palette" }).waitFor();
+  await window.getByRole("button", { name: "Dark appearance", exact: true }).click();
+  await window.getByRole("button", { name: "Graphite dark palette", exact: true }).click();
   await window.waitForFunction(() => document.documentElement.classList.contains("graphite"));
   await window.getByRole("button", { name: "Attention" }).click();
   await window.getByLabel("Attention debounce").waitFor();

@@ -39,7 +39,7 @@ _The Checks terminal after selecting Open terminal in the Attention notification
 
 ## Agent status at a glance
 
-Space tabs and sidebar Workspace/Tab rows show a dot for the most urgent recognized terminal state across their panes. When a Space contains multiple panes, the dot summarizes the highest-priority state. Blue marks `Thinking`, green marks `Running` or `Completed`, yellow marks `Waiting` or `Input needed`, and red-orange marks `Warning` or `Failed`. Hollow dots indicate `Waiting` and `Warning`; pulsing dots indicate `Thinking`, `Running`, and `Input needed`. `Idle` and unclassified `Unknown` states have no dot.
+Space tabs and sidebar Workspace/Tab rows show a dot for the most urgent recognized terminal state across their panes. When a Space contains multiple panes, the dot summarizes the highest-priority state. Teal marks `Thinking` or `Running`, green marks `Completed`, yellow marks `Waiting` or `Input needed`, and red-orange marks `Warning` or `Failed`. Hollow dots indicate `Waiting` and `Warning`; pulsing dots indicate `Thinking`, `Running`, and `Input needed`. `Idle` and unclassified `Unknown` states have no dot.
 
 ## Command palette and quick switcher
 
@@ -96,6 +96,8 @@ Drag the divider between the terminals and the right pane to adjust its width. T
 
 Open **Files** to browse the selected workspace. Double-click a file to open its preview beside the terminal area.
 
+The file tree renders visible rows and loads folders with bounded concurrency, keeping large projects responsive. Folder expansion is saved per project across workspace switches and app restarts.
+
 Right-click in Files to create a file or folder, copy, rename, delete, or copy an entry’s name, relative path, or full path. New entries are created inside the selected folder, alongside a selected file, or at the workspace root when right-clicking empty space. Delete asks for confirmation and moves the entry (including folder contents) to the system Trash; if Trash is unavailable, the operation fails without permanently deleting it. Paste into a folder or right-click empty space to paste into the workspace root. Copy/paste is internal to VINTAGE, supports folders and other workspaces, and rejects existing names and symbolic links.
 
 ![Files context menu with copy, rename, and path actions](../assets/readme/vintage-file-actions.png)
@@ -117,6 +119,8 @@ Documents opened from Files also check for file changes every three seconds whil
 
 Document zoom buttons or Ctrl + mouse wheel over text/source previews and Markdown preview/edit adjust the display from 50% to 300%; click the percentage to reset to 100%. Images retain their existing fit and zoom controls. In searchable text views, use Find in file or `Ctrl+F` (`⌘F` on macOS); matches are highlighted, the counter shows your position, and buttons or `Enter` / `Shift+Enter` move between matches. `Escape` closes search. Search is literal and case-insensitive, within the displayed preview limits. Markdown Preview supports search only; Edit also offers Replace and Replace all, which update the draft until you Save.
 
+Source and raw previews scroll continuously while rendering up to 600 lines at once. Find searches the full loaded text within the file preview limits, moves to matches outside the current viewport, and preserves the reading position when closed. Very long lines may be shortened on screen; Copy source retains the loaded text.
+
 #### Markdown editing
 
 Markdown files opened from Files support Preview and Edit. Edit shows line numbers (including blank lines) and highlights headings, lists, emphasis, links, inline code, and fenced code in supported languages. The status bar shows the current line and column and the total line count. Click Go to line, click the cursor position, or press `Ctrl+G` (`⌘G` on macOS) to jump to a line; `Enter` confirms and `Escape` cancels. These editing controls are also available in Scratchpad. Line numbers follow wrapped lines, scrolling, resizing, and zoom. Save explicitly with Save or `Ctrl+S` (`⌘S` on macOS). Saving rejects files changed externally; Reload reads the current file and asks before discarding a dirty draft. Files over 1 MB cannot be edited. Automatic preview refresh runs only for clean previews, never while editing or with unsaved changes.
@@ -127,7 +131,9 @@ _Markdown in Edit view, showing unsaved changes and the Save and Reload controls
 
 ### Git Review
 
-**Review** lists unstaged changes and untracked files in the selected workspace. Select a file to inspect a diff with added and removed lines highlighted. Review is read-only; it does not stage or unstage changes. Git status refreshes automatically while visible; the refresh control also reloads it manually.
+**Review** is a read-only view of the selected workspace's Git changes. Use **Review scope** to switch between **Branch Diff** and **Local Changes**. Branch Diff compares the current branch's committed changes from its merge base with the selected **Base branch**, alongside separate **Staged** and **Unstaged** sections. Local Changes shows staged and unstaged changes, including untracked files. Review does not stage, unstage, commit, or modify files.
+
+Select a file to inspect added and removed lines. Large sections use Previous / Next with up to 100 files per page; large diffs use pages of up to 200 rows. Oversized diffs offer a file-preview fallback. Hunk preview controls open the file at the changed line. Automatic refresh preserves the selected file and expanded context where possible; if the comparison changes, Review shows a context notice rather than silently carrying over incompatible context. The refresh control also reloads Git status manually.
 
 ![A TypeScript Git diff expanded in VINTAGE’s Review tab](../assets/readme/vintage-git-review.png)
 
@@ -196,6 +202,8 @@ After the address bar, the toolbar offers the bookmark star, **Bookmarks**, and 
 
 Use the star to add or remove the current page’s bookmark. In the actions menu, **Bookmark scope** under **Save bookmarks in** selects Common or the current project for new bookmarks. **Bookmarks** displays both Common and current-project entries with their scope labels. Edit an entry’s name directly, open it in the current tab or a new tab, or delete it. Bookmarks persist across restarts, and the same URL can be saved separately in both scopes.
 
+Use **Filter bookmarks** to narrow the bookmark list and **Previous / Next** to move through pages of 50 entries. **More browser actions → Suspend background tabs** releases inactive Browser pages. Their saved URLs reload when selected again; unsaved form input and page navigation history are cleared. Browser tabs continue horizontally, with scrolling in the panel header when needed.
+
 Within Browser pages and controls, `Ctrl+L` selects the address, `Ctrl+W` closes the tab, and `Ctrl+Shift+T` reopens a closed tab. `Ctrl+Tab` / `Ctrl+Shift+Tab` cycle through the current project's and Common Browser tabs. On macOS, `⌘` also works for L / W / Shift+T and zoom. After closing the final tab, reopening still works while the right pane has focus. The last 20 closed tabs are kept during the app session with their URL, scope, and zoom; form input and page navigation history are not restored. Middle-click a link to open it in a background tab of the same scope, or middle-click a tab to close it. Mouse back/forward buttons navigate history while using Browser on Windows/Linux.
 
 #### Search, zoom, and development tools
@@ -227,13 +235,21 @@ Windows uses a bundled Rust helper for process discovery and CPU/RAM metrics. Cl
 Monitor always displays sessions across the PC. The dashboard is arranged as CPU/Memory, optional AI Usage, sessions, and session details. There is no workspace scope switch, separate Usage tab, host-name display, or background-services section. Provider cards use equal widths and heights. Use **Expand monitor** to enlarge the dashboard without replacing terminal panes or changing the selected session.
 
 - **Supported agents**: Claude Code, Codex, Antigravity, OpenCode, ZCode and Grok on Linux. Antigravity includes its CLI and identifiable language-server processes; Codex app-server/MCP processes are excluded.
-- **Local refresh**: About every two seconds while Monitor and the app document are visible. A process absent from the next process snapshot is removed immediately. ZCode sessions are additionally hidden after one hour without recorded activity and return when activity resumes.
+- **Local refresh**: About every two seconds while VINTAGE is running, including when Monitor is closed or the window is hidden. A process absent from the next process snapshot is removed immediately. ZCode sessions are additionally hidden after one hour without recorded activity and return when activity resumes.
 - **Session details**: Status, current tool, model, context tokens/capacity, recorded input/output/cache tokens, input + output per second, process CPU/RAM and child processes. **Open terminal** navigates to an existing VINTAGE terminal when ownership is known.
 - **Sources**: Claude/Codex local logs; OpenCode/ZCode read-only session databases; Antigravity conversation metadata and bounded transcripts; Grok `~/.grok/sessions` summaries and update events. Grok's turn-level aggregate token counts are not presented as current context usage.
 - **Matching**: Open-file ownership is preferred where available. Codex can also match log origin, process start time, working directory and recent activity, including idle terminal recovery when its unique start match is also the latest thread. Directory-based associations are labelled inferred; competing candidates remain **Unknown**. Remote Codex services are hidden; local agents with ambiguous or unreadable session data remain visible as **Unknown**. Shared ZCode worker resources are counted as a group, and session selection uses message/tool activity regardless of worker count.
 - **Limits**: Unreadable or ambiguous activity is **Unknown**; unavailable metrics show **—**. Claude context capacity can be a model-based estimate; other unknown capacities are not guessed. Process CPU can exceed 100% across cores, and recorded token deltas can arrive in bursts. Monitor does not display prompts, command bodies or tool results, make summary-model calls, or provide process-kill controls. Local monitoring needs no abtop or external collector; macOS discovery uses the system `lsof` command.
 
 The quota section below uses the optional CodexBar CLI, independently of local session monitoring. **Settings → Panels** controls Monitor visibility; **Settings → Usage** controls quota visibility and refresh settings.
+
+### Session activity and wait notifications
+
+Monitor session activity also contributes to Space and sidebar status dots when Monitor is closed. Local session monitoring continues approximately every two seconds while VINTAGE is running, including when its window is hidden; CodexBar usage refresh remains limited to the visible Monitor view.
+
+**Settings → Attention → Session wait notifications** is enabled by default. A session changing from Thinking or Executing to Waiting can show an Attention toast and a desktop notification, including sessions outside VINTAGE terminals. A session first discovered in Waiting does not trigger a notification. Waiting can mean a completed response or a request for input; it is not proof that the agent asked a question.
+
+Use **Open Space** for a session linked to a terminal; sessions without a linked terminal open in Monitor. Attention thresholds and the terminal's monitoring mode still apply. Mute suppresses desktop notifications; Errors Only and Ignore do not generate session-wait notices. Desktop notifications also require the app-level notification setting and normally appear when VINTAGE is not focused; Always Notify bypasses focus and severity thresholds. Session wait notifications can be disabled independently.
 
 ### Usage limits (CodexBar)
 
@@ -290,10 +306,33 @@ Panels independently enables Files, Review, Notes, Board, Monitor, and Browser. 
 
 Settings changes are saved automatically. Invalid URLs are not saved. Jev API keys still require the dedicated Save API key or Clear saved key action.
 
-Settings cover appearance and UI size, terminal font and scrollback, shell, browser, Attention, shortcuts, Jev integration, the usage panel (CodexBar), and updates. Four themes are available: System, Light, Dark, and Graphite.
+Settings cover appearance and UI size, terminal font and scrollback, shell, browser, Attention, shortcuts, Jev integration, the usage panel (CodexBar), and updates.
 
 On Linux, VINTAGE applies AppImage updates directly. For `.deb` installs, installing a downloaded update asks for system authorization once (`pkexec`) and applies it, then VINTAGE offers to restart; if authorization is unavailable or fails, it opens the downloaded package with the system package installer — complete the installation there and restart VINTAGE. If no package installer is available, Settings shows a `sudo apt install` command for the downloaded package.
 
 Attention thresholds, monitoring intervals, and per-terminal modes are stored in `attention-settings.json` in the operating system’s user data directory. A terminal’s monitoring mode is matched using a hash derived from its workspace path, Space title, and terminal title; project paths and logs are not stored there as plain text. Other interface preferences are stored separately.
 
 Workspace and Space details, pane layouts, and open file paths are stored separately in `workspace-state.json`. It contains project paths and relative file paths needed for restoration. If a project folder is missing, its Space information is retained so you can locate the folder again or remove the project. Terminal processes and output are not saved.
+
+### Appearance and custom themes
+
+Open **Settings → Appearance**. **Color scheme** selects System (follows OS appearance changes), Light, or Dark independently of the palette. **Themes** includes Vintage, Graphite, Ocean, Grove, Iris, and Ember. Select the round sun or moon preview to assign a palette to light or dark appearance; the ring marks each selected palette. Light and dark can use different themes. Selecting a palette keeps the current appearance mode.
+
+The theme actions are icon buttons with descriptions on hover:
+
+- **Create theme** (palette icon) creates an editable copy of the selected dark palette.
+- **Import theme** (upload icon) reads a VINTAGE theme JSON file and adds an editable copy.
+- **Duplicate** (copy icon on each card) creates an editable copy of that theme.
+
+Custom cards provide **Edit**, **Export**, and **Delete**. Edit the name, light background, dark background, and accent color. Text and borders are generated automatically. Color changes save immediately; the name saves when its field loses focus. Select the custom palette's sun/moon preview to apply it. Theme changes update existing terminals without recreating their sessions. Deleting a selected custom theme restores Vintage for the affected appearance.
+
+**Export** downloads `vintage-theme.json`. Import accepts VINTAGE JSON with a non-empty `name` (up to 60 characters) and six-digit hex `light`, `dark`, and `accent` colors, as in the example below. Up to 100 custom themes can be saved; import files must be at most 64 KiB. Themes and appearance preferences are stored locally with the interface settings and restored on restart. Existing Graphite settings retain their dark palette.
+
+```json
+{
+  "name": "Nightfall",
+  "light": "#f7f3fc",
+  "dark": "#211b30",
+  "accent": "#a180dc"
+}
+```

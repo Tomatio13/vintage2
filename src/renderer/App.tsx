@@ -1,3 +1,4 @@
+import { applyTheme } from "./lib/themes.js";
 import { browserShortcut } from "../shared/browserShortcuts.js";
 import { Check, CircleAlert, FolderOpen, OctagonAlert, Plus, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
@@ -687,14 +688,13 @@ export function App() {
   }, [workspaceStateReady, workspaces, activeId]);
 
   useEffect(() => {
-    const dark =
-      ui.theme === "dark" ||
-      ui.theme === "graphite" ||
-      (ui.theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
-    document.documentElement.classList.toggle("dark", dark);
-    document.documentElement.classList.toggle("graphite", ui.theme === "graphite");
+    const media = matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => applyTheme(ui.theme, ui.themePreferences, media.matches);
+    apply();
+    media.addEventListener("change", apply);
     document.documentElement.style.setProperty("--ui-font-size", `${ui.uiFontSize}px`);
-  }, [ui.theme, ui.uiFontSize]);
+    return () => media.removeEventListener("change", apply);
+  }, [ui.theme, ui.themePreferences, ui.uiFontSize]);
 
   const update = (fn: (workspace: VintageWorkspace) => VintageWorkspace) => {
     if (active?.available)
