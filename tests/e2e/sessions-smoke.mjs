@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { access, mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { access, mkdtemp, mkdir, writeFile, readFile, appendFile, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { delimiter, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { _electron as electron } from "playwright-core";
 
 await access(resolve("dist/renderer/index.html")).catch(() => {
@@ -48,9 +48,24 @@ try {
   const cliScript = join(fixture, "resume-fixture.cjs");
   await writeFile(
     cliScript,
-    `console.log('RESUME_FIXTURE ' + JSON.stringify(process.argv.slice(2)));\nconsole.log('ROOT_FIXTURE ' + process.env.CODEX_HOME);\nsetInterval(()=>{},1000);\n`,
+    `const fs = require('node:fs');
+const args = process.argv.slice(2);
+if (args[0] === '--version') { console.log('fixture 1.0'); }
+else if (args[0] === 'login') { console.log('Logged in'); }
+else if (args[0] === 'exec') {
+  process.stdin.resume();
+  process.stdin.on('end', () => {
+    fs.appendFileSync(process.env.VINTAGE_SESSIONS_TEST_ANALYSIS_COUNT, 'run' + String.fromCharCode(10));
+    fs.writeFileSync(args[args.indexOf('--output-last-message') + 1], JSON.stringify({ status: 'needs_user', summary: 'Tabs implemented; manual verification remains.', nextAction: 'Verify on Windows.' }));
+    console.log(JSON.stringify({type:'turn.completed', usage:{input_tokens:100,output_tokens:50}}));
+  });
+} else { console.log('RESUME_FIXTURE ' + JSON.stringify(args)); console.log('ROOT_FIXTURE ' + process.env.CODEX_HOME); setInterval(()=>{},1000); }
+`,
   );
   if (process.platform === "win32") {
+    const npmBin = join(bin, "node_modules", "@openai", "codex", "bin");
+    await mkdir(npmBin, { recursive: true });
+    await writeFile(join(npmBin, "codex.js"), await readFile(cliScript, "utf8"));
     await writeFile(
       join(bin, "codex.cmd"),
       '@echo off\r\n"%VINTAGE_SESSIONS_TEST_NODE%" "%VINTAGE_SESSIONS_TEST_SCRIPT%" %*\r\n',
@@ -74,7 +89,8 @@ try {
       ...process.env,
       CODEX_HOME: root,
       CLAUDE_CONFIG_DIR: join(fixture, "claude"),
-      [pathKey]: `${bin}${delimiter}${process.env[pathKey] ?? ""}`,
+      [pathKey]: `${bin}${delimiter}${dirname(process.execPath)}${delimiter}${process.env[pathKey] ?? ""}`,
+      VINTAGE_SESSIONS_TEST_ANALYSIS_COUNT: join(fixture, "analysis-count.txt"),
       VINTAGE_SESSIONS_TEST_NODE: process.execPath,
       VINTAGE_SESSIONS_TEST_SCRIPT: cliScript,
     },
@@ -111,6 +127,56 @@ try {
   await page
     .getByText("The tabs now scroll horizontally and preserve terminal sessions.", { exact: true })
     .waitFor();
+  {
+    await page.getByRole("button", { name: "Open settings" }).click();
+    const settings = page.getByRole("dialog", { name: "Settings" });
+    await settings.getByRole("button", { name: "Sessions", exact: true }).click();
+    await settings.getByRole("button", { name: "Analysis CLI", exact: true }).waitFor();
+    await settings.getByLabel("Analysis model", { exact: true }).fill("fixture-model");
+    await settings.getByRole("button", { name: "Save analysis settings" }).click();
+    await settings.getByText("Analysis settings saved.", { exact: true }).waitFor();
+    await settings.getByRole("button", { name: "Check CLI connection" }).click();
+    await settings.getByText(/fixture 1.0 — CLI reports authenticated/).waitFor();
+    await settings.getByRole("button", { name: "Workspace", exact: true }).click();
+    const original = await readFile(join(dir, "rollout-smoke.jsonl"), "utf8");
+    await page.getByRole("button", { name: "Analyze session", exact: true }).click();
+    await page
+      .getByText("Tabs implemented; manual verification remains.", { exact: true })
+      .waitFor();
+    await page.getByText("Next: Verify on Windows.", { exact: true }).waitFor();
+    assert.equal(
+      await readFile(join(dir, "rollout-smoke.jsonl"), "utf8"),
+      original,
+      "analysis must not modify history",
+    );
+    await page.getByRole("button", { name: "Reanalyze", exact: true }).waitFor();
+    await page.evaluate(async () => {
+      const list = await window.desktop.listSessionHistory();
+      const session = list.sessions.find((item) => item.title === "Restore the Browser tabs");
+      await window.desktop.analyzeSession(session.key);
+    });
+    assert.equal(
+      (await readFile(join(fixture, "analysis-count.txt"), "utf8")).trim().split("\n").length,
+      1,
+      "unchanged analysis must use the cache",
+    );
+    await page.getByRole("button", { name: "Reanalyze", exact: true }).click();
+    await page.getByText(/Successful analyses: 2/).waitFor();
+    await appendFile(
+      join(dir, "rollout-smoke.jsonl"),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: "Windows verification is finished." }],
+        },
+      }) + "\n",
+    );
+    await page.getByRole("button", { name: "Refresh sessions", exact: true }).click();
+    await page.getByText(/Outdated — conversation changed/).waitFor();
+    await page.screenshot({ path: join(tmpdir(), "vintage-sessions-analysis.png") });
+  }
   await page.getByRole("button", { name: "Pin session", exact: true }).click();
   await page.getByRole("button", { name: "Expand sessions", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Expanded sessions" });
@@ -139,7 +205,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Sessions smoke passed: history, preview, pin, expansion, Escape, resume argv/config root, existing terminal preservation.",
+    "Sessions smoke passed: history, settings, CLI probe, analysis, cache, forced reanalysis, outdated marker, unchanged logs, pin, expansion, Escape, resume argv/config root, existing terminal preservation (mock CLI, no LLM charges).",
   );
 } finally {
   await app?.close();

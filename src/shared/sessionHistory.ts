@@ -8,6 +8,7 @@ export interface HistorySession {
   preview: string;
   updatedAt: number;
   canResume: boolean;
+  analysis?: import("./sessionAnalysis.js").SessionAnalysis | undefined;
 }
 export interface HistoryMessage {
   role: "user" | "assistant";

@@ -1,3 +1,4 @@
+import { analysisStatusLabels } from "../../shared/sessionAnalysis.js";
 import { sessionPathsEqual, historyAgentStyle } from "../../shared/sessionHistory.js";
 import { SessionConversation } from "./SessionConversation.js";
 import { Button } from "./Button.js";
@@ -15,6 +16,7 @@ import {
   Play,
   RefreshCw,
   Search,
+  Sparkles,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -63,6 +65,8 @@ export function SessionsPanel({
 }) {
   const { snapshot } = useMonitorSnapshot(active);
   const historyRequest = useUiStore((state) => state.sessionHistoryRequest);
+  const [analyzingKey, setAnalyzingKey] = useState<string | null>(null);
+  const [analysisError, setAnalysisError] = useState<{ key: string; message: string } | null>(null);
   const [list, setList] = useState<SessionHistoryList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -75,10 +79,12 @@ export function SessionsPanel({
   const [expanded, setExpanded] = useState(false);
   const [pins, setPins] = useState(loadPins);
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const listRevision = useRef(0);
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (!active) return;
     let stale = false;
+    const revision = ++listRevision.current;
     setRefreshing(true);
     setError(null);
     const bridge = window.desktop;
@@ -90,7 +96,7 @@ export function SessionsPanel({
     void bridge
       .listSessionHistory(refreshVersion > 0)
       .then((result) => {
-        if (!stale) setList(result);
+        if (!stale && revision === listRevision.current) setList(result);
       })
       .catch((reason: unknown) => {
         if (!stale)
@@ -103,6 +109,31 @@ export function SessionsPanel({
       stale = true;
     };
   }, [active, refreshVersion]);
+  useEffect(() => {
+    if (!active || !window.desktop?.listSessionHistory) return;
+    let stale = false;
+    let inFlight = false;
+    const timer = setInterval(() => {
+      if (inFlight || document.hidden) return;
+      inFlight = true;
+      const revision = ++listRevision.current;
+      void window.desktop
+        ?.listSessionHistory(true)
+        .then((value) => {
+          if (!stale && revision === listRevision.current) setList(value);
+        })
+        .catch(() => {
+          /* Keep the last successful list. */
+        })
+        .finally(() => {
+          inFlight = false;
+        });
+    }, 15000);
+    return () => {
+      stale = true;
+      clearInterval(timer);
+    };
+  }, [active]);
   useEffect(() => {
     setSelectedKey(null);
     setDetail(null);
@@ -176,6 +207,35 @@ export function SessionsPanel({
     snapshot?.sessions.find(
       (session) => session.agent === selected.agent && session.sessionId === selected.sessionId,
     );
+  const analyze = async (session: HistorySession, force = false) => {
+    if (analyzingKey) return;
+    setAnalyzingKey(session.key);
+    setAnalysisError(null);
+    try {
+      const result = await window.desktop!.analyzeSession(session.key, force);
+      ++listRevision.current;
+      setList((current) =>
+        current
+          ? {
+              ...current,
+              sessions: current.sessions.map((item) =>
+                item.key === session.key ? { ...item, analysis: result } : item,
+              ),
+            }
+          : current,
+      );
+      const revision = ++listRevision.current;
+      const refreshed = await window.desktop!.listSessionHistory(true);
+      if (revision === listRevision.current) setList(refreshed);
+    } catch (error) {
+      setAnalysisError({
+        key: session.key,
+        message: error instanceof Error ? error.message : "Unable to analyze session.",
+      });
+    } finally {
+      setAnalyzingKey(null);
+    }
+  };
   const togglePin = (key: string) => {
     const next = pins.includes(key)
       ? pins.filter((item) => item !== key)
@@ -343,7 +403,9 @@ export function SessionsPanel({
                       · {historyAgentStyle[session.agent].name}
                     </span>
                     <span className="mt-1 block truncate text-ui-xs text-foreground-subtle">
-                      {session.preview}
+                      {session.analysis
+                        ? `${analysisStatusLabels[session.analysis.status]}${session.analysis.stale ? " · Outdated" : ""} · ${session.analysis.summary}`
+                        : session.preview}
                     </span>
                   </span>
                 </button>
@@ -403,6 +465,38 @@ export function SessionsPanel({
                     <h3 className="break-words text-ui-base font-semibold leading-relaxed text-foreground">
                       {selected.title}
                     </h3>
+                    {selected.analysis && (
+                      <div className="space-y-2 text-ui-sm" aria-label="Session analysis">
+                        <p className="font-medium text-foreground-subtle">
+                          {analysisStatusLabels[selected.analysis.status]}
+                          {selected.analysis.stale ? " · Outdated — conversation changed" : ""}
+                        </p>
+                        <p className="break-words text-foreground-subtle">
+                          {selected.analysis.summary}
+                        </p>
+                        {selected.analysis.nextAction && (
+                          <p className="break-words text-foreground-subtle">
+                            <span className="font-medium">Next: </span>
+                            {selected.analysis.nextAction}
+                          </p>
+                        )}
+                        <p className="text-ui-xs text-foreground-subtlest">
+                          Analyzed {new Date(selected.analysis.analyzedAt).toLocaleString()} ·{" "}
+                          {selected.analysis.cli} · {selected.analysis.model}
+                        </p>
+                        <p className="text-ui-xs text-foreground-subtlest">
+                          Successful analyses: {selected.analysis.successfulRuns ?? 1}
+                          {selected.analysis.usage
+                            ? ` · Last analysis: ${selected.analysis.usage.inputTokens.toLocaleString()} input / ${selected.analysis.usage.outputTokens.toLocaleString()} output tokens`
+                            : ""}
+                        </p>
+                      </div>
+                    )}
+                    {analysisError?.key === selected.key && (
+                      <p role="alert" className="break-words text-ui-xs text-rose-500">
+                        {analysisError.message}
+                      </p>
+                    )}
                     <p
                       className="flex min-w-0 items-center gap-2 text-ui-xs text-foreground-subtle"
                       title={selected.cwd}
@@ -414,41 +508,75 @@ export function SessionsPanel({
                       <span className="truncate">{selected.cwd}</span>
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 border-t border-border bg-panel/40 px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border bg-panel/40 px-4 py-3">
                     <span
-                      className="flex items-center gap-2 text-ui-xs text-foreground-subtlest"
+                      className="flex min-w-0 flex-1 basis-36 items-center gap-2 text-ui-xs text-foreground-subtlest"
                       title="Last updated"
                     >
                       <Clock3 aria-hidden="true" className="size-3.5 shrink-0" />
-                      <time dateTime={new Date(selected.updatedAt).toISOString()}>
+                      <time
+                        className="truncate"
+                        dateTime={new Date(selected.updatedAt).toISOString()}
+                      >
                         {new Date(selected.updatedAt).toLocaleString()}
                       </time>
                     </span>
-                    <Button
-                      type="button"
-                      disabled={
-                        liveSession
-                          ? !liveSession.paneId || !onOpenTerminal
-                          : !selected.canResume || !onResume
-                      }
-                      onClick={() => {
-                        try {
-                          if (liveSession?.paneId) onOpenTerminal?.(liveSession.paneId);
-                          else onResume?.(selected);
-                          setExpanded(false);
-                        } catch (reason) {
-                          setDetailError(
-                            reason instanceof Error ? reason.message : "Unable to resume session.",
-                          );
-                        }
-                      }}
-                      variant="ghost"
-                      size="compact"
-                      className="ml-auto"
+                    <div
+                      className="ml-auto flex shrink-0 items-center gap-2"
+                      aria-label="Session actions"
                     >
-                      <Play className="size-3.5" />
-                      {liveSession ? "Open terminal" : "Resume in new Space"}
-                    </Button>
+                      <Button
+                        size="compact"
+                        variant="ghost"
+                        aria-label={selected.analysis ? "Reanalyze" : "Analyze session"}
+                        title={
+                          selected.analysis
+                            ? "Analyze again using the configured CLI. Consumes its usage allowance."
+                            : "Analyze the saved conversation using the CLI configured in Settings → Sessions. Consumes its usage allowance."
+                        }
+                        disabled={!!analyzingKey || !window.desktop?.analyzeSession}
+                        onClick={() => void analyze(selected, !!selected.analysis)}
+                      >
+                        {analyzingKey === selected.key ? (
+                          <RefreshCw className="size-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="size-3.5" />
+                        )}
+                        {analyzingKey === selected.key
+                          ? "Analyzing…"
+                          : selected.analysis
+                            ? "Reanalyze"
+                            : "Analyze"}
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={
+                          liveSession
+                            ? !liveSession.paneId || !onOpenTerminal
+                            : !selected.canResume || !onResume
+                        }
+                        onClick={() => {
+                          try {
+                            if (liveSession?.paneId) onOpenTerminal?.(liveSession.paneId);
+                            else onResume?.(selected);
+                            setExpanded(false);
+                          } catch (reason) {
+                            setDetailError(
+                              reason instanceof Error
+                                ? reason.message
+                                : "Unable to resume session.",
+                            );
+                          }
+                        }}
+                        variant="ghost"
+                        size="compact"
+                        aria-label={liveSession ? "Open terminal" : "Resume in new Space"}
+                        title={liveSession ? "Open terminal" : "Resume in new Space"}
+                      >
+                        <Play className="size-3.5" />
+                        {liveSession ? "Open" : "Resume"}
+                      </Button>
+                    </div>
                   </div>
                 </section>
                 <div className="mt-2 space-y-1 px-1">

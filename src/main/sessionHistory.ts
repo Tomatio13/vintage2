@@ -40,6 +40,7 @@ export function parseHistoryLog(text: string, agent: HistoryAgent) {
   let sessionId = "",
     cwd = "",
     title = "";
+  let isGuardianReview = false;
   const messages: HistoryMessage[] = [];
   const seen = new Set<string>();
   for (const line of text.split("\n")) {
@@ -53,6 +54,9 @@ export function parseHistoryLog(text: string, agent: HistoryAgent) {
     if (agent === "codex" && entry.type === "session_meta") {
       sessionId = clean(payload.id);
       cwd = clean(payload.cwd);
+      isGuardianReview ||=
+        payload.thread_source === "guardian_review" ||
+        row(row(payload.source).subagent).other === "guardian";
     }
     if (agent === "claude") {
       sessionId ||= clean(entry.sessionId);
@@ -85,6 +89,7 @@ export function parseHistoryLog(text: string, agent: HistoryAgent) {
   return {
     sessionId,
     cwd,
+    isGuardianReview,
     title: (title || first.split("\n").find((line) => line.trim()) || "Untitled session").slice(
       0,
       160,
@@ -210,6 +215,11 @@ export class SessionHistory {
       this.pending = null;
     });
     return this.pending;
+  }
+  async refresh(): Promise<SessionHistoryList> {
+    // A manual refresh must observe activity after the request, even when an older scan is pending.
+    if (this.pending) await this.pending;
+    return this.list(true);
   }
   private async scan(): Promise<SessionHistoryList> {
     const candidates: Candidate[] = [];
@@ -364,6 +374,8 @@ export class SessionHistory {
           },
         );
         const parsed = parseHistoryLog(log.text, candidate.agent);
+        if (candidate.agent === "codex" && "isGuardianReview" in parsed && parsed.isGuardianReview)
+          continue;
         if (candidate.metadata) {
           parsed.sessionId = candidate.metadata.sessionId;
           parsed.cwd = candidate.metadata.cwd;
@@ -453,6 +465,77 @@ export class SessionHistory {
         log.truncated ||
         parsed.messages.length > 100 ||
         parsed.messages.some((message) => message.text.length >= 24000),
+    };
+  }
+  async analysisSource(key: string) {
+    await this.refresh();
+    const entry = this.entries.get(key);
+    if (!entry) throw new Error("Session no longer available. Refresh the list.");
+    const before = await stat(entry.path).catch(() => null);
+    const detail = await this.detail(key);
+    const log = await this.read(entry.path, 256 * 1024).catch(() => ({
+      text: "",
+      truncated: true,
+    }));
+    const toolEvidence: string[] = [];
+    for (const line of log.text.split("\n")) {
+      try {
+        const record = row(JSON.parse(line));
+        if (record.isSidechain === true || record.isMeta === true) continue;
+        const payload = row(record.payload);
+        if (
+          [
+            "function_call",
+            "function_call_output",
+            "custom_tool_call",
+            "custom_tool_call_output",
+          ].includes(String(payload.type))
+        ) {
+          toolEvidence.push(
+            JSON.stringify({
+              timestamp: record.timestamp,
+              type: payload.type,
+              name: payload.name,
+              callId: payload.call_id,
+              arguments: clean(payload.arguments ?? payload.input).slice(0, 500),
+              output: clean(payload.output).slice(-1500),
+            }),
+          );
+        }
+        const parts = row(record.message).content;
+        if (Array.isArray(parts))
+          for (const part of parts) {
+            const item = row(part);
+            if (["tool_use", "tool_result"].includes(String(item.type)))
+              toolEvidence.push(
+                JSON.stringify({
+                  timestamp: record.timestamp,
+                  type: item.type,
+                  name: item.name,
+                  callId: item.id ?? item.tool_use_id,
+                  input: JSON.stringify(item.input ?? "").slice(0, 500),
+                  output: content(item.content).slice(-1500),
+                  isError: item.is_error,
+                }),
+              );
+          }
+      } catch {
+        /* Ignore partial records. */
+      }
+    }
+    const after = await stat(entry.path).catch(() => null);
+    if (before?.mtimeMs !== after?.mtimeMs || before?.size !== after?.size)
+      throw new Error(
+        "Session changed while reading. Try analysis again when the response finishes.",
+      );
+    return {
+      detail: {
+        ...detail,
+        truncated: detail.truncated || log.truncated,
+        toolEvidence: toolEvidence.slice(-8),
+      },
+      version: `${after?.mtimeMs ?? entry.session.updatedAt}:${after?.size ?? 0}:${entry.session.title}`,
+      updatedAt: Math.max(after?.mtimeMs ?? 0, entry.session.updatedAt),
     };
   }
   resume(key: string, cwd: string) {

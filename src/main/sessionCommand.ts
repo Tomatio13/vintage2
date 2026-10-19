@@ -2,11 +2,13 @@ import { accessSync, constants, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { posix, win32 } from "node:path";
 
-interface CommandOptions {
+export interface CommandOptions {
   platform?: NodeJS.Platform;
   home?: string;
   env?: Record<string, string>;
   executable?: (file: string) => boolean;
+  executablePath?: string;
+  readDirectories?: (directory: string) => string[];
 }
 export interface SessionCommand {
   file: string;
@@ -22,13 +24,8 @@ function variable(env: Record<string, string>, name: string): string {
 
 // Resolve actual CLI files rather than depend on a shell alias or the GUI app's
 // often minimal PATH. Keep the parent user's authentication environment intact.
-export function resolveSessionCommand(
-  file: string,
-  args: string[],
-  options: CommandOptions = {},
-): SessionCommand {
-  if (!commands.has(file) || args.some((arg) => !/^[a-zA-Z0-9_-]+$/.test(arg)))
-    throw new TypeError("Unsupported session resume command");
+export function resolveSessionExecutable(file: string, options: CommandOptions = {}) {
+  if (!commands.has(file)) throw new TypeError("Unsupported session CLI");
   const platform = options.platform ?? process.platform;
   const windows = platform === "win32";
   const path = windows ? win32 : posix;
@@ -71,7 +68,9 @@ export function resolveSessionCommand(
     const nvm = variable(env, "NVM_DIR") || path.join(home, ".nvm");
     try {
       directories.push(
-        ...readdirSync(path.join(nvm, "versions", "node"))
+        ...(options.readDirectories ?? ((directory: string) => readdirSync(directory)))(
+          path.join(nvm, "versions", "node"),
+        )
           .filter((name) => /^v\d+\.\d+\.\d+$/.test(name))
           .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
           .slice(0, 8)
@@ -109,9 +108,18 @@ export function resolveSessionCommand(
   if (windows)
     for (const extension of windowsExtensions)
       if (!extensions.includes(extension)) extensions.push(extension);
-  const resolved = searchPath
-    .flatMap((directory) => extensions.map((extension) => path.join(directory, file + extension)))
-    .find(executable);
+  const configured = options.executablePath?.replace(/^~[/\\]/, `${home}${windows ? "\\" : "/"}`);
+  if (configured && !path.isAbsolute(configured))
+    throw new Error("CLI executable path must be absolute.");
+  const resolved = configured
+    ? executable(configured)
+      ? configured
+      : undefined
+    : searchPath
+        .flatMap((directory) =>
+          extensions.map((extension) => path.join(directory, file + extension)),
+        )
+        .find(executable);
   if (!resolved)
     throw new Error(
       `${file} was not found. Install its CLI for this OS, or add its installation directory to PATH, then restart VINTAGE.`,
@@ -119,7 +127,23 @@ export function resolveSessionCommand(
   const pathKey = windows
     ? (Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "PATH")
     : "PATH";
+  if (windows)
+    for (const key of Object.keys(env))
+      if (key.toLowerCase() === "path" && key !== pathKey) delete env[key];
   env[pathKey] = searchPath.join(windows ? ";" : ":");
+  return { file: resolved, env };
+}
+
+export function resolveSessionCommand(
+  file: string,
+  args: string[],
+  options: CommandOptions = {},
+): SessionCommand {
+  if (!commands.has(file) || args.some((arg) => !/^[a-zA-Z0-9_-]+$/.test(arg)))
+    throw new TypeError("Unsupported session resume command");
+  const { file: resolved, env } = resolveSessionExecutable(file, options);
+  const windows = (options.platform ?? process.platform) === "win32";
+  const path = windows ? win32 : posix;
   if (!windows || ![".cmd", ".bat"].includes(path.extname(resolved).toLowerCase()))
     return { file: resolved, args, env };
   // A batch shim needs cmd.exe. Expand the executable path once via an

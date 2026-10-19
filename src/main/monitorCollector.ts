@@ -1,3 +1,4 @@
+import { sessionAnalysisProcesses } from "./sessionAnalysisProcesses.js";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { open, readdir, readFile, readlink } from "node:fs/promises";
@@ -326,12 +327,13 @@ export class MonitorCollector {
     if (!rows) throw new Error("Unable to inspect local processes.");
     const parents = new Map(rows.map((row) => [row.pid, row]));
     const candidates = rows.filter((row) => {
-      if (!monitorAgent(row)) return false;
+      if (!monitorAgent(row) || sessionAnalysisProcesses.has(row.pid)) return false;
       // Usage probes launched by CodexBar are not interactive agent sessions.
       let pid = row.parentPid;
       const visited = new Set<number>([row.pid]);
       while (pid > 0 && !visited.has(pid)) {
         visited.add(pid);
+        if (sessionAnalysisProcesses.has(pid)) return false;
         const parent = parents.get(pid);
         if (!parent) break;
         if (

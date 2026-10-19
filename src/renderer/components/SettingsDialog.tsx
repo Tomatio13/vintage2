@@ -1,3 +1,4 @@
+import { SessionAnalysisSettings } from "./SessionAnalysisSettings.js";
 import { SettingsSelect } from "./SettingsSelect.js";
 import { restoreThemePreferences } from "../lib/themes.js";
 import { ThemeSettings } from "./ThemeSettings.js";
@@ -7,6 +8,7 @@ import {
   ChartNoAxesColumn,
   Globe,
   Keyboard,
+  History,
   PanelsTopLeft,
   Palette,
   Pencil,
@@ -59,6 +61,7 @@ const sections: Array<{ id: SettingsSection; label: string; icon: LucideIcon }> 
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
   { id: "integrations", label: "Integrations", icon: Plug },
   { id: "notes", label: "Panels", icon: PanelsTopLeft },
+  { id: "sessions", label: "Sessions", icon: History },
   { id: "usage", label: "Usage", icon: ChartNoAxesColumn },
   { id: "updates", label: "Updates", icon: CloudDownload },
 ];
@@ -1633,6 +1636,13 @@ export function SettingsDialog() {
               ))}
             </div>
           </section>
+        </>
+      );
+    if (section === "sessions")
+      return (
+        <>
+          <h2 className="text-2xl font-semibold">Sessions</h2>
+          <SessionAnalysisSettings />
         </>
       );
     if (section === "usage") return renderUsageSettings();

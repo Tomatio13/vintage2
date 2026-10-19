@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile, rm, appendFile } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm, appendFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
@@ -334,3 +334,81 @@ it.each(["codex", "claude", "grok", "antigravity"] as const)(
     );
   },
 );
+
+it("builds bounded analysis evidence without hidden reasoning, sidechains or modifying logs", async () => {
+  const root = await mkdtemp(join(tmpdir(), "vintage-analysis-source-"));
+  dirs.push(root);
+  await mkdir(join(root, "projects"));
+  const path = join(root, "projects", "session.jsonl");
+  const text = lines(
+    {
+      type: "user",
+      sessionId: sid,
+      cwd: "/project",
+      message: { role: "user", content: "Fix tests" },
+    },
+    {
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "thinking", thinking: "HIDDEN_REASONING" },
+          { type: "tool_use", id: "call1", name: "Bash", input: { command: "pnpm test" } },
+        ],
+      },
+    },
+    {
+      type: "user",
+      message: {
+        role: "user",
+        content: [
+          { type: "tool_result", tool_use_id: "call1", content: "Tests passed", is_error: false },
+        ],
+      },
+    },
+    {
+      type: "user",
+      isSidechain: true,
+      message: { role: "user", content: [{ type: "tool_result", content: "UNRELATED_SIDECHAIN" }] },
+    },
+  );
+  await writeFile(path, text);
+  const history = new SessionHistory([{ agent: "claude", path: root }]);
+  const session = (await history.list()).sessions[0]!;
+  const source = await history.analysisSource(session.key);
+  expect(source.detail.toolEvidence.join("\n")).toContain("Tests passed");
+  expect(source.detail.toolEvidence.join("\n")).toContain("pnpm test");
+  expect(JSON.stringify(source)).not.toContain("HIDDEN_REASONING");
+  expect(JSON.stringify(source)).not.toContain("UNRELATED_SIDECHAIN");
+  expect(await readFile(path, "utf8")).toBe(text);
+  await appendFile(path, lines({ type: "user", message: { role: "user", content: "Continue" } }));
+  expect((await history.analysisSource(session.key)).version).not.toBe(source.version);
+});
+
+it("hides Codex Guardian review sessions by metadata while preserving ordinary sessions with the same title", async () => {
+  const root = await mkdtemp(join(tmpdir(), "vintage-guardian-history-"));
+  dirs.push(root);
+  await mkdir(join(root, "sessions"));
+  const variants = [
+    { id: sid, thread_source: "guardian_review" },
+    { id: "22222222-2222-4333-8444-555555555555", source: { subagent: { other: "guardian" } } },
+    { id: "33333333-2222-4333-8444-555555555555", source: "cli" },
+  ];
+  for (const metadata of variants) {
+    await writeFile(
+      join(root, "sessions", `${metadata.id}.jsonl`),
+      lines(
+        { type: "session_meta", payload: { ...metadata, cwd: "/project" } },
+        message("user", "Guardian review"),
+      ),
+    );
+  }
+  const history = new SessionHistory([{ agent: "codex", path: root }]);
+  const result = await history.list();
+  expect(result.sessions.map((session) => session.sessionId)).toEqual([variants[2]!.id]);
+  expect(result.sessions[0]!.title).toBe("Guardian review");
+  for (const metadata of variants)
+    expect(await readFile(join(root, "sessions", `${metadata.id}.jsonl`), "utf8")).toContain(
+      metadata.id,
+    );
+});

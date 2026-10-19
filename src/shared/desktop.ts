@@ -26,6 +26,10 @@ export const DesktopChannels = {
   attentionSettingsGet: "attention:settings-get",
   attentionSettingsSet: "attention:settings-set",
   monitorSnapshotGet: "monitor:snapshot-get",
+  sessionAnalysisSettingsGet: "sessions:analysis-settings:get",
+  sessionAnalysisSettingsSet: "sessions:analysis-settings:set",
+  sessionAnalysisProbe: "sessions:analysis:probe",
+  sessionAnalyze: "sessions:analyze",
   sessionHistoryList: "sessions:list",
   sessionHistoryDetail: "sessions:detail",
   codexbarUsageGet: "codexbar:usage-get",
@@ -464,6 +468,17 @@ export interface DesktopBridge {
   getAttentionSettings(): Promise<AttentionSettings>;
   setAttentionSettings(settings: AttentionSettings): Promise<AttentionSettings>;
   getMonitorSnapshot(): Promise<import("./monitor.js").MonitorSnapshot>;
+  getSessionAnalysisSettings(): Promise<import("./sessionAnalysis.js").SessionAnalysisSettings>;
+  setSessionAnalysisSettings(
+    settings: import("./sessionAnalysis.js").SessionAnalysisSettings,
+  ): Promise<import("./sessionAnalysis.js").SessionAnalysisSettings>;
+  probeSessionAnalysis(
+    settings: import("./sessionAnalysis.js").SessionAnalysisSettings,
+  ): Promise<import("./sessionAnalysis.js").AnalysisProbe>;
+  analyzeSession(
+    key: string,
+    force?: boolean,
+  ): Promise<import("./sessionAnalysis.js").SessionAnalysis>;
   listSessionHistory(refresh?: boolean): Promise<import("./sessionHistory.js").SessionHistoryList>;
   getSessionHistoryDetail(key: string): Promise<import("./sessionHistory.js").SessionHistoryDetail>;
   getCodexbarUsage(path: string): Promise<CodexbarUsageResult>;

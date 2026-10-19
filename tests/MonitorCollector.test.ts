@@ -1,3 +1,4 @@
+import { sessionAnalysisProcesses } from "../src/main/sessionAnalysisProcesses.js";
 import { mkdtemp, mkdir, open, writeFile, appendFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,6 +10,7 @@ const home = { value: "/tmp" };
 vi.mock("../src/main/processMonitor.js", () => ({ listProcessRows: vi.fn() }));
 const fixtures: string[] = [];
 afterEach(async () => {
+  sessionAnalysisProcesses.clear();
   vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllEnvs();
@@ -36,6 +38,18 @@ describe("Monitor process ownership", () => {
     ]);
     const snapshot = await new MonitorCollector("/tmp").collect();
     expect(snapshot.sessions.map((session) => session.pid).sort()).toEqual([900006, 900007]);
+  });
+  it("excludes VINTAGE analysis workers and their descendants without hiding other agents", async () => {
+    sessionAnalysisProcesses.add(900001);
+    vi.mocked(listProcessRows).mockResolvedValue([
+      { pid: 900001, parentPid: 1, command: "node", args: "node /tools/bin/codex" },
+      { pid: 900002, parentPid: 900001, command: "sh" },
+      { pid: 900003, parentPid: 900002, command: "codex", args: "codex exec" },
+      { pid: 900004, parentPid: 1, command: "claude", args: "claude" },
+    ]);
+    expect(
+      (await new MonitorCollector("/tmp").collect()).sessions.map((session) => session.pid),
+    ).toEqual([900004]);
   });
   it("recognizes native and Node agent launchers without matching commands that merely mention Codex", () => {
     const row = { pid: 10, parentPid: 1, command: "codex", args: "codex" };

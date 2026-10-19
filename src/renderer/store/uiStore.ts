@@ -40,6 +40,7 @@ export type SettingsSection =
   | "attention"
   | "shortcuts"
   | "integrations"
+  | "sessions"
   | "notes"
   | "board"
   | "usage"

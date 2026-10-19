@@ -1,3 +1,5 @@
+import { stopSessionAnalysisProcesses } from "./sessionAnalysisProcesses.js";
+import { SessionAnalysisManager } from "./sessionAnalysis.js";
 import { sessionHistory } from "./sessionHistory.js";
 import {
   app,
@@ -487,9 +489,36 @@ function registerDesktopIpc(
     resolveSenderWindow(event);
     return attentionSettings.setSettings(raw);
   });
-  ipcMain.handle(DesktopChannels.sessionHistoryList, (event, refresh: unknown) => {
+  app.on("before-quit", stopSessionAnalysisProcesses);
+  const sessionAnalysis = new SessionAnalysisManager(app.getPath("userData"), (key) =>
+    sessionHistory.analysisSource(key),
+  );
+  ipcMain.handle(DesktopChannels.sessionAnalysisSettingsGet, (event) => {
     resolveSenderWindow(event);
-    return sessionHistory.list(refresh === true);
+    return sessionAnalysis.getSettings();
+  });
+  ipcMain.handle(DesktopChannels.sessionAnalysisSettingsSet, (event, raw: unknown) => {
+    resolveSenderWindow(event);
+    return sessionAnalysis.setSettings(raw);
+  });
+  ipcMain.handle(DesktopChannels.sessionAnalysisProbe, (event, raw: unknown) => {
+    resolveSenderWindow(event);
+    return sessionAnalysis.probe(raw);
+  });
+  ipcMain.handle(DesktopChannels.sessionAnalyze, (event, key: unknown, force: unknown) => {
+    resolveSenderWindow(event);
+    return sessionAnalysis.analyze(key, force);
+  });
+  ipcMain.handle(DesktopChannels.sessionHistoryList, async (event, refresh: unknown) => {
+    resolveSenderWindow(event);
+    const list = await (refresh === true ? sessionHistory.refresh() : sessionHistory.list());
+    return {
+      ...list,
+      sessions: list.sessions.map((session) => ({
+        ...session,
+        analysis: sessionAnalysis.get(session.key, session.updatedAt),
+      })),
+    };
   });
   ipcMain.handle(DesktopChannels.sessionHistoryDetail, (event, key: unknown) => {
     resolveSenderWindow(event);
