@@ -89,6 +89,8 @@ Windowsでは同梱のRustヘルパーでプロセス検出とCPU／RAMを取得
 
 **Settings → Appearance**の**Color scheme**で**System / Light / Dark**を選び、ThemesでVintage・Graphite・Ocean・Grove・Iris・Emberの6種類からライト用・ダーク用の配色を個別に指定できます。丸いプレビューに太陽・月の目印が付き、選択中の配色はリングで表示されます。パレット・アップロード・コピーのアイコンにマウスを合わせると、**Create theme / Import theme / Duplicate**の説明が出ます。カスタムテーマでは背景色とアクセント色を編集でき、VINTAGE形式のJSONで入出力できます。[テーマの操作ガイド](docs/FEATURES_JP.md#外観とカスタムテーマ)をご覧ください。
 
+**Settings → Appearance → UI font size**は12〜32pxに対応します。ターミナルのフォントサイズは個別に設定できます。
+
 **Settings → Appearance → Character ripple**で、クリック位置から文字の波紋が広がるエフェクトを試せます。強度と色を調整でき、色はテーマ連動にも戻せます。初期状態はオフです。OSの「視差効果を減らす」設定に従い、埋め込みブラウザのページ内では動作しません。
 
 ## BoardとAI Agent

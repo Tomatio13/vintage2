@@ -45,6 +45,7 @@ import { normalizeBrowserUrl } from "../lib/browserUrl.js";
 import { eventKey, shortcutLabel } from "../lib/shortcuts.js";
 import { Button } from "./Button.js";
 import {
+  MAX_UI_FONT_SIZE,
   defaultShortcuts,
   type ShortcutAction,
   type SettingsSection,
@@ -874,7 +875,7 @@ export function SettingsDialog() {
                     surface="panel"
                     value={draft.uiFontSize}
                     min={12}
-                    max={18}
+                    max={MAX_UI_FONT_SIZE}
                     step={1}
                     suffix=" px"
                     onChange={(uiFontSize) => change({ uiFontSize })}

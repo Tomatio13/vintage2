@@ -1,5 +1,35 @@
 # VINTAGE Changelog
 
+## [0.2.35] - 2026-10-20
+
+### Added
+
+- **Session analysis:** Manually analyze saved conversations using Codex or Claude Code, independently of the original agent. Show the inferred status, situation summary, and next action without changing source logs or titles.
+- **Sessions settings:** Choose the analysis CLI, optional executable path and model, and check CLI availability/login under Settings → Sessions. Keep tab visibility under Panels.
+- Persist analysis separately, reuse unchanged input/settings, support explicit reanalysis, mark outdated results, and show successful analysis counts and reported token usage.
+
+### Improved
+
+- Raise the UI font size limit from 18 px to 32 px; terminal font settings remain separate.
+- Align the compact, borderless Analyze/Reanalyze and Resume actions in the session card footer.
+- Support native Windows analysis CLIs and standard npm launchers using direct Node entrypoints; handle JSON arguments and spaces/Japanese characters without shell interpretation. Preserve the discovered PATH for macOS Homebrew, nvm and user installations.
+
+### Fixed
+
+- Hide internal Codex Guardian review sessions using their metadata while retaining source logs and ordinary conversations.
+- Refresh history after an in-flight scan so simultaneous analysis and log updates do not leave a stale session list.
+- Exclude analysis workers from Monitor and terminate their process groups/trees on timeout or application exit.
+
+### Validation and limitations
+
+- Boundaries, TypeScript, lint, formatting, 525 passing tests (one skipped), and production builds passed.
+- Linux Electron smoke with a mock CLI verified settings, connection checks, analysis, caching, forced reanalysis, outdated markers, unchanged source logs, and existing terminal preservation. Real LLM analysis was not exercised by the smoke test.
+- Linux Electron font smoke verified incrementing to 32 px, the upper bound, CSS application, and persistence after reload.
+- Analysis uses the selected CLI's plan allowance or API credits. Recent compatible CLI versions are required; custom provider/hooks/MCP configuration and arbitrary batch wrappers are not supported.
+- Windows/macOS analysis and Sessions support remain experimental; physical-device runtime testing is pending. Windows Monitor remains an experimental pre-release, macOS Monitor remains unverified, and installed-app updater verification remains pending.
+
+**Full Changelog:** [v0.2.34...v0.2.35](https://github.com/Tomatio13/vintage2/compare/v0.2.34...v0.2.35)
+
 ## [0.2.34] - 2026-10-19
 
 ### Added

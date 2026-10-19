@@ -89,6 +89,8 @@ Show or hide Files, Review, Notes, Board, Monitor, Sessions, and Browser in **Se
 
 In **Settings → Appearance**, choose **System / Light / Dark** under **Color scheme**, then select separate light and dark palettes from six themes: Vintage, Graphite, Ocean, Grove, Iris, and Ember. Round previews show each palette; sun/moon badges identify light/dark and a ring marks the selected palette. Hover the palette, upload, or copy icon for **Create theme**, **Import theme**, or **Duplicate**. Custom themes support background and accent editing and VINTAGE JSON import/export. See the [theme guide](docs/FEATURES.md#appearance-and-custom-themes).
 
+**Settings → Appearance → UI font size** supports 12–32 px. Terminal font size is configured separately.
+
 Try the optional **Character ripple** in **Settings → Appearance**: clicks reveal a fading wave of characters, with adjustable intensity and a custom color picker (or automatic theme color). It is off by default, respects reduced motion, and does not run inside embedded browser pages.
 
 ## Board and AI agents

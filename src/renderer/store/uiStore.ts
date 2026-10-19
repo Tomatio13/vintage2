@@ -5,6 +5,8 @@ import { persist } from "zustand/middleware";
 import { normalizeBrowserUrl } from "../lib/browserUrl.js";
 import { TERMINAL_SHELLS, type TerminalShell } from "../../shared/desktop.js";
 
+export const MAX_UI_FONT_SIZE = 32;
+
 export const DEFAULT_BROWSER_START_URL = "https://example.com/";
 
 export interface BrowserTabState {
@@ -423,7 +425,8 @@ export const useUiStore = create<UiState>()(
       browserTabCounter: 2,
       browserNavigateRequest: null,
       setTheme: (theme) => set({ theme }),
-      setUiFontSize: (uiFontSize) => set({ uiFontSize: Math.min(18, Math.max(12, uiFontSize)) }),
+      setUiFontSize: (uiFontSize) =>
+        set({ uiFontSize: Math.min(MAX_UI_FONT_SIZE, Math.max(12, uiFontSize)) }),
       saveSettings: (settings) =>
         set((state) => ({ ...settings, ...reconcilePanelSelection({ ...state, ...settings }) })),
       setUsagePanelEnabled: (usagePanelEnabled) =>
