@@ -12,7 +12,7 @@ The VINTAGE window is organized into three work areas:
 
 - **Sidebar**: Workspace navigation, Spaces, and the Attention list for terminals that need a response.
 - **Center**: Space tabs and terminal panes. Split a Space horizontally or vertically to work in multiple shells at once.
-- **Right pane**: Switch between Files, Review, Notes, Board, Monitor, and Browser without replacing the active terminal layout.
+- **Right pane**: Switch between Files, Review, Notes, Board, Monitor, Sessions, and Browser without replacing the active terminal layout.
 
 ![VINTAGE showing the Attention list, terminal panes, and Files pane](../assets/readme/vintage-background-attention.png)
 
@@ -75,6 +75,7 @@ Shortcuts can be reassigned in **Settings → Shortcuts**. Changes save automati
 | Toggle Board tab     | `Ctrl+Alt+K`   |
 | Open Monitor         | `Ctrl+Shift+U` |
 | Toggle Monitor       | `Ctrl+Alt+U`   |
+| Toggle Sessions tab  | `Ctrl+Alt+Y`   |
 | Open Browser pane    | `Ctrl+Shift+B` |
 | Toggle Browser tab   | `Ctrl+Alt+B`   |
 | Find in terminal     | `Ctrl+F`       |
@@ -88,7 +89,7 @@ _Open Board pane, Toggle Notes tab, and Toggle Board tab can all be reassigned i
 
 ## Right pane
 
-The right pane contains Files, Review, Notes, Board, Monitor, and Browser. Show or hide any tab in Settings → Panels. Disabling the active tab selects another enabled tab; disabling every tab shows an empty-state message. Browser tabs and pages are retained while hidden. Press `Ctrl+Shift+S` to show or hide the entire pane. Each tab is also a command palette action, and shortcuts can be reassigned in **Settings → Shortcuts**.
+The right pane contains Files, Review, Notes, Board, Monitor, Sessions, and Browser. Show or hide any tab in Settings → Panels. Disabling the active tab selects another enabled tab; disabling every tab shows an empty-state message. Browser tabs and pages are retained while hidden. Press `Ctrl+Shift+S` to show or hide the entire pane. Each tab is also a command palette action, and shortcuts can be reassigned in **Settings → Shortcuts**.
 
 Drag the divider between the terminals and the right pane to adjust its width. The pane can expand with the window, including when maximized, while leaving room for terminals. Your preferred width is saved; shrinking the window temporarily reduces the displayed width. Resizing retains running terminal sessions.
 
@@ -222,6 +223,28 @@ Browser pages run with sandboxing and isolation, without Node.js integration or 
 
 Downloads, extensions, and saved login credentials are not supported.
 
+## Sessions
+
+**Sessions** is a library of saved Codex, Claude Code, Grok, and Antigravity conversations, separate from the running processes shown in Monitor. It is enabled by default. Toggle the tab in **Settings → Panels**, with **Ctrl+Alt+Y** (**⌘+Option+Y** on macOS), or with **Toggle Sessions tab** in the command palette. Reassign the shortcut in **Settings → Shortcuts → Side pane**.
+
+- **Find a conversation:** Start with **Current project**, switch to **All projects**, filter by agent, or search saved titles and request previews. Sessions are grouped by last-updated date; pinned sessions appear first. Pins are saved locally.
+- **Read:** Select a session to see its summary card and chat. User messages appear in right-aligned bubbles; agent replies support Markdown, code blocks, lists, and tables. Copy individual messages with the copy action. Remote images and embedded HTML are not loaded. HTTP/HTTPS links open in the system browser when clicked.
+- **Expand:** Use **Expand sessions** for an app-wide view. Wider views show the list and conversation side by side; narrow views use **Back** to return to the list. Scrollbars are hidden, while scrolling remains available.
+- **Resume:** **Resume in new Space** creates a new terminal in an already open workspace for that session's working directory, keeping existing terminals intact. When Monitor recognizes the session in a VINTAGE terminal, **Open terminal** returns to it instead. A recognized session running outside VINTAGE cannot be resumed again from this panel. Resume requires the corresponding CLI installed on that OS.
+- **Monitor link:** **Open in Sessions** in Monitor details opens the matching saved conversation, when it is present in the bounded history list.
+
+| Agent           | Local history source                                           | Resume command            |
+| :-------------- | :------------------------------------------------------------- | :------------------------ |
+| Codex           | `$CODEX_HOME/sessions`, or `~/.codex/sessions`                 | `codex resume <id>`       |
+| Claude Code     | `$CLAUDE_CONFIG_DIR/projects`, or `~/.claude/projects`         | `claude --resume <id>`    |
+| Grok            | `~/.grok/sessions` summaries and update logs                   | `grok --resume <id>`      |
+| Antigravity CLI | `~/.gemini/antigravity-cli` summaries DB and brain transcripts | `agy --conversation <id>` |
+| Antigravity IDE | `~/.gemini/antigravity` and `~/.gemini/antigravity-ide`        | Browse only               |
+
+History reads are local and read-only. The list is limited to 500 recently updated log files/conversations, with a bounded directory scan; warnings identify scan limits or unreadable sources. Large conversations show labeled excerpts (bounded beginning/end reads and at most 100 displayed messages), and search covers titles and request previews rather than the entire transcript. Sessions with missing transcripts can still show Grok/Antigravity metadata. Internal reasoning and tool outputs are excluded. Normal Claude launches preserve an unset `CLAUDE_CONFIG_DIR`, so resuming does not switch to a different initial-setup file.
+
+Linux, macOS, and Windows resume paths are implemented. Windows supports native executables and npm `.cmd` / `.bat` launchers; path comparisons accept case and separator differences. CLI discovery also checks common user, npm, nvm, and Homebrew install locations when a GUI app inherits a limited PATH. **Windows/macOS Sessions support is experimental and physical-device testing remains pending.** CLI availability and installed-app updater behavior are separate checks.
+
 ## Monitor
 
 ![Expanded Monitor showing system resources, AI usage, and agent sessions](../assets/readme/vintage-monitor.png)
@@ -302,7 +325,7 @@ For classification logs, fully quit VINTAGE and run `VINTAGE_JEV_DEBUG=1 pnpm de
 
 ## Settings and saved data
 
-Panels independently enables Files, Review, Notes, Board, Monitor, and Browser. Disabled tabs cannot be opened through shortcuts or the command palette. Tab toggles can be reassigned in Settings → Shortcuts: Files defaults to `Ctrl+Alt+E`, Review to `Ctrl+Alt+G`, Monitor to `Ctrl+Alt+U`, and Browser to `Ctrl+Alt+B`.
+Panels independently enables Files, Review, Notes, Board, Monitor, Sessions, and Browser. Disabled tabs cannot be opened through shortcuts or the command palette. Tab toggles can be reassigned in Settings → Shortcuts: Files defaults to `Ctrl+Alt+E`, Review to `Ctrl+Alt+G`, Monitor to `Ctrl+Alt+U`, Sessions to `Ctrl+Alt+Y`, and Browser to `Ctrl+Alt+B`.
 
 Settings changes are saved automatically. Invalid URLs are not saved. Jev API keys still require the dedicated Save API key or Clear saved key action.
 

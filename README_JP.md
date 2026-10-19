@@ -18,6 +18,7 @@ VINTAGEは、プロジェクト、Space、ターミナルをまとめて管理�
 - **FilesとGit Review**: ファイルの閲覧・コピー・リネーム、シンタックスハイライト・行番号・行移動に対応したMarkdown編集、ドキュメントの拡大・縮小、テキストの検索・置換、Git差分確認に対応しています。Filesは画面内の行だけを描画し、フォルダの同時取得数を制限します。ソースは同時に最大600行を描画しながら連続スクロールでき、読み込んだ全文を検索して検索終了時の位置も保持します。Reviewでは大量の変更ファイルと差分をページに分けて表示し、大きすぎる差分はファイルプレビューから確認できます。
 - **NotesとBoard**: WorkspaceごとのメモとKanbanボードで作業を管理。カードにラベル・優先度・期限・Subtaskの進捗を表示し、Board拡大時は一覧の横に詳細ドロワーを開きます。検索・Filter・Sort・ドラッグやキーボードでの並べ替えに対応します。 [vintage-board Agent Skill](skills/vintage-board/SKILL.md)を配布すると、Agentから同梱Pythonでカード・Notes・Subtaskを更新できます。
 - **Agent Monitor**: Monitorタブで、Claude Code / Codex / Antigravity / OpenCode / ZCode / Grokの実行状態、現在のツール、コンテキスト使用率を確認できます。abtopや外部収集ツールのインストールは不要です。 Space横の状態表示にもSession情報が反映され、Monitorタブを閉じている間も更新されます。 実行中からWaitingへ変わったSessionは、ターミナルに紐付かないものも既存のAttentionトースト・デスクトップ通知で知らせ、Open Spaceから対象Space・ターミナルへ移動できます。ターミナルに紐付かないSessionはMonitorを開きます。Waitingには応答完了と入力待ちが含まれます。通知設定のSession wait notificationsで無効にできます。
+- **Session履歴**：独立したSessionsパネルでCodex・Claude Code・Grok・Antigravityの保存済み会話を検索・再開できます。プロジェクト／Agentでの絞り込み、ピン留め、Chat表示に対応し、既存のターミナルを維持します。[Sessionsガイド](docs/FEATURES_JP.md#sessions)をご覧ください。
 - **AI使用制限の表示**: CodexやClaude CodeなどのAI CLIの残りクォータ、リセット時刻、クレジットをMonitor内で確認できます。任意の [CodexBar CLI](https://github.com/steipete/codexbar) が必要です。
 - **複数のシェルに対応**: zsh、bash、fish、またはOSの既定シェルを選べます。Windows ではコマンドプロンプト、Windows PowerShell、PowerShell 7、Git Bash に対応しています。
 - **テキストの自動コピー**: ターミナル出力をマウスで選択するとクリップボードへコピーします。
@@ -64,6 +65,12 @@ pnpm start
 
 ローカルルールだけでは判別しづらいターミナル出力を、[Jev](https://docs.typesafe.ai/sdk/javascript) で分類できます。連携は **Settings → Integrations** から設定します。判定される状態、プライバシー、APIキーの設定方法は[機能と画面のガイド](docs/FEATURES_JP.md)をご覧ください。
 
+## Sessions
+
+Sessionsタブは**Ctrl+Alt+Y**（macOSは**⌘+Option+Y**）でON/OFFでき、**Settings → Shortcuts → Side pane → Toggle Sessions tab**で変更できます。
+
+**Sessions**タブでは、実行中のMonitorとは別に、保存済みのCodex／Claude Code／Grok／Antigravityの会話を閲覧できます。タイトル・依頼文の検索、プロジェクト／Agentでの絞り込み、ピン留め、会話の拡大表示に対応します。Linux／macOS／Windowsの**Resume in new Space**は、VINTAGEで開いているプロジェクトに新しいターミナルを追加し、既存のターミナルは保持します。Windowsの実行ファイルとnpmの`.cmd`／`.bat`経由の起動に対応します。CLIはPATHに加え、ユーザー領域・npm・Homebrewなどの標準的な導入先から探索し、Windowsではパスの大文字小文字・区切り文字の違いを吸収します。各OSに対応するCLIのインストールが必要です。Windows／macOSのSessions対応は試験対応で、実機確認はpendingです。履歴は`CODEX_HOME`／`CLAUDE_CONFIG_DIR`（未設定なら標準の場所）からローカルで読み取り、最終更新順で最大500ログを表示します。大きな会話は抜粋であることを明示します。Grokの履歴は`~/.grok/sessions`、Antigravityの履歴は`~/.gemini/{antigravity-cli,antigravity,antigravity-ide}`から取得します。Grokは`grok --resume`、Antigravity CLIは`agy --conversation`で再開し、Antigravity IDEの履歴は閲覧のみ対応します。会話ログが存在しない場合もSessionのメタデータは表示します。他のAgentの履歴にはまだ対応していません。
+
 ## MonitorとAI Usage
 
 **対応OSの状況：Linuxはサポート対象です。WindowsのMonitorは試験中のプレリリース扱いで、実機試験はpendingです。macOSの実装はありますが、動作未確認です。**
@@ -76,7 +83,7 @@ Windowsでは同梱のRustヘルパーでプロセス検出とCPU／RAMを取得
 
 任意の **AI Usage** はCPU／Memoryの直下に表示され、サイズを揃えたコンパクトなProviderカードでクォータ、リセット時刻、クレジット、コストを確認できます。CodexBarが`limitResetCredits`を返す場合は、通常のCreditsに代えて利用可能数と次の有効期限を表示し、Today／30 daysのコストは非表示にします。**Settings → Usage → Show Usage in Monitor**で有効にし、[CodexBar CLI](https://github.com/steipete/codexbar)を設定します。既存のUsage設定は引き継がれ、独立したUsageタブはありません。UsageはMonitorの表示中、専用の更新間隔で取得します。情報源と制限は[機能ガイド](docs/FEATURES_JP.md#monitor)、CodexBarの導入方法は[Usage制限のガイド](docs/FEATURES_JP.md#usage制限codexbar)をご覧ください。
 
-**Settings → Panels**でFiles・Review・Notes・Board・Monitor・Browserを個別にON/OFFできます。変更は自動保存され、タブ表示の切り替えにはショートカットも設定できます。
+**Settings → Panels**でFiles・Review・Notes・Board・Monitor・Sessions・Browserを個別にON/OFFできます。変更は自動保存され、タブ表示の切り替えにはショートカットも設定できます。
 
 **Settings → Appearance**の**Color scheme**で**System / Light / Dark**を選び、ThemesでVintage・Graphite・Ocean・Grove・Iris・Emberの6種類からライト用・ダーク用の配色を個別に指定できます。丸いプレビューに太陽・月の目印が付き、選択中の配色はリングで表示されます。パレット・アップロード・コピーのアイコンにマウスを合わせると、**Create theme / Import theme / Duplicate**の説明が出ます。カスタムテーマでは背景色とアクセント色を編集でき、VINTAGE形式のJSONで入出力できます。[テーマの操作ガイド](docs/FEATURES_JP.md#外観とカスタムテーマ)をご覧ください。
 

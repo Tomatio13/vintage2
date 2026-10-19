@@ -1,6 +1,6 @@
 {
   "name": "vintage",
-  "version": "0.2.33",
+  "version": "0.2.34",
   "private": true,
   "description": "A local multi-agent terminal workspace",
   "homepage": "https://github.com/Tomatio13/vintage2",
@@ -30,6 +30,7 @@
     "fmt:check": "oxfmt --check src tests scripts skills *.json *.md *.mjs *.ts",
     "test": "vitest run",
     "test:e2e:monitor": "pnpm build && node tests/e2e/monitor-smoke.mjs && node tests/e2e/monitor-agents-smoke.mjs && node tests/e2e/monitor-usage-smoke.mjs",
+    "test:e2e:sessions": "pnpm build && node tests/e2e/sessions-smoke.mjs",
     "test:e2e:board": "pnpm build && node tests/e2e/board-smoke.mjs",
     "test:e2e": "pnpm build && node tests/e2e/electron-smoke.mjs",
     "verify:boundaries": "node scripts/check-boundaries.mjs",

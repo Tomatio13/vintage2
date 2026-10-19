@@ -1,3 +1,5 @@
+import { sessionPathsEqual } from "../shared/sessionHistory.js";
+import { sessionLaunch } from "./lib/sessionLaunch.js";
 import { applyTheme } from "./lib/themes.js";
 import { browserShortcut } from "../shared/browserShortcuts.js";
 import { Check, CircleAlert, FolderOpen, OctagonAlert, Plus, TriangleAlert, X } from "lucide-react";
@@ -988,6 +990,8 @@ export function App() {
         return ui.togglePanel("files");
       case "toggle-review":
         return ui.togglePanel("review");
+      case "toggle-sessions":
+        return ui.togglePanel("sessions");
       case "toggle-monitor":
         return ui.togglePanel("monitor");
       case "toggle-browser":
@@ -1244,6 +1248,7 @@ export function App() {
   const toggleBoardShortcut = shortcutText(ui.shortcuts, "toggle-board");
   const toggleFilesShortcut = shortcutText(ui.shortcuts, "toggle-files");
   const toggleReviewShortcut = shortcutText(ui.shortcuts, "toggle-review");
+  const toggleSessionsShortcut = shortcutText(ui.shortcuts, "toggle-sessions");
   const toggleMonitorShortcut = shortcutText(ui.shortcuts, "toggle-monitor");
   const toggleBrowserShortcut = shortcutText(ui.shortcuts, "toggle-browser");
   const openFilesShortcut = shortcutText(ui.shortcuts, "open-files");
@@ -1489,6 +1494,26 @@ export function App() {
           icon: "review",
           ...(openReviewShortcut ? { shortcut: openReviewShortcut } : {}),
           onSelect: () => ui.showSidePaneTab("review"),
+        },
+        {
+          id: "action:toggle-sessions",
+          kind: "action",
+          section: "actions",
+          title: "Toggle Sessions tab",
+          keywords: ["history", "sessions", "enable", "disable", "show", "hide"],
+          icon: "terminal",
+          ...(toggleSessionsShortcut ? { shortcut: toggleSessionsShortcut } : {}),
+          onSelect: () => ui.togglePanel("sessions"),
+        },
+        {
+          id: "action:open-sessions",
+          kind: "action",
+          section: "actions",
+          title: "Open Sessions",
+          keywords: ["history", "resume", "conversation", "agents", "sessions"],
+          icon: "terminal",
+          disabled: !ui.sessionsPanelEnabled,
+          onSelect: () => ui.showSidePaneTab("sessions"),
         },
         {
           id: "action:open-monitor",
@@ -1814,6 +1839,34 @@ export function App() {
                 workspaceId={active?.available ? active.id : null}
                 workspaceName={active?.name ?? null}
                 onOpenFile={openFile}
+                workspacePath={active?.path}
+                onResumeSession={(session) => {
+                  const workspace = workspaces.find(
+                    (item) =>
+                      item.available &&
+                      sessionPathsEqual(
+                        item.path,
+                        session.cwd,
+                        window.desktop?.platform === "win32",
+                      ),
+                  );
+                  if (!workspace)
+                    throw new Error(
+                      "Open this session's project folder in VINTAGE before resuming.",
+                    );
+                  if (workspace.tabs.length >= WORKSPACE_LIMITS.spacesPerWorkspace)
+                    throw new Error("Close a Space before resuming another session.");
+                  const next = createSpace(session.title.slice(0, 80));
+                  sessionLaunch.set(next.activePaneId, session.key);
+                  setWorkspaces((items) =>
+                    items.map((item) =>
+                      item.id === workspace.id
+                        ? { ...item, tabs: [...item.tabs, next], activeTabId: next.id }
+                        : item,
+                    ),
+                  );
+                  setActiveId(workspace.id);
+                }}
                 onOpenTerminal={(paneId) => {
                   for (const workspace of workspaces) {
                     const tab = workspace.tabs.find((item) =>

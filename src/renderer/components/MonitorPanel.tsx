@@ -485,6 +485,23 @@ function SessionDetail({
         <h3 className="text-ui-xs font-semibold uppercase tracking-wider text-foreground-subtle">
           Session details
         </h3>
+        {session.sessionId &&
+          ["codex", "claude", "grok", "antigravity"].includes(session.agent) && (
+            <button
+              type="button"
+              className="rounded-md px-2 py-1 text-ui-xs hover:bg-hover"
+              onClick={() =>
+                useUiStore.setState({
+                  sessionHistoryRequest: { agent: session.agent, sessionId: session.sessionId! },
+                  sessionsPanelEnabled: true,
+                  activeSidePaneTabId: "sessions",
+                  sidePaneOpen: true,
+                })
+              }
+            >
+              Open in Sessions
+            </button>
+          )}
         {session.paneId && onOpenTerminal && (
           <button
             type="button"

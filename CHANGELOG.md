@@ -1,5 +1,34 @@
 # VINTAGE Changelog
 
+## [0.2.34] - 2026-10-19
+
+### Added
+
+- **Sessions panel:** Browse saved Codex, Claude Code, Grok, and Antigravity conversations separately from live Monitor activity. Search titles and request previews, filter projects and agents, pin sessions, and browse date groups.
+- **Chat reader:** Show user bubbles, Markdown agent replies, code blocks and tables, per-message copy actions, a compact session summary card, and an expanded list/conversation view. Keep scrolling while hiding vertical scrollbars.
+- **Session resume:** Resume supported conversations in a new Space while preserving existing terminals, or return to a recognized live VINTAGE terminal. Add Open in Sessions from Monitor.
+- **Cross-platform launch:** Support Windows native executables and npm command shims, common user/npm/nvm/Homebrew install locations, and Windows case/separator differences in project paths.
+- **Sessions visibility shortcut:** Add configurable Toggle Sessions tab, defaulting to Ctrl+Alt+Y (Command+Option+Y on macOS), in Settings and the command palette.
+
+### Fixed
+
+- Preserve an unset CLAUDE_CONFIG_DIR when resuming Claude Code so the global setup/configuration file stays at its normal location.
+- Reuse the Attention settings dropdown component and common button styles for Sessions controls.
+
+### Validation
+
+- Boundaries, TypeScript, lint, formatting, 507 passing tests (one skipped), and production builds passed.
+- Linux Electron smoke verified fixture history/chat rendering, pinning, expansion/Escape, resume arguments/config root, and preservation of the existing terminal. Actual Grok/Antigravity model continuation was not exercised.
+
+### Documentation and limits
+
+- Synchronize English/Japanese README and feature guides for Sessions, local data sources, chat behavior, shortcuts, and platform coverage.
+- Bound history discovery and transcript reads; show up to 500 recent logs/conversations and labeled excerpts from large sessions. Exclude internal reasoning and tool outputs from chat.
+- Antigravity CLI supports resume; Antigravity IDE histories support browsing only. The matching agent CLI must be installed.
+- Windows/macOS Sessions support is experimental and physical-device testing remains pending. Windows Monitor remains an experimental pre-release, macOS Monitor remains unverified, and installed-app updater verification remains pending.
+
+**Full Changelog:** [v0.2.33...v0.2.34](https://github.com/Tomatio13/vintage2/compare/v0.2.33...v0.2.34)
+
 ## [0.2.33] - 2026-10-19
 
 ### Added

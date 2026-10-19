@@ -26,6 +26,8 @@ export const DesktopChannels = {
   attentionSettingsGet: "attention:settings-get",
   attentionSettingsSet: "attention:settings-set",
   monitorSnapshotGet: "monitor:snapshot-get",
+  sessionHistoryList: "sessions:list",
+  sessionHistoryDetail: "sessions:detail",
   codexbarUsageGet: "codexbar:usage-get",
   codexbarStatusGet: "codexbar:status-get",
   codexbarPathChoose: "codexbar:path-choose",
@@ -428,6 +430,7 @@ export interface TerminalCreateOptions extends TerminalResize {
   shell?: TerminalShell;
   tabTitle?: string;
   paneTitle?: string;
+  resumeSessionKey?: string;
 }
 
 export interface DesktopBridge {
@@ -461,6 +464,8 @@ export interface DesktopBridge {
   getAttentionSettings(): Promise<AttentionSettings>;
   setAttentionSettings(settings: AttentionSettings): Promise<AttentionSettings>;
   getMonitorSnapshot(): Promise<import("./monitor.js").MonitorSnapshot>;
+  listSessionHistory(refresh?: boolean): Promise<import("./sessionHistory.js").SessionHistoryList>;
+  getSessionHistoryDetail(key: string): Promise<import("./sessionHistory.js").SessionHistoryDetail>;
   getCodexbarUsage(path: string): Promise<CodexbarUsageResult>;
   getCodexbarStatus(path: string): Promise<CodexbarStatusResult>;
   chooseCodexbarPath(): Promise<string | null>;

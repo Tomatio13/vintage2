@@ -1,3 +1,4 @@
+import { SettingsSelect } from "./SettingsSelect.js";
 import { restoreThemePreferences } from "../lib/themes.js";
 import { ThemeSettings } from "./ThemeSettings.js";
 import {
@@ -13,8 +14,6 @@ import {
   Plug,
   Terminal,
   type LucideIcon,
-  Check,
-  ChevronDown,
   CloudDownload,
   FolderOpen,
   Minus,
@@ -26,7 +25,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useId,
   useState,
   type ReactNode,
   type CSSProperties,
@@ -99,6 +97,7 @@ const shortcutGroups: Array<[string, ShortcutAction[]]> = [
       "toggle-board",
       "open-monitor",
       "toggle-monitor",
+      "toggle-sessions",
       "open-browser",
       "toggle-browser",
     ],
@@ -125,6 +124,7 @@ const shortcutLabels: Record<ShortcutAction, string> = {
   "toggle-board": "Toggle Board tab",
   "toggle-browser": "Toggle Browser tab",
   "toggle-monitor": "Toggle Monitor",
+  "toggle-sessions": "Toggle Sessions tab",
   "toggle-review": "Toggle Review tab",
   "toggle-files": "Toggle Files tab",
   "open-files": "Open Files pane",
@@ -133,112 +133,6 @@ const shortcutLabels: Record<ShortcutAction, string> = {
   "open-browser": "Open Browser pane",
   "close-pane": "Close pane",
 };
-
-function SettingsSelect({
-  value,
-  onChange,
-  label,
-  options,
-}: {
-  value: string;
-  onChange(value: string): void;
-  label: string;
-  options: Array<{ id: string; label: string }>;
-}) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const menuId = useId();
-
-  useEffect(() => {
-    if (!open) return;
-    const dismiss = (event: PointerEvent) => {
-      if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", dismiss);
-    root.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
-    return () => document.removeEventListener("pointerdown", dismiss);
-  }, [open]);
-
-  return (
-    <div
-      className="relative"
-      ref={root}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
-      }}
-    >
-      <button
-        aria-label={label}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        ref={trigger}
-        className="flex h-9 w-52 items-center justify-between rounded-lg border border-border bg-panel px-3 text-ui-sm text-foreground outline-none hover:bg-hover focus-visible:border-brand"
-        onClick={() => setOpen((current) => !current)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            event.preventDefault();
-            setOpen(true);
-          }
-        }}
-      >
-        {options.find((item) => item.id === value)?.label ?? value}
-        <ChevronDown aria-hidden="true" className="size-4 text-foreground-subtle" />
-      </button>
-      {open && (
-        <div
-          aria-label={`${label} options`}
-          id={menuId}
-          role="menu"
-          className="absolute right-0 top-full z-10 mt-1 min-w-full w-max max-w-80 rounded-xl border border-popover-border bg-popover p-1 text-foreground shadow-xl"
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              event.stopPropagation();
-              setOpen(false);
-              trigger.current?.focus();
-              return;
-            }
-            if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-            event.preventDefault();
-            const items = Array.from(
-              event.currentTarget.querySelectorAll<HTMLButtonElement>("button"),
-            );
-            const current = items.indexOf(document.activeElement as HTMLButtonElement);
-            const next =
-              event.key === "Home"
-                ? 0
-                : event.key === "End"
-                  ? items.length - 1
-                  : (current + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
-            items[next]?.focus();
-          }}
-        >
-          {options.map((item) => (
-            <button
-              aria-checked={value === item.id}
-              role="menuitemradio"
-              tabIndex={value === item.id ? 0 : -1}
-              key={item.id}
-              className={`flex w-full items-center justify-between gap-4 rounded-lg px-3 py-2.5 text-left text-ui-base outline-none hover:bg-hover focus-visible:bg-hover ${value === item.id ? "bg-selected" : ""}`}
-              onClick={() => {
-                onChange(item.id);
-                setOpen(false);
-                trigger.current?.focus();
-              }}
-            >
-              {item.label}
-              {value === item.id && (
-                <Check aria-hidden="true" className="size-4 text-foreground-subtle" />
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function SettingsToggle({
   label,
@@ -359,6 +253,7 @@ export function SettingsDialog() {
       notesPanelEnabled: store.notesPanelEnabled,
       boardPanelEnabled: store.boardPanelEnabled,
       monitorPanelEnabled: store.monitorPanelEnabled,
+      sessionsPanelEnabled: store.sessionsPanelEnabled ?? true,
       usagePanelEnabled: store.usagePanelEnabled,
       codexbarPath: store.codexbarPath,
       usageRefreshSeconds: store.usageRefreshSeconds,
@@ -384,6 +279,7 @@ export function SettingsDialog() {
       store.notesPanelEnabled,
       store.boardPanelEnabled,
       store.monitorPanelEnabled,
+      store.sessionsPanelEnabled,
       store.usagePanelEnabled,
       store.codexbarPath,
       store.usageRefreshSeconds,
@@ -1714,6 +1610,11 @@ export function SettingsDialog() {
                     "Show local agent execution activity and optional AI Usage.",
                   ],
                   [
+                    "Sessions",
+                    "sessionsPanelEnabled",
+                    "Find and resume saved Codex, Claude Code, Grok and Antigravity conversations.",
+                  ],
+                  [
                     "Browser",
                     "browserPanelEnabled",
                     "Show the built-in browser. Turning it off keeps your tabs and pages.",
@@ -1724,7 +1625,7 @@ export function SettingsDialog() {
                   <Field label={`Show ${label} tab`} description={description}>
                     <SettingsToggle
                       label={`Show ${label} tab`}
-                      checked={draft[setting]}
+                      checked={draft[setting] ?? true}
                       onChange={(enabled) => change({ [setting]: enabled })}
                     />
                   </Field>

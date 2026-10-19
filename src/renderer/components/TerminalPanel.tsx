@@ -1,3 +1,4 @@
+import { sessionLaunch } from "../lib/sessionLaunch.js";
 import { FitAddon } from "@xterm/addon-fit";
 import { ImageAddon } from "@xterm/addon-image";
 import { SearchAddon } from "@xterm/addon-search";
@@ -680,6 +681,7 @@ export function TerminalPanel({
         paneId,
         tabTitle: tabTitleRef.current,
         paneTitle: titleRef.current,
+        ...(sessionLaunch.get(paneId) ? { resumeSessionKey: sessionLaunch.get(paneId)! } : {}),
         shell,
         cols: Math.max(2, terminal.cols),
         rows: Math.max(1, terminal.rows),
@@ -689,6 +691,7 @@ export function TerminalPanel({
           await bridge.closeTerminal(session.id);
           return;
         }
+        sessionLaunch.consume(paneId);
         sessionIdRef.current = session.id;
         setMonitorMode(session.monitorMode ?? DEFAULT_TERMINAL_MONITOR_MODE);
         setStatus(`${session.shell} · ${session.cwd}${session.reattached ? " · reconnected" : ""}`);

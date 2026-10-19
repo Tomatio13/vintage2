@@ -17,6 +17,7 @@ function reset() {
     notesPanelEnabled: true,
     boardPanelEnabled: true,
     monitorPanelEnabled: true,
+    sessionsPanelEnabled: true,
     usagePanelEnabled: false,
     settingsOpen: false,
     shortcuts: defaultShortcuts.map((binding) => ({ ...binding })),
@@ -57,6 +58,7 @@ it("autosaves all six panel switches and adds four toggle shortcuts", () => {
     "Toggle Board tab",
     "Open Monitor",
     "Toggle Monitor",
+    "Toggle Sessions tab",
     "Open Browser pane",
     "Toggle Browser tab",
   ]);

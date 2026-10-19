@@ -1,3 +1,5 @@
+import { resolveSessionCommand } from "./sessionCommand.js";
+import { sessionHistory } from "./sessionHistory.js";
 import { createHash, randomUUID } from "node:crypto";
 import { lstat, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
@@ -178,7 +180,17 @@ function createTerminal(
   if (detached) {
     return reattachSession(detached, event.sender, options);
   }
-  const command = prepareShellIntegration(resolveShell(options.shell), cleanEnvironment());
+  const resume = options.resumeSessionKey
+    ? sessionHistory.resume(options.resumeSessionKey, cwd)
+    : null;
+  const command = resume
+    ? {
+        ...resolveSessionCommand(resume.file, resume.args, {
+          env: { ...cleanEnvironment(), ...resume.env },
+        }),
+        cleanup() {},
+      }
+    : prepareShellIntegration(resolveShell(options.shell), cleanEnvironment());
   const profileKey = terminalProfileKey(cwd, options.tabTitle, options.paneTitle);
   const monitorMode = attentionSettings.getTerminalMode(profileKey);
   let process: IPty;
@@ -455,7 +467,7 @@ function closeSession(terminal: OwnedTerminal): void {
 
 function parseCreateOptions(raw: unknown): TerminalCreateOptions {
   if (!raw || typeof raw !== "object") throw new TypeError("Terminal options are required");
-  const { workspaceId, paneId, shell, tabTitle, paneTitle, ...size } =
+  const { workspaceId, paneId, shell, tabTitle, paneTitle, resumeSessionKey, ...size } =
     raw as Partial<TerminalCreateOptions>;
   if (typeof workspaceId !== "string" || !workspaceId) {
     throw new TypeError("A registered workspace is required");
@@ -466,6 +478,11 @@ function parseCreateOptions(raw: unknown): TerminalCreateOptions {
   if (shell !== undefined && !TERMINAL_SHELLS.includes(shell)) {
     throw new TypeError("Unsupported terminal shell");
   }
+  if (
+    resumeSessionKey !== undefined &&
+    (typeof resumeSessionKey !== "string" || !/^[a-f0-9]{64}$/.test(resumeSessionKey))
+  )
+    throw new TypeError("Invalid session key");
   for (const title of [tabTitle, paneTitle]) {
     if (title !== undefined && (typeof title !== "string" || title.length > 120)) {
       throw new TypeError("Terminal profile titles must be strings no longer than 120 characters");
@@ -477,6 +494,7 @@ function parseCreateOptions(raw: unknown): TerminalCreateOptions {
     ...(shell === undefined ? {} : { shell }),
     ...(tabTitle === undefined ? {} : { tabTitle }),
     ...(paneTitle === undefined ? {} : { paneTitle }),
+    ...(resumeSessionKey === undefined ? {} : { resumeSessionKey }),
     ...parseSize(size),
   };
 }

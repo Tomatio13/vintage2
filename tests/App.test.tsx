@@ -691,6 +691,26 @@ describe("VINTAGE workspace shell", () => {
     expect(useUiStore.getState().boardPanelEnabled).toBe(false);
   });
 
+  it("toggles Sessions with its configurable shortcut and preserves the selection fallback", () => {
+    useUiStore.setState({ sessionsPanelEnabled: true, activeSidePaneTabId: "sessions" });
+    renderApp();
+    fireEvent.keyDown(window, { key: "y", ctrlKey: true, altKey: true });
+    expect(useUiStore.getState().sessionsPanelEnabled).toBe(false);
+    expect(screen.queryByRole("button", { name: "Sessions" })).not.toBeInTheDocument();
+    expect(useUiStore.getState().activeSidePaneTabId).not.toBe("sessions");
+    fireEvent.keyDown(window, { key: "y", ctrlKey: true, altKey: true });
+    expect(useUiStore.getState().sessionsPanelEnabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Shortcuts" }));
+    fireEvent.click(screen.getByLabelText("Set Toggle Sessions tab shortcut"));
+    fireEvent.keyDown(window, { key: "y", altKey: true });
+    expect(screen.getByLabelText("Set Toggle Sessions tab shortcut")).toHaveTextContent("AltY");
+    fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
+    fireEvent.keyDown(window, { key: "y", altKey: true });
+    expect(useUiStore.getState().sessionsPanelEnabled).toBe(false);
+    useUiStore.setState({ sessionsPanelEnabled: true });
+  });
+
   it("leaves the find-in-terminal shortcut for the terminal to handle", () => {
     renderApp();
     const terminal = document.createElement("div");

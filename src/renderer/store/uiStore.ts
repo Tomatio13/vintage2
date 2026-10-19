@@ -64,6 +64,7 @@ export const shortcutActions = [
   "toggle-board",
   "toggle-browser",
   "toggle-monitor",
+  "toggle-sessions",
   "toggle-review",
   "toggle-files",
   "open-files",
@@ -100,6 +101,7 @@ export const defaultShortcuts: ShortcutBinding[] = [
   { action: "toggle-board", key: "k", ctrl: true, alt: true, shift: false },
   { action: "toggle-browser", key: "b", ctrl: true, alt: true, shift: false },
   { action: "toggle-monitor", key: "u", ctrl: true, alt: true, shift: false },
+  { action: "toggle-sessions", key: "y", ctrl: true, alt: true, shift: false },
   { action: "toggle-review", key: "g", ctrl: true, alt: true, shift: false },
   { action: "toggle-files", key: "e", ctrl: true, alt: true, shift: false },
   { action: "open-files", key: "e", ctrl: true, alt: false, shift: true },
@@ -129,6 +131,7 @@ export interface VintageSettings {
   notesPanelEnabled: boolean;
   boardPanelEnabled: boolean;
   monitorPanelEnabled: boolean;
+  sessionsPanelEnabled?: boolean;
   usagePanelEnabled: boolean;
   codexbarPath: string;
   usageRefreshSeconds: number;
@@ -145,6 +148,7 @@ interface UiState extends VintageSettings {
   activityHeight: number;
   activeSidePaneTabId: string;
   monitorSessionRequest: { id: string } | null;
+  sessionHistoryRequest?: { agent: string; sessionId: string } | null;
   openMonitorSession(id: string): void;
   browserTabs: BrowserTabState[];
   closedBrowserTabs: BrowserTabState[];
@@ -200,6 +204,7 @@ export const panelSettingKeys = {
   notes: "notesPanelEnabled",
   board: "boardPanelEnabled",
   monitor: "monitorPanelEnabled",
+  sessions: "sessionsPanelEnabled",
   usage: "usagePanelEnabled",
   browser: "browserPanelEnabled",
 } as const;
@@ -209,11 +214,11 @@ export function isSidePaneTabEnabled(state: VintageSettings, tabId: string): boo
   if (tabId === "usage") return state.monitorPanelEnabled && state.usagePanelEnabled;
   if (tabId.startsWith("browser-")) return state.browserPanelEnabled;
   const key = panelSettingKeys[tabId as PanelName];
-  return key !== undefined && state[key];
+  return key !== undefined && Boolean(state[key]);
 }
 
 export function firstEnabledSidePaneTab(state: UiState): string {
-  for (const name of ["files", "review", "notes", "board", "monitor"] as const) {
+  for (const name of ["files", "review", "notes", "board", "monitor", "sessions"] as const) {
     if (state[panelSettingKeys[name]]) return name;
   }
   return state.browserPanelEnabled ? (visibleBrowserTabs(state)[0]?.id ?? "") : "";
@@ -261,6 +266,7 @@ export const useUiStore = create<UiState>()(
       notesPanelEnabled: true,
       boardPanelEnabled: true,
       monitorPanelEnabled: true,
+      sessionsPanelEnabled: true,
       usagePanelEnabled: false,
       codexbarPath: "",
       usageRefreshSeconds: 120,
@@ -684,6 +690,7 @@ export const useUiStore = create<UiState>()(
         notesPanelEnabled,
         boardPanelEnabled,
         monitorPanelEnabled,
+        sessionsPanelEnabled,
         usagePanelEnabled,
         codexbarPath,
         usageRefreshSeconds,
@@ -720,6 +727,7 @@ export const useUiStore = create<UiState>()(
         notesPanelEnabled,
         boardPanelEnabled,
         monitorPanelEnabled,
+        sessionsPanelEnabled,
         usagePanelEnabled,
         codexbarPath,
         usageRefreshSeconds,
@@ -743,7 +751,7 @@ export const useUiStore = create<UiState>()(
               tab.id === persisted.activeSidePaneTabId &&
               (!tab.workspaceId || tab.workspaceId === browserWorkspaceId),
           ) ||
-            ["files", "review", "notes", "board", "monitor", "usage"].includes(
+            ["files", "review", "notes", "board", "monitor", "sessions", "usage"].includes(
               persisted.activeSidePaneTabId,
             ))
             ? persisted.activeSidePaneTabId
@@ -908,7 +916,7 @@ function restoreSelections(value: unknown): Record<string, string> {
         ([, id]) =>
           typeof id === "string" &&
           (/^browser-[1-9]\d{0,8}$/.test(id) ||
-            ["files", "review", "notes", "board", "monitor", "usage"].includes(id)),
+            ["files", "review", "notes", "board", "monitor", "sessions", "usage"].includes(id)),
       ),
   );
 }

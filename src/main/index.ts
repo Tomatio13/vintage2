@@ -1,3 +1,4 @@
+import { sessionHistory } from "./sessionHistory.js";
 import {
   app,
   BrowserWindow,
@@ -485,6 +486,14 @@ function registerDesktopIpc(
   ipcMain.handle(DesktopChannels.attentionSettingsSet, (event, raw: unknown) => {
     resolveSenderWindow(event);
     return attentionSettings.setSettings(raw);
+  });
+  ipcMain.handle(DesktopChannels.sessionHistoryList, (event, refresh: unknown) => {
+    resolveSenderWindow(event);
+    return sessionHistory.list(refresh === true);
+  });
+  ipcMain.handle(DesktopChannels.sessionHistoryDetail, (event, key: unknown) => {
+    resolveSenderWindow(event);
+    return sessionHistory.detail(key);
   });
   ipcMain.handle(DesktopChannels.monitorSnapshotGet, async (event) => {
     resolveSenderWindow(event);

@@ -1,3 +1,5 @@
+import { SessionsPanel } from "./SessionsPanel.js";
+import type { HistorySession } from "../../shared/sessionHistory.js";
 import { browserShortcut } from "../../shared/browserShortcuts.js";
 import { runBrowserTabCommand } from "../lib/browserCommands.js";
 import {
@@ -29,10 +31,14 @@ export function SidePane({
   workspaceId,
   workspaceName,
   onOpenTerminal,
+  workspacePath,
+  onResumeSession,
   visible = true,
   onOpenFile,
 }: {
   visible?: boolean;
+  workspacePath?: string | undefined;
+  onResumeSession?: ((session: HistorySession) => void) | undefined;
   workspaceId: string | null;
   workspaceName?: string | null;
   onOpenTerminal?: ((paneId: string) => void) | undefined;
@@ -80,6 +86,7 @@ export function SidePane({
   const boardPanelEnabled = useUiStore((state) => state.boardPanelEnabled);
   const notesPanelEnabled = useUiStore((state) => state.notesPanelEnabled);
   const monitorPanelEnabled = useUiStore((state) => state.monitorPanelEnabled);
+  const sessionsPanelEnabled = useUiStore((state) => state.sessionsPanelEnabled);
   const usagePanelEnabled = useUiStore((state) => state.usagePanelEnabled);
   const browserTabElements = useRef(new Map<string, HTMLDivElement>());
   const [menu, setMenu] = useState<{
@@ -131,6 +138,7 @@ export function SidePane({
     notesPanelEnabled,
     boardPanelEnabled,
     monitorPanelEnabled,
+    sessionsPanelEnabled,
     usagePanelEnabled,
     activeTabId,
     activateSidePaneTab,
@@ -224,6 +232,16 @@ export function SidePane({
           >
             <Activity aria-hidden="true" className="size-3.5" />
             <span>Monitor</span>
+          </button>
+        )}
+        {sessionsPanelEnabled && (
+          <button
+            type="button"
+            aria-pressed={activeTabId === "sessions"}
+            className={`h-7 shrink-0 rounded-lg px-2 text-ui-sm ${activeTabId === "sessions" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
+            onClick={() => activateSidePaneTab("sessions")}
+          >
+            Sessions
           </button>
         )}
         {browserPanelEnabled && (
@@ -375,6 +393,16 @@ export function SidePane({
           >
             <MonitorPanel
               active={visible && activeTabId === "monitor"}
+              onOpenTerminal={onOpenTerminal}
+            />
+          </div>
+        )}
+        {sessionsPanelEnabled && (
+          <div className="absolute inset-0" hidden={activeTabId !== "sessions"}>
+            <SessionsPanel
+              active={visible && activeTabId === "sessions"}
+              workspacePath={workspacePath}
+              onResume={onResumeSession}
               onOpenTerminal={onOpenTerminal}
             />
           </div>

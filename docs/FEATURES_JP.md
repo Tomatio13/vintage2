@@ -12,7 +12,7 @@ VINTAGEの画面は、大きく3つの作業エリアに分かれています。
 
 - **サイドバー**: ワークスペース、Spaceの一覧と、対応が必要なターミナルを示すAttention一覧
 - **中央**: Spaceのタブとターミナルペイン。Space内のターミナルは左右または上下に分割できます。
-- **右ペイン**: Files、Review、Notes、Board、Monitor、Browserを切り替えて使えます。中央のターミナル配置はそのまま保たれます。
+- **右ペイン**: Files、Review、Notes、Board、Monitor、Sessions、Browserを切り替えて使えます。中央のターミナル配置はそのまま保たれます。
 
 ![最新のVINTAGEでAttention通知とFilesペインを表示した画面](../assets/readme/vintage-background-attention.png)
 
@@ -75,6 +75,7 @@ SpaceタブとサイドバーのWorkspace/Tab行には、配下ペインの認�
 | BoardタブのON/OFF      | `Ctrl+Alt+K`   |
 | Monitorを開く          | `Ctrl+Shift+U` |
 | MonitorタブのON/OFF    | `Ctrl+Alt+U`   |
+| SessionsタブのON/OFF   | `Ctrl+Alt+Y`   |
 | Browserペインを開く    | `Ctrl+Shift+B` |
 | BrowserタブのON/OFF    | `Ctrl+Alt+B`   |
 | ターミナル内検索       | `Ctrl+F`       |
@@ -88,7 +89,7 @@ _Open Board pane、Toggle Notes tab、Toggle Board tabもSettings → Shortcuts�
 
 ## 右ペイン
 
-右ペインにはFiles、Review、Notes、Board、Monitor、Browserがあります。すべてのタブはSettings → Panelsで表示を切り替えられます。選択中のタブをOffにすると別の有効なタブへ移り、すべてOffなら案内を表示します。BrowserをOffにしても開いているタブは保持します。`Ctrl+Shift+S`で右ペイン全体の表示を切り替えます。各タブはコマンドパレットからも開け、ショートカットは **Settings → Shortcuts** で変更できます。
+右ペインにはFiles、Review、Notes、Board、Monitor、Sessions、Browserがあります。すべてのタブはSettings → Panelsで表示を切り替えられます。選択中のタブをOffにすると別の有効なタブへ移り、すべてOffなら案内を表示します。BrowserをOffにしても開いているタブは保持します。`Ctrl+Shift+S`で右ペイン全体の表示を切り替えます。各タブはコマンドパレットからも開け、ショートカットは **Settings → Shortcuts** で変更できます。
 
 ターミナルと右ペインの境界をドラッグすると幅を調整できます。最大化時も含め、ターミナル用の領域を残しながらウィンドウ幅に応じて広げられます。指定した幅を保存し、ウィンドウを縮小すると表示幅を一時的に調整します。幅の変更中も実行中のターミナルセッションを保持します。
 
@@ -222,6 +223,28 @@ Browserのページはサンドボックスと分離を有効にして実行し�
 
 ファイルのダウンロード、拡張機能、ログイン情報の保存には対応していません。
 
+## Sessions
+
+**Sessions**は、保存済みのCodex・Claude Code・Grok・Antigravityの会話を探すパネルです。Monitorの実行中プロセス一覧とは別に表示し、初期状態で有効です。**Settings → Panels**、**Ctrl+Alt+Y**（macOSは**⌘+Option+Y**）、コマンドパレットの**Toggle Sessions tab**でON/OFFできます。キーは**Settings → Shortcuts → Side pane**で変更できます。
+
+- **探す**：初期表示は**Current project**です。**All projects**への切り替え、Agentでの絞り込み、保存済みタイトル・依頼プレビューの検索に対応します。最終更新日でまとめ、ピン留めしたSessionを先頭に表示します。ピンはローカルに保存します。
+- **読む**：Sessionを選ぶと概要カードとChatを表示します。ユーザー発言は右側の吹き出し、Agentの応答はMarkdown・コードブロック・リスト・表に対応し、発言ごとにコピーできます。外部画像や埋め込みHTMLは読み込みません。HTTP/HTTPSリンクはクリック時にシステムブラウザーで開きます。
+- **拡大する**：**Expand sessions**でアプリ全体に拡大します。広い表示では左に一覧、右に会話を並べ、狭い表示では**Back**で一覧へ戻ります。スクロールバーは隠しますが、スクロール操作は維持します。
+- **再開する**：**Resume in new Space**は、Sessionの作業ディレクトリに対応するVINTAGEの開いているWorkspaceに新しいターミナルを追加し、既存ターミナルを維持します。MonitorがVINTAGE内の稼働中Sessionと認識している場合は**Open terminal**でその端末へ戻ります。VINTAGE外で稼働中と認識したSessionは、このパネルから重ねて再開しません。各OSに対応するCLIの導入が必要です。
+- **Monitorから移動する**：詳細の**Open in Sessions**で、取得上限内に存在する対応会話を開きます。
+
+| Agent           | ローカル履歴の取得元                                          | 再開コマンド              |
+| :-------------- | :------------------------------------------------------------ | :------------------------ |
+| Codex           | `$CODEX_HOME/sessions`、未設定なら`~/.codex/sessions`         | `codex resume <id>`       |
+| Claude Code     | `$CLAUDE_CONFIG_DIR/projects`、未設定なら`~/.claude/projects` | `claude --resume <id>`    |
+| Grok            | `~/.grok/sessions`の要約と更新ログ                            | `grok --resume <id>`      |
+| Antigravity CLI | `~/.gemini/antigravity-cli`の会話DBとbrainログ                | `agy --conversation <id>` |
+| Antigravity IDE | `~/.gemini/antigravity`、`~/.gemini/antigravity-ide`          | 閲覧のみ                  |
+
+履歴はローカルから読み取り専用で取得します。ディレクトリ走査には上限を設け、一覧は最終更新順に最大500ログ／会話です。走査上限や読み取り不可の場合は警告を表示します。大きな会話は先頭・末尾の上限付き読み取りと最大100メッセージの抜粋表示で、検索対象はタイトルと依頼プレビューです。会話全文検索ではありません。Grok／Antigravityはログがなくてもメタデータを表示できます。内部思考やツール出力は会話から除外します。Claudeは通常起動で未設定だった`CLAUDE_CONFIG_DIR`を追加しないため、再開時に初期設定ファイルの参照先を切り替えません。
+
+Linux・macOS・Windowsの再開経路を実装しています。Windowsの実行ファイルとnpmの`.cmd`／`.bat`に対応し、パスの大文字小文字・区切り文字の違いを吸収します。GUI起動でPATHが限られる場合に備え、ユーザー領域・npm・nvm・Homebrewなどの標準導入先も探索します。**Windows／macOSのSessions対応は試験対応で、実機確認はpendingです。**CLIの利用可否と、インストール済みアプリの更新動作は別途確認が必要です。
+
 ## Monitor
 
 ![システムリソース、AI 使用量、エージェントセッションを表示した拡大 Monitor](../assets/readme/vintage-monitor.png)
@@ -302,7 +325,7 @@ Jevへのリクエストには、秘密情報と思われる値をマスキン�
 
 ## 設定と保存データ
 
-PanelsではFiles・Review・Notes・Board・Monitor・Browserを個別にON/OFFできます。Offのタブは開くショートカットとコマンドパレットからも開きません。タブのON/OFFはSettings → Shortcutsで再割り当てでき、Filesは`Ctrl+Alt+E`、Reviewは`Ctrl+Alt+G`、Monitorは`Ctrl+Alt+U`、Browserは`Ctrl+Alt+B`が既定です。
+PanelsではFiles・Review・Notes・Board・Monitor・Sessions・Browserを個別にON/OFFできます。Offのタブは開くショートカットとコマンドパレットからも開きません。タブのON/OFFはSettings → Shortcutsで再割り当てでき、Filesは`Ctrl+Alt+E`、Reviewは`Ctrl+Alt+G`、Monitorは`Ctrl+Alt+U`、Sessionsは`Ctrl+Alt+Y`、Browserは`Ctrl+Alt+B`が既定です。
 
 設定の変更は自動保存されます。不正なURLは保存しません。JevのAPIキーは、専用のSave API keyまたはClear saved key操作で保存・削除します。
 
