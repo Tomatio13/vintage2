@@ -33,6 +33,7 @@ import type {
   WorkspaceGitReviewMode,
   WorkspaceGitReviewViewSnapshot,
 } from "../../shared/desktop.js";
+import { ReviewHistory } from "./ReviewHistory.js";
 import { PanePicker, type PanePickerOption } from "./PanePicker.js";
 import { Button } from "./Button.js";
 
@@ -1451,6 +1452,13 @@ export function ReviewPane({
           </div>
         )}
       </div>
+      {snapshot?.status === "ready" && (
+        <ReviewHistory
+          commits={snapshot.history ?? []}
+          message={snapshot.historyMessage ?? null}
+          currentBranch={snapshot.currentBranch}
+        />
+      )}
     </section>
   );
 }

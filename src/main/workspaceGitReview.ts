@@ -470,6 +470,33 @@ async function getBranchChanges(
   return { changes, message: null, comparison: { base: mergeBase.trim(), head: head.trim() } };
 }
 
+async function getGitHistory(repositoryRoot: string) {
+  const head = await runGit(repositoryRoot, ["rev-parse", "--verify", "--quiet", "HEAD"], [1]);
+  if (!head.trim()) return [];
+  const output = await runGit(repositoryRoot, [
+    "log",
+    "--all",
+    "HEAD",
+    "--topo-order",
+    "--max-count=80",
+    "--format=%H%x00%P%x00%s%x00%an%x00%aI%x00%D",
+    "-z",
+  ]);
+  const fields = output.split("\0");
+  const history = [];
+  for (let index = 0; index + 5 < fields.length; index += 6) {
+    history.push({
+      hash: fields[index]!,
+      parents: fields[index + 1]!.split(" ").filter(Boolean),
+      subject: fields[index + 2]!,
+      author: fields[index + 3]!,
+      date: fields[index + 4]!,
+      refs: fields[index + 5]!.split(", ").filter(Boolean),
+    });
+  }
+  return history;
+}
+
 export async function getWorkspaceGitReviewView(
   workspace: RegisteredWorkspace,
   rawRequest: unknown,
@@ -484,11 +511,15 @@ export async function getWorkspaceGitReviewView(
 
   try {
     const context = await resolveGitContext(workspace);
-    const [branchOutput, branches, staged, unstaged] = await Promise.all([
+    const [branchOutput, branches, staged, unstaged, historyResult] = await Promise.all([
       runGit(context.repositoryRoot, ["symbolic-ref", "--quiet", "--short", "HEAD"], [1]),
       listGitBranches(context.repositoryRoot),
       getWorkspaceChanges(workspace, "staged"),
       getWorkspaceChanges(workspace, "unstaged"),
+      getGitHistory(context.repositoryRoot).then(
+        (history) => ({ history, historyMessage: null }),
+        () => ({ history: [], historyMessage: "Unable to load commit history." }),
+      ),
     ]);
     const currentBranch = branchOutput.trim() || null;
     const selectedBase =
@@ -505,6 +536,7 @@ export async function getWorkspaceGitReviewView(
     return {
       status: "ready",
       currentBranch,
+      ...historyResult,
       baseRef: selectedBase,
       baseBranches: branches.map((branch) => branch.name),
       comparisonMessage: comparison.message,

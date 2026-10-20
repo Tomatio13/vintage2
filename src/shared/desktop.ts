@@ -170,7 +170,18 @@ export interface WorkspaceGitReviewViewRequest {
   baseRef?: string;
 }
 
+export interface WorkspaceGitReviewCommit {
+  hash: string;
+  parents: string[];
+  subject: string;
+  author: string;
+  date: string;
+  refs: string[];
+}
+
 export interface WorkspaceGitReviewViewSnapshot {
+  history?: WorkspaceGitReviewCommit[];
+  historyMessage?: string | null;
   status: "ready" | "not-repository" | "git-unavailable";
   changes: WorkspaceGitReviewChange[];
   currentBranch: string | null;

@@ -17,6 +17,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RegisteredWorkspace, WorkspaceGitReviewDiffRequest } from "../src/shared/desktop.js";
 import {
   getWorkspaceGitReview,
+  getWorkspaceGitReviewView,
   getWorkspaceGitReviewDiff,
   parseWorkspaceGitStatus,
 } from "../src/main/workspaceGitReview.js";
@@ -245,4 +246,31 @@ describe("workspace Git review", () => {
       }),
     ).rejects.toThrow("Invalid Git review path");
   });
+});
+
+it("loads bounded repository history with merge parents and refs, including from a subfolder", async () => {
+  const root = createTemporaryDirectory();
+  await initializeRepository(root);
+  await git(root, "branch", "-M", "main");
+  await git(root, "checkout", "-qb", "feature");
+  write(root, "feature.txt", "feature");
+  await git(root, "add", "feature.txt");
+  await git(root, "commit", "-qm", "feature subject");
+  await git(root, "checkout", "-q", "main");
+  await git(root, "merge", "--no-ff", "-qm", "merge subject", "feature");
+  await git(root, "tag", "v-test");
+  const snapshot = await getWorkspaceGitReviewView(
+    { id: "history", name: "scope", path: join(root, "scope"), kind: "project" },
+    { mode: "working" },
+  );
+  expect(snapshot.historyMessage).toBeNull();
+  expect(snapshot.history).toHaveLength(3);
+  expect(snapshot.history?.[0]).toMatchObject({
+    subject: "merge subject",
+    parents: expect.any(Array),
+    refs: expect.arrayContaining(["HEAD -> main", "tag: v-test"]),
+  });
+  expect(snapshot.history?.[0]?.parents).toHaveLength(2);
+  expect(snapshot.history?.[1]?.subject).toBe("feature subject");
+  expect(snapshot.history?.every((commit) => /^[a-f0-9]{40}$/.test(commit.hash))).toBe(true);
 });
