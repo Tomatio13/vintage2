@@ -1,5 +1,24 @@
 # VINTAGE Changelog
 
+## [0.2.36] - 2026-10-20
+
+### Added
+
+- **Review history graph:** Show up to 80 repository commits in a separate, collapsible lower panel, with branch and merge connections, branch names, remote refs, and tags.
+
+### Improved
+
+- Give commit messages their full width without an inline commit hash; horizontally scroll to read long messages and refs.
+- Keep changes and history independently scrollable, preserving read-only Git review and existing diff/file previews.
+
+### Validation and limitations
+
+- Boundaries, TypeScript, lint, formatting, 528 passing tests (one skipped), and production builds passed. Tests cover merge parents, refs, subfolder workspaces, graph connections, and collapse behavior.
+- Previewed the actual Review component in Chrome using fixture changes and merge/tag history. Full Electron interaction and installed-app updater verification remain pending.
+- Windows Monitor remains an experimental pre-release; Windows/macOS Sessions and analysis remain experimental with physical-device runtime testing pending. macOS Monitor remains unverified.
+
+**Full Changelog:** [v0.2.35...v0.2.36](https://github.com/Tomatio13/vintage2/compare/v0.2.35...v0.2.36)
+
 ## [0.2.35] - 2026-10-20
 
 ### Added
