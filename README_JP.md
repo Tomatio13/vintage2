@@ -65,6 +65,8 @@ pnpm start
 
 ローカルルールだけでは判別しづらいターミナル出力を、[Jev](https://docs.typesafe.ai/sdk/javascript) で分類できます。連携は **Settings → Integrations** から設定します。判定される状態、プライバシー、APIキーの設定方法は[機能と画面のガイド](docs/FEATURES_JP.md)をご覧ください。
 
+左サイドバーのSpace行とSpaceタブには状態アイコンを表示します。エージェントの動作中はスピナー、入力待ちはメッセージ、待機は時計、完了はチェック、警告・失敗は専用アイコンです。ロボットは検出済みエージェントのアイドルまたは状態不明、`>_`はエージェント未検出のターミナルを表します。ホバーで状態名を確認でき、Monitorのペイン紐付けで判定します。状態取得中もエージェントの表示を保ち、OSの「動きを減らす」設定ではスピナーを静止します。
+
 ## Sessions
 
 Sessionsタブは**Ctrl+Alt+Y**（macOSは**⌘+Option+Y**）でON/OFFでき、**Settings → Shortcuts → Side pane → Toggle Sessions tab**で変更できます。

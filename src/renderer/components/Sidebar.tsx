@@ -20,8 +20,8 @@ import type {
   TerminalAttentionState,
   TerminalAttentionStatus,
 } from "../../shared/desktop.js";
-import { AgentStatusDot } from "./AgentStatusDot.js";
-import { strongestAgentStatus } from "../lib/agentStatus.js";
+import { AgentStatusIcon } from "./AgentStatusIcon.js";
+import { strongestAgentStatus, type AgentNavigationState } from "../lib/agentStatus.js";
 import { Button } from "./Button.js";
 
 export interface SidebarWorkspace {
@@ -136,7 +136,7 @@ export function Sidebar({
   workspaces: SidebarWorkspace[];
   attentionItems: SidebarAttentionItem[];
   attentionHistory: SidebarAttentionHistoryItem[];
-  agentStatusByTabId?: Record<string, TerminalAttentionState>;
+  agentStatusByTabId?: Record<string, AgentNavigationState>;
   activeWorkspaceId: string | null;
   onOpenWorkspace(): void;
   onNewSpace(): void;
@@ -291,7 +291,7 @@ export function Sidebar({
             ) : (
               <FolderOpen className="size-4 shrink-0 text-foreground" />
             )}
-            <AgentStatusDot state={workspaceAgentStatus} />
+            <AgentStatusIcon state={workspaceAgentStatus} />
             <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
             {workspace.available === false && (
               <span className="shrink-0 text-ui-xs text-warning">Missing</span>
@@ -357,16 +357,18 @@ export function Sidebar({
             const tabAgentStatus = agentStatusByTabId?.[tab.id] ?? null;
             return (
               <button
+                aria-label={tab.title}
+                aria-describedby={`space-status-${tab.id}`}
                 aria-pressed={selected}
                 className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-ui-sm ${selected ? "bg-hover text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
                 key={tab.id}
                 onClick={() => onSelectTab(workspace.id, tab.id)}
               >
-                {tabAgentStatus ? (
-                  <AgentStatusDot state={tabAgentStatus} />
-                ) : (
-                  <span className="size-1.5 rounded-full bg-foreground" />
-                )}
+                <AgentStatusIcon
+                  id={`space-status-${tab.id}`}
+                  state={tabAgentStatus}
+                  showTerminal
+                />
                 <span className="min-w-0 flex-1 truncate">{tab.title}</span>
               </button>
             );

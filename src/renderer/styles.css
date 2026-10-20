@@ -154,22 +154,17 @@
   --color-agent-waiting: #d8ae4e;
 }
 
-/* Status dots must stay visible while pulsing; Tailwind's animate-pulse drops to 50%
-   opacity and makes small dots disappear on dark themes. */
-@keyframes agent-status-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.7;
-    transform: scale(1.15);
+/* Status motion belongs to the state itself, never to row hover feedback. */
+@media (prefers-reduced-motion: no-preference) {
+  .agent-status-spinner {
+    animation: agent-status-spin 1s linear infinite;
   }
 }
 
-.agent-status-pulse {
-  animation: agent-status-pulse 1.6s ease-in-out infinite;
+@keyframes agent-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 * {

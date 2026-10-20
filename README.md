@@ -65,6 +65,8 @@ pnpm start
 
 VINTAGE can optionally use [Jev](https://docs.typesafe.ai/sdk/javascript) to classify terminal output when local rules are not enough. The integration is configured in **Settings → Integrations**. See the [features and screen guide](docs/FEATURES.md#jev-semantic-analysis) for supported states, privacy details, and API key setup.
 
+Space rows in the sidebar and Space tabs show status icons: a spinner for agent activity, a message icon for input needed, a clock for waiting, a check for completion, and warning/error icons for problems. A robot means an agent was detected but its status is idle or unknown; `>_` identifies a terminal without a detected agent. Hover for the status label. Detection uses Monitor pane ownership; unknown/loading agents remain visible, and spinners respect reduced motion.
+
 ## Sessions
 
 The Sessions tab can be toggled with **Ctrl+Alt+Y** (**⌘+Option+Y** on macOS); rebind **Toggle Sessions tab** in **Settings → Shortcuts → Side pane**.

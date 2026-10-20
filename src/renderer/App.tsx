@@ -17,7 +17,7 @@ import type {
   WorkspaceSpaceSnapshot,
 } from "../shared/desktop.js";
 import { Button } from "./components/Button.js";
-import { AgentStatusDot } from "./components/AgentStatusDot.js";
+import { AgentStatusIcon } from "./components/AgentStatusIcon.js";
 import { AttentionToast } from "./components/AttentionToast.js";
 import { CommandPalette, type CommandPaletteItem } from "./components/CommandPalette.js";
 import { FileViewer } from "./components/FileViewer.js";
@@ -28,7 +28,11 @@ import { SidePane } from "./components/SidePane.js";
 import { useMonitorSessionNotifications } from "./hooks/useMonitorSessionNotifications.js";
 import { claimWaitToast, monitorWaitSummary } from "./lib/monitorSessionAttention.js";
 import { useMonitorSnapshot } from "./hooks/useMonitorSnapshot.js";
-import { monitorStatusByPane, strongestAgentStatus } from "./lib/agentStatus.js";
+import {
+  monitorStatusByPane,
+  strongestAgentStatus,
+  type AgentNavigationState,
+} from "./lib/agentStatus.js";
 import { eventKey, findInTerminalEvent, shortcutBinding, shortcutLabel } from "./lib/shortcuts.js";
 import {
   Sidebar,
@@ -579,7 +583,7 @@ export function App() {
       ui.sessionWaitNotifications ?? true,
     );
   const sessionStatusByPane = monitorStatusByPane(monitorSnapshot?.sessions ?? []);
-  const agentStatusByTabId: Record<string, TerminalAttentionState> = {};
+  const agentStatusByTabId: Record<string, AgentNavigationState> = {};
   for (const workspace of workspaces) {
     for (const tab of workspace.tabs) {
       const state = strongestAgentStatus(
@@ -1156,7 +1160,7 @@ export function App() {
           data-active={tab.id === active.activeTabId}
           key={tab.id}
         >
-          <AgentStatusDot state={agentStatusByTabId[tab.id] ?? null} />
+          <AgentStatusIcon state={agentStatusByTabId[tab.id] ?? null} showTerminal />
           <TabAttentionBadge state={strongestAttention(tab, attentionByPane)} />
           {editingTabId === tab.id ? (
             <input
