@@ -541,3 +541,158 @@ button {
 .board-column {
   scrollbar-width: thin;
 }
+
+/* Brief interaction feedback for the workspace utility tabs. */
+@media (prefers-reduced-motion: no-preference) {
+  .panel-motion-tab:is(:hover, :focus-visible, [aria-pressed="true"]) .panel-tab-icon {
+    animation: panel-tab-notes 480ms ease-in-out;
+    transform-origin: center;
+  }
+
+  .panel-motion-tab:is(:hover, :focus-visible, [aria-pressed="true"])
+    .panel-tab-icon[data-motion="board"] {
+    animation-name: panel-tab-board;
+  }
+
+  .panel-motion-tab:is(:hover, :focus-visible, [aria-pressed="true"])
+    .panel-tab-icon[data-motion="sessions"] {
+    animation-name: panel-tab-sessions;
+  }
+}
+
+@keyframes panel-tab-notes {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  30% {
+    transform: rotate(-12deg);
+  }
+  65% {
+    transform: rotate(8deg);
+  }
+}
+
+@keyframes panel-tab-board {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  35% {
+    transform: translateY(-2px);
+  }
+  65% {
+    transform: translateY(1px);
+  }
+}
+
+@keyframes panel-tab-sessions {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  45% {
+    transform: rotate(-28deg);
+  }
+  75% {
+    transform: rotate(5deg);
+  }
+}
+
+/* Opt in shared controls and panel/settings surfaces. Only the button's own
+   icon moves; nested content, disclosure arrows and busy indicators stay intact. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(button.icon-motion-control, .icon-motion-surface button):enabled:not(
+      [aria-disabled="true"]
+    ):is(:hover, :focus-visible)
+    > svg.lucide:not(
+      .panel-tab-icon,
+      .animate-spin,
+      [class*="lucide-loader"],
+      [class*="lucide-chevron"]
+    ) {
+    animation: var(--control-icon-motion, control-icon-pop) 420ms ease-in-out;
+  }
+
+  :where(.icon-motion-control, .icon-motion-surface)
+    svg.lucide:is(
+      .lucide-settings,
+      .lucide-settings-2,
+      .lucide-refresh-cw,
+      .lucide-rotate-ccw,
+      .lucide-history,
+      .lucide-globe,
+      .lucide-globe-2,
+      .lucide-palette
+    ) {
+    --control-icon-motion: control-icon-turn;
+  }
+
+  :where(.icon-motion-control, .icon-motion-surface)
+    svg.lucide:is(.lucide-bell, .lucide-pencil, .lucide-notebook-pen, .lucide-plug) {
+    --control-icon-motion: control-icon-wiggle;
+  }
+
+  :where(.icon-motion-control, .icon-motion-surface)
+    svg.lucide:is(.lucide-arrow-left, .lucide-arrow-right, .lucide-git-branch) {
+    --control-icon-motion: control-icon-nudge;
+  }
+}
+
+@keyframes control-icon-pop {
+  0%,
+  100% {
+    scale: 1;
+    translate: 0 0;
+  }
+  40% {
+    scale: 1.1;
+    translate: 0 -1px;
+  }
+  70% {
+    scale: 0.98;
+    translate: 0 0;
+  }
+}
+
+@keyframes control-icon-turn {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  50% {
+    rotate: 25deg;
+  }
+  80% {
+    rotate: -4deg;
+  }
+}
+
+@keyframes control-icon-wiggle {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  25% {
+    rotate: -10deg;
+  }
+  55% {
+    rotate: 8deg;
+  }
+  80% {
+    rotate: -3deg;
+  }
+}
+
+@keyframes control-icon-nudge {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  45% {
+    translate: -2px 0;
+  }
+  75% {
+    translate: 1px 0;
+  }
+}

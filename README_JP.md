@@ -85,7 +85,7 @@ Windowsでは同梱のRustヘルパーでプロセス検出とCPU／RAMを取得
 
 任意の **AI Usage** はCPU／Memoryの直下に表示され、サイズを揃えたコンパクトなProviderカードでクォータ、リセット時刻、クレジット、コストを確認できます。CodexBarが`limitResetCredits`を返す場合は、通常のCreditsに代えて利用可能数と次の有効期限を表示し、Today／30 daysのコストは非表示にします。**Settings → Usage → Show Usage in Monitor**で有効にし、[CodexBar CLI](https://github.com/steipete/codexbar)を設定します。既存のUsage設定は引き継がれ、独立したUsageタブはありません。UsageはMonitorの表示中、専用の更新間隔で取得します。情報源と制限は[機能ガイド](docs/FEATURES_JP.md#monitor)、CodexBarの導入方法は[Usage制限のガイド](docs/FEATURES_JP.md#usage制限codexbar)をご覧ください。
 
-**Settings → Panels**でFiles・Review・Notes・Board・Monitor・Sessions・Browserを個別にON/OFFできます。変更は自動保存され、タブ表示の切り替えにはショートカットも設定できます。
+**Settings → Panels**でFiles・Review・Notes・Board・Monitor・Sessions・Browserを個別にON/OFFできます。変更は自動保存され、タブ表示の切り替えにはショートカットも設定できます。パネルのタブ・サイドバーの操作・設定項目・共通アクションボタンのアイコンは、ホバーやキーボードフォーカスで短く動きます。Notes・Board・Sessionsは選択時にも反応します。OSの「動きを減らす」設定に従い、処理中の表示や開閉用の矢印は元の動作を保ちます。
 
 **Settings → Appearance**の**Color scheme**で**System / Light / Dark**を選び、ThemesでVintage・Graphite・Ocean・Grove・Iris・Emberの6種類からライト用・ダーク用の配色を個別に指定できます。丸いプレビューに太陽・月の目印が付き、選択中の配色はリングで表示されます。パレット・アップロード・コピーのアイコンにマウスを合わせると、**Create theme / Import theme / Duplicate**の説明が出ます。カスタムテーマでは背景色とアクセント色を編集でき、VINTAGE形式のJSONで入出力できます。[テーマの操作ガイド](docs/FEATURES_JP.md#外観とカスタムテーマ)をご覧ください。
 

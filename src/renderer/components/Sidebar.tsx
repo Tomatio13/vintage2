@@ -379,7 +379,7 @@ export function Sidebar({
   const projectWorkspaces = workspaces.filter((workspace) => workspace.kind !== "home");
 
   return (
-    <aside className="relative flex h-full min-w-0 flex-col bg-sidebar">
+    <aside className="icon-motion-surface relative flex h-full min-w-0 flex-col bg-sidebar">
       <header className="window-drag flex h-12 shrink-0 items-center justify-between px-3">
         <span className="text-ui-sm font-semibold text-foreground-subtle">Workspace</span>
         <Button

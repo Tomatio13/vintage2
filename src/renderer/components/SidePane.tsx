@@ -10,6 +10,9 @@ import {
   FolderOpen,
   Globe2,
   GitBranch,
+  History,
+  Columns3,
+  NotebookPen,
   Plus,
   X,
 } from "lucide-react";
@@ -149,7 +152,7 @@ export function SidePane({
       tabIndex={-1}
       data-side-pane
       data-browser-shortcuts={activeTabId.startsWith("browser-") ? "" : undefined}
-      className="flex h-full min-w-0 flex-col bg-panel"
+      className="icon-motion-surface flex h-full min-w-0 flex-col bg-panel"
       onKeyDownCapture={(event) => {
         const command = browserShortcut({
           key: event.key,
@@ -206,21 +209,33 @@ export function SidePane({
         {notesPanelEnabled && (
           <button
             type="button"
-            className={`h-7 shrink-0 rounded-lg px-2 text-ui-sm ${activeTabId === "notes" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
+            className={`panel-motion-tab flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${activeTabId === "notes" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
             aria-pressed={activeTabId === "notes"}
             onClick={() => activateSidePaneTab("notes")}
           >
-            Notes
+            <NotebookPen
+              key={String(activeTabId === "notes")}
+              aria-hidden="true"
+              className="panel-tab-icon size-3.5 shrink-0"
+              data-motion="notes"
+            />
+            <span>Notes</span>
           </button>
         )}
         {boardPanelEnabled && (
           <button
             type="button"
-            className={`h-7 shrink-0 rounded-lg px-2 text-ui-sm ${activeTabId === "board" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
+            className={`panel-motion-tab flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${activeTabId === "board" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
             aria-pressed={activeTabId === "board"}
             onClick={() => activateSidePaneTab("board")}
           >
-            Board
+            <Columns3
+              key={String(activeTabId === "board")}
+              aria-hidden="true"
+              className="panel-tab-icon size-3.5 shrink-0"
+              data-motion="board"
+            />
+            <span>Board</span>
           </button>
         )}
         {monitorPanelEnabled && (
@@ -238,10 +253,16 @@ export function SidePane({
           <button
             type="button"
             aria-pressed={activeTabId === "sessions"}
-            className={`h-7 shrink-0 rounded-lg px-2 text-ui-sm ${activeTabId === "sessions" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
+            className={`panel-motion-tab flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${activeTabId === "sessions" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
             onClick={() => activateSidePaneTab("sessions")}
           >
-            Sessions
+            <History
+              key={String(activeTabId === "sessions")}
+              aria-hidden="true"
+              className="panel-tab-icon size-3.5 shrink-0"
+              data-motion="sessions"
+            />
+            <span>Sessions</span>
           </button>
         )}
         {browserPanelEnabled && (

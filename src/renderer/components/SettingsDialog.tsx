@@ -1661,7 +1661,7 @@ export function SettingsDialog() {
         } as CSSProperties
       }
       aria-modal="true"
-      className="fixed inset-0 z-50 flex min-h-0 flex-col bg-background text-foreground"
+      className="icon-motion-surface fixed inset-0 z-50 flex min-h-0 flex-col bg-background text-foreground"
       role="dialog"
     >
       <div className="flex min-h-0 flex-1">
