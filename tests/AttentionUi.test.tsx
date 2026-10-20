@@ -151,10 +151,17 @@ describe("Attention UI", () => {
     const sidebar = screen.getByText("Workspace").closest("aside");
     expect(sidebar).not.toBeNull();
     for (const icon of sidebar!.querySelectorAll("button svg")) {
-      expect(icon).toHaveClass("text-foreground");
+      const status = icon.closest("[data-session-kind]");
+      if (status) {
+        expect(status).toHaveClass("text-foreground-subtle");
+      } else {
+        expect(icon).toHaveClass("text-foreground");
+      }
     }
     expect(sidebar!.querySelectorAll(".text-brand, .bg-brand")).toHaveLength(0);
-    expect(sidebar!.querySelector("span.bg-foreground")).toBeInTheDocument();
+    expect(
+      sidebar!.querySelector('[data-session-kind="terminal"] .lucide-terminal'),
+    ).toBeInTheDocument();
   });
 
   it("distinguishes all severity levels and exposes source confidence", () => {

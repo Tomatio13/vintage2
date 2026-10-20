@@ -1,5 +1,26 @@
 # VINTAGE Changelog
 
+## [0.2.37] - 2026-10-21
+
+### Added
+
+- Add leading icons to Notes, Board, and Sessions tabs, with brief motion on hover, keyboard focus, and selection.
+- Animate icons across panel tabs, sidebar controls, settings navigation, and shared action buttons. Respect reduced motion and preserve busy indicators and disclosure arrows.
+
+### Improved
+
+- Replace Space status dots in the sidebar and top tabs with distinct status icons: spinners for agent activity, messages for input requests, clocks for waiting, checks for completion, and warning/error icons for problems.
+- Distinguish ordinary terminals from Monitor-detected agents. Keep detected agents visible with a robot icon while their status is unknown or loading, preserve actionable-state priority across panes, and expose status descriptions without changing Space names for assistive technology.
+
+### Validation and limitations
+
+- Boundaries, TypeScript, lint, formatting, 540 passing tests (one skipped), and production builds passed.
+- Renderer and navigation tests cover state icons, agent detection, unknown/loading states, terminal fallback, and existing workspace behavior. Chrome CSS checks cover animation, hover isolation, icon sizing, and reduced motion.
+- Full Electron interaction, live-agent status transitions, and installed-app updater verification remain pending.
+- Windows Monitor remains an experimental pre-release; Windows/macOS Sessions and analysis remain experimental with physical-device runtime testing pending. macOS Monitor remains unverified.
+
+**Full Changelog:** [v0.2.36...v0.2.37](https://github.com/Tomatio13/vintage2/compare/v0.2.36...v0.2.37)
+
 ## [0.2.36] - 2026-10-20
 
 ### Added
