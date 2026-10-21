@@ -1,142 +1,155 @@
+<div align="center">
+
 # VINTAGE
 
-[English](README.md) | 日本語
+### AIエージェント時代のターミナルワークスペース。
 
-**必要なターミナルが、あなたを呼び戻す。**
+<br />
 
-VINTAGEは、プロジェクト、Space、ターミナルをまとめて管理し、バックグラウンドのターミナルに対応が必要になったときに知らせるデスクトップアプリです。コマンドパレットからワークスペース、Space、ターミナルへの移動や各種操作を検索できます。
+> _エージェントを見張り続ける必要はありません。必要なときに、向こうから知らせます。_
 
-[機能と画面のガイド](docs/FEATURES_JP.md) · [アーキテクチャ](docs/ARCHITECTURE.md)
+<br />
+
+[![License](https://img.shields.io/badge/Apache_2.0-blue?style=for-the-badge)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js_24+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
+[![Electron](https://img.shields.io/badge/Electron_45-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://electronjs.org)
+[![Platforms](https://img.shields.io/badge/Linux_%7C_macOS_%7C_Windows-555?style=for-the-badge)](./)
+
+<br />
+
+[使い始める](#-クイックスタート) · [機能を見る](docs/FEATURES_JP.md) · [アーキテクチャ](docs/ARCHITECTURE.md) · [English](README.md)
+
+<br />
+<br />
+
+</div>
+
+---
+
+<br />
+
+<div align="center">
+  <a href="assets/demo-desktop.mp4"><img src="assets/demo-desktop-poster.png" alt="VINTAGEのデモ動画を見る" width="100%" /></a>
+</div>
+
+[デモ動画を見る](assets/demo-desktop.mp4) · Claude Codeの実作業、Monitorでの状態確認、Sessionsからの再開を収録しています。
+
+<br />
+
+---
+
+<br />
+
+<div align="center">
+
+## 5つのエージェントを同時に実行中。<br />それぞれが何をしているか、把握できていますか？
+
+</div>
+
+<br />
+
+ターミナルを1つ開き、もう1つ、さらに3つ。それぞれ別のエージェントに別の作業を任せています。1つは完了して入力待ち、1つはいつの間にかエラーで停止、残り2つはまだ実行中。どれがどの状態でしょうか。ウィンドウを切り替え、出力をスクロールしながら、あのリファクタリングをどのペインで始めたか思い出そうとしていませんか。
+
+**複数のエージェントを動かすには、その状況を把握できる作業環境が必要です。VINTAGEがそれを支えます。**
+
+<br />
+
+---
+
+<br />
 
 ## 主な機能
 
-- **プロジェクトの操作**: 左ペインのフォルダをクリックしてSpace一覧を開閉できます。プロジェクトにマウスを合わせ、⋯メニューからRemoveを選ぶと一覧から削除できます。実行中のドットはCodexのAI Usageと同じ青緑色です。
-- **ワークスペース、Space、ターミナル**: プロジェクトごとに複数のSpaceを作成し、ターミナルを左右または上下に分割できます。 ターミナルペイン内ではCtrl＋Wでそのペインを閉じられます。
-- **コマンドパレット**: `Ctrl+Shift+P` で開き、操作やワークスペース、Space、ターミナルを検索できます。
-- **Attention監視**: バックグラウンドのターミナルで起きたコマンド完了、エラー、入力待ちを一覧で確認できます。
-- **エージェント状態の表示**: Spaceタブとサイドバーの色付きドットで、作業中・待機中・失敗などの状態を確認できます。 シェル連携が使えない場合も、Errors Onlyを含む各モードでAI CLIの起動を検出して実行中のドットを表示します。
-- **FilesとGit Review**: ファイルの閲覧・コピー・リネーム、シンタックスハイライト・行番号・行移動に対応したMarkdown編集、ドキュメントの拡大・縮小、テキストの検索・置換、Git差分確認に対応しています。Filesは画面内の行だけを描画し、フォルダの同時取得数を制限します。ソースは同時に最大600行を描画しながら連続スクロールでき、読み込んだ全文を検索して検索終了時の位置も保持します。Reviewでは大量の変更ファイルと差分をページに分けて表示し、大きすぎる差分はファイルプレビューから確認できます。下段にはリポジトリの直近80コミットを閲覧専用グラフで表示し、ブランチ・マージ・タグを確認できます。
-- **NotesとBoard**: WorkspaceごとのメモとKanbanボードで作業を管理。カードにラベル・優先度・期限・Subtaskの進捗を表示し、Board拡大時は一覧の横に詳細ドロワーを開きます。検索・Filter・Sort・ドラッグやキーボードでの並べ替えに対応します。 [vintage-board Agent Skill](skills/vintage-board/SKILL.md)を配布すると、Agentから同梱Pythonでカード・Notes・Subtaskを更新できます。
-- **Agent Monitor**: Monitorタブで、Claude Code / Codex / Antigravity / OpenCode / ZCode / Grokの実行状態、現在のツール、コンテキスト使用率を確認できます。abtopや外部収集ツールのインストールは不要です。 Space横の状態表示にもSession情報が反映され、Monitorタブを閉じている間も更新されます。 実行中からWaitingへ変わったSessionは、ターミナルに紐付かないものも既存のAttentionトースト・デスクトップ通知で知らせ、Open Spaceから対象Space・ターミナルへ移動できます。ターミナルに紐付かないSessionはMonitorを開きます。Waitingには応答完了と入力待ちが含まれます。通知設定のSession wait notificationsで無効にできます。
-- **Session履歴**：独立したSessionsパネルでCodex・Claude Code・Grok・Antigravityの保存済み会話を検索・再開できます。プロジェクト／Agentでの絞り込み、ピン留め、Chat表示に対応し、既存のターミナルを維持します。[Sessionsガイド](docs/FEATURES_JP.md#sessions)をご覧ください。
-- **AI使用制限の表示**: CodexやClaude CodeなどのAI CLIの残りクォータ、リセット時刻、クレジットをMonitor内で確認できます。任意の [CodexBar CLI](https://github.com/steipete/codexbar) が必要です。
-- **複数のシェルに対応**: zsh、bash、fish、またはOSの既定シェルを選べます。Windows ではコマンドプロンプト、Windows PowerShell、PowerShell 7、Git Bash に対応しています。
-- **テキストの自動コピー**: ターミナル出力をマウスで選択するとクリップボードへコピーします。
-- **高速なターミナル描画**: 出力はWebGLで描画され(利用できない環境では自動フォールバック)、出力中のURLをクリックしてブラウザーで開け、Sixel/iTerm2のインライン画像表示にも対応しています。
-- **ターミナルセッションの保護**: ウィンドウの再読み込みやレンダラーのクラッシュ後もターミナルは引き継がれ、直近の出力を復元して再接続します。
-- **Filesの操作**: 右クリックでファイル・フォルダの新規作成、コピー、リネーム、確認付きのゴミ箱移動ができます。フォルダの展開状態はProjectごとに保存され、切り替えやアプリ再起動後も復元されます。[Filesガイド](docs/FEATURES_JP.md#filesとファイルプレビュー)をご覧ください。
-- **組み込みブラウザー**: ブックマークの絞り込み・ページ表示に対応。More actions → Suspend background tabsで非表示ページを解放できます（再表示時に再読み込みし、未保存の入力内容は失われます）。 HTTP/HTTPSとローカルの `file:///` ページ、プロジェクト別・Commonのタブ、再起動時の復元、別ウィンドウ指定リンクの新規タブ表示、所属別のブックマーク、ページ内検索、タブごとのズーム（Ctrl＋ホイール／＋／－／0）、Ctrl＋Lによるアドレス選択、Ctrl＋W／Ctrl＋Shift＋Tによるタブの終了・復元、Ctrl＋Tabによる切り替え、ホイールクリックによるリンクのバックグラウンドタブ表示・タブの終了に対応しています。Browserタブは横に追加され、収まらない場合はパネルのヘッダー全体を横スクロールできます。ページの右クリックで選択文字のコピー、入力欄の編集、リンクの新規タブ表示・URLコピー、画像コピー、ページ移動、要素の検証ができます。ツールバーからブックマーク一覧や外部ブラウザーを開け、操作メニューにはResponsive preview、要素選択、開発者ツールがあります。所属の扱い、操作方法、制限は[Browserガイド](docs/FEATURES_JP.md#browser)をご覧ください。
-- **右ペインの幅調整**: 境界をドラッグすると、ターミナル用の領域を残しながらウィンドウ幅に応じて右ペインを広げられます。指定した幅を保存し、ウィンドウ縮小時には表示幅を調整します。
-- **カスタマイズ**: ショートカットの再割り当て、明暗別の配色選択、カスタムテーマの作成・VINTAGEテーマJSONの入出力、UI・ターミナル・シェル設定に対応しています。
-- **クロスプラットフォーム**: Linux、Windows、macOS 13（Ventura）以降で動作します。
+|     | 機能                 | できること                                                                                                                   |
+| --- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| ⚡  | **Attention**        | バックグラウンドのターミナルでの完了・エラー・入力待ちを通知。クリックすると、そのターミナルへ戻れます。                     |
+| 🔲  | **Spaceの分割**      | ターミナルを左右・上下に分割し、エージェントを並べて実行。各ペインは独立して動作します。                                     |
+| 🎛  | **コマンドパレット** | `Ctrl+Shift+P`から、ワークスペース・Space・ターミナルへの移動や各種操作をまとめて検索できます。                              |
+| 📡  | **Monitor**          | CPU・メモリと、マシン上のAIセッションをリアルタイムに確認。使用中のツール、コンテキスト使用率、残りクォータも表示します。    |
+| 🗄  | **Sessions**         | Claude Code / Codex / Grok / Antigravityの過去の会話を検索・ピン留め・閲覧・再開できます。                                   |
+| 📋  | **Board**            | エージェントも操作できるKanbanボード。タスクの投入、カードの更新、サブタスクの追加、完了まで、データはローカルに保存します。 |
+| 🎨  | **テーマ**           | Vintage · Graphite · Ocean · Grove · Iris · Ember。ライト・ダークの配色を個別に選択でき、JSONでの入出力にも対応します。      |
 
-画面構成、対応するプレビュー形式、Attentionの監視モード、Jevの設定、スクリーンショットは[機能と画面のガイド](docs/FEATURES_JP.md)をご覧ください。
+<br />
 
-## まず使ってみる
+### ひと目でわかる状態表示
 
-1. VINTAGEを起動すると、ホームディレクトリで `Space 1` と `Terminal 1` が開きます。
-2. **Open folder** からプロジェクトを追加します。新しいターミナルは選択中のワークスペースを作業ディレクトリにします。
-3. Spaceを追加したり、ターミナルを分割したりして作業環境を整理します。
-4. コマンドパレット、またはAttention一覧から、目的のワークスペース、Space、ターミナルへ移動します。
+| 状態                                         | 表示                 |
+| :------------------------------------------- | :------------------- |
+| 通常ターミナル                               | `>_`                 |
+| エージェント思考・実行中                     | 回転するスピナー     |
+| 入力待ち                                     | メッセージアイコン   |
+| 待機中                                       | 時計アイコン         |
+| 完了                                         | チェックアイコン     |
+| 警告・失敗                                   | 警告・エラーアイコン |
+| エージェント検出済み・アイドルまたは状態不明 | ロボットアイコン     |
 
-[既定のショートカット一覧と変更方法](docs/FEATURES_JP.md#既定のキーボードショートカット)
+Spaceタブとサイドバーの行に状態アイコンを表示します。マウスを合わせると状態名を確認できます。OSの「動きを減らす」設定が有効な場合、スピナーは静止します。
 
-## 必要環境
+<br />
 
-- **Node.js**: 24以上
-- **pnpm**: 10.33.2以上
-- **C/C++開発環境**: `node-pty` のビルドに必要です（LinuxではC/C++コンパイラー、`make`、Pythonなど）。
+---
 
-## セットアップ
+<br />
+
+## 🚀 クイックスタート
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-本番ビルドをローカルで起動する場合：
+ホームディレクトリで`Space 1`と`Terminal 1`が開きます。
+
+**`Ctrl+Shift+P`**でコマンドパレットを開き、ワークスペース・Space・ターミナルへの移動や各種操作を検索できます。
 
 ```bash
-pnpm build
-pnpm start
+# 本番ビルドを起動
+pnpm build && pnpm start
+
+# 配布パッケージを作成
+pnpm run dist:linux   # → AppImage, .deb
+pnpm run dist:mac     # → .dmg, .zip
+pnpm run dist:win     # → NSISインストーラー
 ```
 
-## Jevによる意味判定（任意）
+<br />
 
-ローカルルールだけでは判別しづらいターミナル出力を、[Jev](https://docs.typesafe.ai/sdk/javascript) で分類できます。連携は **Settings → Integrations** から設定します。判定される状態、プライバシー、APIキーの設定方法は[機能と画面のガイド](docs/FEATURES_JP.md)をご覧ください。
+---
 
-左サイドバーのSpace行とSpaceタブには状態アイコンを表示します。エージェントの動作中はスピナー、入力待ちはメッセージ、待機は時計、完了はチェック、警告・失敗は専用アイコンです。ロボットは検出済みエージェントのアイドルまたは状態不明、`>_`はエージェント未検出のターミナルを表します。ホバーで状態名を確認でき、Monitorのペイン紐付けで判定します。状態取得中もエージェントの表示を保ち、OSの「動きを減らす」設定ではスピナーを静止します。
+<br />
 
-## Sessions
+## 必要環境
 
-Sessionsタブは**Ctrl+Alt+Y**（macOSは**⌘+Option+Y**）でON/OFFでき、**Settings → Shortcuts → Side pane → Toggle Sessions tab**で変更できます。
+- **Node.js** 24以上
+- **pnpm** 10.33.2以上
+- **C/C++開発環境** — コンパイラー、`make`、Python（Linuxでの`node-pty`ビルド用）
 
-**Sessions**タブでは、実行中のMonitorとは別に、保存済みのCodex／Claude Code／Grok／Antigravityの会話を閲覧できます。タイトル・依頼文の検索、プロジェクト／Agentでの絞り込み、ピン留め、会話の拡大表示に対応します。Linux／macOS／Windowsの**Resume in new Space**は、VINTAGEで開いているプロジェクトに新しいターミナルを追加し、既存のターミナルは保持します。Windowsの実行ファイルとnpmの`.cmd`／`.bat`経由の起動に対応します。CLIはPATHに加え、ユーザー領域・npm・Homebrewなどの標準的な導入先から探索し、Windowsではパスの大文字小文字・区切り文字の違いを吸収します。各OSに対応するCLIのインストールが必要です。Windows／macOSのSessions対応は試験対応で、実機確認はpendingです。履歴は`CODEX_HOME`／`CLAUDE_CONFIG_DIR`（未設定なら標準の場所）からローカルで読み取り、最終更新順で最大500ログを表示します。大きな会話は抜粋であることを明示します。Grokの履歴は`~/.grok/sessions`、Antigravityの履歴は`~/.gemini/{antigravity-cli,antigravity,antigravity-ide}`から取得します。Grokは`grok --resume`、Antigravity CLIは`agy --conversation`で再開し、Antigravity IDEの履歴は閲覧のみ対応します。会話ログが存在しない場合もSessionのメタデータは表示します。他のAgentの履歴にはまだ対応していません。
+<br />
 
-会話分析は手動実行です。**Settings → Sessions → Session analysis**で**Codex／Claude Code**、必要に応じて実行ファイルの絶対パスとモデルを指定して保存します。**Check CLI connection**はLLMを呼ばずにバージョンとログイン状態を確認します。Sessionを選んで**Analyze session**を押すと、直近の会話・ツール記録の抜粋から状況、誰の対応待ちか、次の作業を分析します。履歴のAgentと分析CLIは独立しています。抜粋は選択したCLIのProviderへ送信され、プランの利用枠またはAPI料金を消費します。結果はVINTAGEのユーザーデータ領域へ別途保存し、元ログやタイトルは変更しません。入力と設定が同じ場合は保存済み結果を再利用でき、**Reanalyze**ボタンは明示的に再度リクエストします。会話が進むと**Outdated**を表示し、分析失敗時は前回結果を保持します。成功した分析回数と、CLIが返す場合はトークン使用量を表示します。金額の推定はしません。Codexの`--ignore-user-config`／`--ephemeral`、Claudeの`--safe-mode`／`--no-session-persistence`に対応した新しいCLIが必要です。分析は一時ディレクトリで独立して実行し、CLIのカスタム設定を無効化します。既存ログインは利用しますが、独自Provider・Hook・MCP設定は利用しません。必要なら分析用モデルを明示してください。分析結果は抜粋に基づく推定であり、実際の作業完了や外部CI／PRの現在状態を検証するものではありません。Windowsの分析はネイティブCLIと、Codex／Claude Codeの標準的なnpm導入による`.cmd`／`.bat`に対応します。npmランチャーはNodeエントリーポイントから起動し、JSON引数や空白・日本語を含むパスをシェル解釈せず渡します。npm版にはNode.jsが必要です。任意の独自バッチラッパーには対応しません。macOSではApple Silicon／IntelのHomebrew・ユーザー領域・nvmを探索し、探索したPATHをCLIに引き継ぎます。タイムアウト・アプリ終了時はWindowsのプロセスツリー／macOSのプロセスグループを停止します。Windows／macOSでの分析は試験対応で、実機確認はpendingです。
+---
 
-## MonitorとAI Usage
-
-**対応OSの状況：Linuxはサポート対象です。WindowsのMonitorは試験中のプレリリース扱いで、実機試験はpendingです。macOSの実装はありますが、動作未確認です。**
-
-Windowsでは同梱のRustヘルパーでプロセス検出とCPU／RAMを取得します。初期対象はClaude Code、Codex、OpenCodeで、他のAgentはWindows未検証です。取得できないプロセス情報や曖昧なセッションはUnknownとして扱います。Codexのログ紐付けは推定で、ターミナル判定ができないため、一部のターミナル専用ログは紐付けできません。Windowsのロードアベレージは表示しません。AI Usageは別途CodexBarの利用可否に依存します。Windowsでのビルド・開発にはRustツールチェーン（`cargo`）が必要ですが、インストーラー利用者にはRustやabtopの導入は不要です。
-
-**Monitor**タブでは、PC全体のCPU・コア別負荷、メモリ、実行中のClaude Code / Codex / Antigravity / OpenCode / ZCode / Grokセッションを確認できます。セッションを選ぶと、現在のツール、モデル、コンテキスト、子プロセスを含むCPU・RAMを表示します。**Open terminal**でVINTAGE内の既存ターミナルへ戻り、**Expand monitor**でウィンドウ全体に拡大できます。Monitorは初期状態で有効で、**Settings → Panels**から非表示にできます。
-
-ローカルセッションの実行状況は、VINTAGEの起動中、Monitorを閉じている間やウィンドウが非表示の間も約2秒ごとに更新します。終了したプロセスは次の更新で除外します。ZCodeはワーカープロセスが残っていても、最終更新から1時間以上経過すると非表示になります。同じディレクトリに複数のZCodeワーカーがある場合、直近1時間のSessionが1つなら重複せず表示し、複数ある場合は紐付け不明として扱います。MonitorのAI Usageカードは常に2列で表示します。サービス名の横と残量バーをProvider別の色で表示し、残量低下時は警告色を優先します。共有ZCodeワーカーのCPU・RAMはグループで集計します。ZCodeの状態上書きとセッション選択はワーカー数によらずメッセージ・ツールの更新時刻を比較し、ZCode／OpenCodeでは最新メッセージ内の並列ツールも実行状態に反映します。Codexのapp-server・MCP server・remote-controlサービスと、CodexBarが起動するAgentの確認用プロセスは非表示にし、紐付け不明・読み取り不可のローカルAgentはUnknownとして表示を残します。状態とセッションの紐付けはローカルのプロセス・ログ情報による推定で、曖昧・読み取り不可の場合は **Unknown**、未取得の値は **—** になります。ローカル監視にabtopや外部収集ツールのインストールは不要です。
-
-任意の **AI Usage** はCPU／Memoryの直下に表示され、サイズを揃えたコンパクトなProviderカードでクォータ、リセット時刻、クレジット、コストを確認できます。CodexBarが`limitResetCredits`を返す場合は、通常のCreditsに代えて利用可能数と次の有効期限を表示し、Today／30 daysのコストは非表示にします。**Settings → Usage → Show Usage in Monitor**で有効にし、[CodexBar CLI](https://github.com/steipete/codexbar)を設定します。既存のUsage設定は引き継がれ、独立したUsageタブはありません。UsageはMonitorの表示中、専用の更新間隔で取得します。情報源と制限は[機能ガイド](docs/FEATURES_JP.md#monitor)、CodexBarの導入方法は[Usage制限のガイド](docs/FEATURES_JP.md#usage制限codexbar)をご覧ください。
-
-**Settings → Panels**でFiles・Review・Notes・Board・Monitor・Sessions・Browserを個別にON/OFFできます。変更は自動保存され、タブ表示の切り替えにはショートカットも設定できます。パネルのタブ・サイドバーの操作・設定項目・共通アクションボタンのアイコンは、ホバーやキーボードフォーカスで短く動きます。Notes・Board・Sessionsは選択時にも反応します。OSの「動きを減らす」設定に従い、処理中の表示や開閉用の矢印は元の動作を保ちます。
-
-**Settings → Appearance**の**Color scheme**で**System / Light / Dark**を選び、ThemesでVintage・Graphite・Ocean・Grove・Iris・Emberの6種類からライト用・ダーク用の配色を個別に指定できます。丸いプレビューに太陽・月の目印が付き、選択中の配色はリングで表示されます。パレット・アップロード・コピーのアイコンにマウスを合わせると、**Create theme / Import theme / Duplicate**の説明が出ます。カスタムテーマでは背景色とアクセント色を編集でき、VINTAGE形式のJSONで入出力できます。[テーマの操作ガイド](docs/FEATURES_JP.md#外観とカスタムテーマ)をご覧ください。
-
-**Settings → Appearance → UI font size**は12〜32pxに対応します。ターミナルのフォントサイズは個別に設定できます。
-
-**Settings → Appearance → Character ripple**で、クリック位置から文字の波紋が広がるエフェクトを試せます。強度と色を調整でき、色はテーマ連動にも戻せます。初期状態はオフです。OSの「視差効果を減らす」設定に従い、埋め込みブラウザのページ内では動作しません。
-
-## BoardとAI Agent
-
-`Ctrl+Shift+K`で**Board**を開きます。カードにラベル・優先度・期限・Subtaskの進捗を表示し、カードを開くと一覧の横に詳細ドロワーを表示します。拡大中も端末セッションは維持されます。Description / Notesの下でSubtaskを追加・編集・完了チェック・削除し、**Save changes**で保存します。全Subtaskの完了は親カードのStatusを変更しません。
-
-AIアイコンからコピーする指示は、作業場所・Board JSONとAgent Skillのパス・対象・作業指示の5行です。Agentに貼り付けると、Skillに記載したPythonの操作方法を参照して作業できます。Board全体のアイコンは非表示のカードを含むすべてのTo do、カードのアイコンはその保存済みカードが対象です。Python 3が必要です。
-
-[`skills/vintage-board`](skills/vintage-board/SKILL.md)フォルダー全体をAgentのSkill保存先へ配布できます。AI指示コピー時にはVINTAGEのアプリ保存領域にもSkillを書き出します。同梱PythonはカードのStatus・Notes更新とSubtaskの追加・タイトル変更・完了／再開・削除に対応します。Boardデータはそのマシンに保存されます。[Boardの操作ガイド](docs/FEATURES_JP.md#boardkanban)と[保存形式・CLI・Skill配布のガイド](docs/KANBAN.md)をご覧ください。
+<br />
 
 ## ドキュメント
 
-- [機能と画面のガイド](docs/FEATURES_JP.md) — UIと各機能の説明、スクリーンショット
-- [アーキテクチャ](docs/ARCHITECTURE.md) — プロセス境界と設計
-- [English: Features and screen guide](docs/FEATURES.md)
-- [English README](README.md)
+- [機能と画面のガイド](docs/FEATURES_JP.md)
+- [アーキテクチャ](docs/ARCHITECTURE.md)
+- [Boardの保存形式とSkillの配布](docs/KANBAN.md)
+- [English README](README.md) · [English: Features and screen guide](docs/FEATURES.md)
 
-## 検証とパッケージ作成
+<br />
 
-```bash
-pnpm verify
-pnpm test:e2e
-```
+---
 
-`pnpm verify` は境界チェック、型検査、lint、フォーマット、単体テスト、本番ビルドを実行します。`pnpm test:e2e` はElectronを起動してE2Eスモークテストを行います。
+<br />
 
-配布パッケージは対象OS上で作成してください。
+<div align="center">
 
-| 対象OS      | コマンド              | 形式               |
-| :---------- | :-------------------- | :----------------- |
-| **Linux**   | `pnpm run dist:linux` | AppImage, deb      |
-| **macOS**   | `pnpm run dist:mac`   | dmg, zip           |
-| **Windows** | `pnpm run dist:win`   | NSISインストーラー |
+**Apache 2.0** — [LICENSE](LICENSE) · [NOTICE.md](NOTICE.md)
 
-成果物は `release/` に出力されます。コード署名（macOSの公証を含む）は未設定です。
+<br />
 
-## セキュリティと制限事項
+_必要なターミナルが、あなたを呼び戻す。_
 
-セキュリティ更新のためElectron 45.0.0に固定しています。macOSは13（Ventura）以降が必要です。未署名のmacOSビルドではネイティブのデスクトップ通知は表示できませんが、アプリ内のAttention表示は利用できます。Electronバイナリは初回利用時にダウンロードされるため、最初の開発・テスト起動にはネットワーク接続が必要です。
-
-RendererからNode.jsを利用できないよう分離し、OS機能へのアクセスをPreloadが公開する型付きIPCに限定しています。Projectはフォルダー選択ダイアログから追加します。ファイル操作はWorkspace内に限定され、Markdown編集は明示的に保存し、ソース表示でのテキスト置換は即時保存します。外部変更との競合時は上書きしません。SSHなどShell Integrationが利用できない環境では、ターミナルイベントの検知精度が下がる場合があります。組み込みブラウザーはダウンロード、拡張機能、ログイン情報の保存に対応していません。
-
-詳しくは[アーキテクチャ](docs/ARCHITECTURE.md)と[機能と画面のガイド](docs/FEATURES_JP.md)をご覧ください。
-
-## ライセンス
-
-本プロジェクトは **Apache License 2.0** のもとで公開されています。[LICENSE](LICENSE) と [NOTICE.md](NOTICE.md) をご確認ください。
+</div>
