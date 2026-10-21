@@ -34,8 +34,6 @@
 
 <div><video controls src="https://github.com/user-attachments/assets/ec6bb6ae-c658-48bf-9b5b-416ab75839d5" muted="false"></video></div>
 
-[Watch the demo](assets/demo-desktop.mp4) · Real Claude Code work, live Monitor, and Sessions with Resume.
-
 <br />
 
 ---
