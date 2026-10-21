@@ -28,7 +28,7 @@ VINTAGE keeps projects, Spaces, and terminals together, then brings you back whe
 - **Built-in browser**: Filter and page bookmarks, and use More actions → Suspend background tabs to release their pages (they reload when reopened; unsaved page input is cleared). Open HTTP/HTTPS and local `file:///` pages with project tabs and Common tabs, restart restoration, links that request a new window opening in a new app tab, scoped bookmarks, page search, and per-tab zoom (Ctrl + wheel / + / − / 0), Ctrl+L address selection, Ctrl+W / Ctrl+Shift+T to close and reopen tabs, Ctrl+Tab switching, and middle-click to open links in background tabs or close tabs. Browser tabs extend horizontally with the panel header scrolling when needed. Right-click pages to copy selected text, edit inputs, open or copy links, copy images, navigate, and inspect elements. Toolbar shortcuts open bookmarks or the default browser; the actions menu includes responsive preview, an element picker, and developer tools. See the [Browser guide](docs/FEATURES.md#browser) for scope behavior, controls, and limits.
 - **Flexible right pane**: Drag the divider to widen the right pane up to the available window width, while keeping room for terminals. The preferred width is saved and adapts when the window shrinks.
 - **Customization**: Reassign shortcuts, choose independent light/dark palettes, create custom themes, import/export VINTAGE theme JSON, and adjust the interface, terminal, and shell settings.
-- **Cross-platform desktop app**: Runs on Linux, Windows, and macOS.
+- **Cross-platform desktop app**: Runs on Linux, Windows, and macOS 13 (Ventura) or later.
 
 See the [features and screen guide](docs/FEATURES.md) for the workspace layout, supported preview formats, Attention modes, Jev setup, and screenshots.
 
@@ -130,6 +130,8 @@ To build distribution packages on the target operating system:
 Build artifacts are written to `release/`. Code signing, including macOS notarization, is not configured.
 
 ## Security and limitations
+
+Electron 45.0.0 is pinned for security updates. macOS requires version 13 (Ventura) or later. Unsigned macOS builds cannot display native desktop notifications; in-app attention indicators remain available. The Electron binary downloads on first use, so the first development or test launch requires network access.
 
 VINTAGE isolates the Renderer from Node.js and limits operating-system access to typed IPC exposed by the Preload process. Projects are added through the folder picker. File operations stay within registered workspaces, Markdown edits save explicitly; text replacement in source views saves immediately and rejects external changes. Shell event detection can be less accurate when shell integration is unavailable, such as in some remote SSH environments. The built-in browser does not support downloads, extensions, or saved login credentials.
 

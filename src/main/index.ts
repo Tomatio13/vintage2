@@ -436,7 +436,7 @@ function registerDesktopIpc(
   ipcMain.handle(DesktopChannels.clipboardWriteText, (event, text: unknown) => {
     resolveSenderWindow(event);
     if (typeof text !== "string") throw new TypeError("Clipboard text must be a string");
-    clipboard.writeText(text);
+    return clipboard.writeText(text);
   });
   ipcMain.handle(DesktopChannels.showAttentionNotification, (event, raw: unknown) => {
     const window = resolveSenderWindow(event);
@@ -715,7 +715,7 @@ function registerDesktopIpc(
     DesktopChannels.workspaceCopyEntryText,
     async (event, id: unknown, path: unknown, kind: unknown) => {
       resolveSenderWindow(event);
-      clipboard.writeText(await entryText(registeredWorkspace(id).path, path, kind));
+      await clipboard.writeText(await entryText(registeredWorkspace(id).path, path, kind));
     },
   );
   ipcMain.handle(
@@ -748,7 +748,7 @@ function registerDesktopIpc(
       if (cardId !== undefined && !card)
         throw new Error("Card no longer exists. Reload the board.");
       await prepareKanbanCli(dir);
-      clipboard.writeText(kanbanInstructions(dir, workspace.path, card));
+      await clipboard.writeText(kanbanInstructions(dir, workspace.path, card));
     },
   );
   ipcMain.handle(

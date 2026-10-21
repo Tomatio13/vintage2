@@ -4,7 +4,14 @@ import { createHash, randomUUID } from "node:crypto";
 import { lstat, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 
-import { app, clipboard, ipcMain, type IpcMainInvokeEvent, type WebContents } from "electron";
+import {
+  app,
+  clipboard,
+  ipcMain,
+  nativeImage,
+  type IpcMainInvokeEvent,
+  type WebContents,
+} from "electron";
 import { spawn, type IPty } from "node-pty";
 
 import {
@@ -120,8 +127,18 @@ export function registerTerminalIpc(
     DesktopChannels.terminalPasteClipboard,
     async (event, rawId: unknown): Promise<TerminalClipboardPasteResult> => {
       const terminal = requireOwnedSession(event, rawId);
-      const image = clipboard.readImage();
-      if (!image.isEmpty()) {
+      const items = await clipboard.read();
+      const imageItem = items.find((item) => item.types.some((type) => type.startsWith("image/")));
+      const imageType =
+        imageItem?.types.find((type) => type === "image/png") ??
+        imageItem?.types.find((type) => type.startsWith("image/"));
+      if (imageItem && imageType) {
+        const blob = await imageItem.getType(imageType);
+        if (!("arrayBuffer" in blob)) throw new Error("Invalid clipboard image data");
+        if (blob.size > MAX_CLIPBOARD_IMAGE_BYTES) {
+          throw new Error("Clipboard image exceeds the 25 MiB limit");
+        }
+        const image = nativeImage.createFromBuffer(Buffer.from(await blob.arrayBuffer()));
         const buffer = image.toPNG();
         if (buffer.byteLength > MAX_CLIPBOARD_IMAGE_BYTES) {
           throw new Error("Clipboard image exceeds the 25 MiB limit");
@@ -131,7 +148,7 @@ export function registerTerminalIpc(
           return { kind: "image", filePath };
         }
       }
-      const text = clipboard.readText();
+      const text = await clipboard.readText();
       if (text.length > MAX_WRITE_LENGTH) {
         throw new Error("Clipboard text exceeds the 1 MiB terminal input limit");
       }

@@ -1,5 +1,26 @@
 # VINTAGE Changelog
 
+## [0.2.38] - 2026-10-21
+
+### Security
+
+- Upgrade Electron from 41.0.3 to 45.0.0, including Chromium 156.0.8078.48 and Node.js 24.22.0.
+- Migrate terminal image/text paste and copy operations to the asynchronous clipboard API, preserving image priority and input size limits.
+
+### Compatibility
+
+- macOS 13 (Ventura) or later is now required. Unsigned macOS builds cannot display native OS notifications; in-app attention remains available.
+- File dialogs without an explicit initial path now default to Downloads, following Electron's behavior.
+
+### Validation and limitations
+
+- Boundary checks, TypeScript, lint, formatting, 540 passing unit tests (one skipped), and production builds passed.
+- Linux Electron tests passed for clipboard, terminal reattachment, settings, browser controls/persistence/security, and Sessions history/analysis/resume. Linux directory packaging, node-pty rebuild, and packaged-app startup passed.
+- Board's mouse-drag resize test timed out; the same failure reproduced with Electron 41.0.3 and is not counted as passing.
+- Windows/macOS runtime and installed-app updater/restart remain unverified. Windows Monitor remains an experimental pre-release; Windows/macOS Sessions and analysis remain experimental with physical-device testing pending. macOS Monitor remains unverified.
+
+**Full Changelog:** [v0.2.37...v0.2.38](https://github.com/Tomatio13/vintage2/compare/v0.2.37...v0.2.38)
+
 ## [0.2.37] - 2026-10-21
 
 ### Added

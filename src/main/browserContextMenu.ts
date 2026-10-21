@@ -13,10 +13,14 @@ export function browserContextMenuItems(
   openTab: (url: string) => void,
 ): MenuItemConstructorOptions[] {
   const items: MenuItemConstructorOptions[] = [];
-  const action = (run: () => void) => () => {
+  const action = (run: () => void | Promise<void>) => async () => {
     if (contents.isDestroyed()) return;
     contents.focus();
-    run();
+    try {
+      await run();
+    } catch (error) {
+      console.error("Browser context menu action failed", error);
+    }
   };
   const group = (entries: MenuItemConstructorOptions[]) => {
     if (!entries.length) return;

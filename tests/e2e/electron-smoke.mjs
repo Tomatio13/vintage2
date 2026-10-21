@@ -15,6 +15,7 @@ const args =
 const app = await electron.launch({ args });
 try {
   const window = await app.firstWindow();
+  await window.getByText("Home", { exact: true }).waitFor();
   await window.evaluate(() => localStorage.clear());
   await window.reload();
   await window.getByText("Home", { exact: true }).waitFor();

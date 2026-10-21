@@ -1,6 +1,6 @@
 {
   "name": "vintage",
-  "version": "0.2.37",
+  "version": "0.2.38",
   "private": true,
   "description": "A local multi-agent terminal workspace",
   "homepage": "https://github.com/Tomatio13/vintage2",
@@ -32,6 +32,7 @@
     "test:e2e:monitor": "pnpm build && node tests/e2e/monitor-smoke.mjs && node tests/e2e/monitor-agents-smoke.mjs && node tests/e2e/monitor-usage-smoke.mjs",
     "test:e2e:sessions": "pnpm build && node tests/e2e/sessions-smoke.mjs",
     "test:e2e:board": "pnpm build && node tests/e2e/board-smoke.mjs",
+    "test:e2e:clipboard": "pnpm build && node tests/e2e/clipboard-smoke.mjs",
     "test:e2e": "pnpm build && node tests/e2e/electron-smoke.mjs",
     "verify:boundaries": "node scripts/check-boundaries.mjs",
     "verify": "pnpm verify:boundaries && pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm test && pnpm build"
@@ -68,7 +69,7 @@
     "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
-    "electron": "41.0.3",
+    "electron": "45.0.0",
     "electron-builder": "^26.8.1",
     "happy-dom": "^20.8.3",
     "oxfmt": "^0.27.0",
