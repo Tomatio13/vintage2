@@ -32,7 +32,7 @@
   <a href="assets/demo-desktop.mp4"><img src="assets/demo-desktop-poster.png" alt="VINTAGEのデモ動画を見る" width="100%" /></a>
 </div>
 
-[デモ動画を見る](assets/demo-desktop.mp4) · Claude Codeの実作業、Monitorでの状態確認、Sessionsからの再開を収録しています。
+<div><video controls src="https://github.com/user-attachments/assets/ec6bb6ae-c658-48bf-9b5b-416ab75839d5" muted="false"></video></div>
 
 <br />
 
