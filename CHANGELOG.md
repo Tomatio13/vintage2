@@ -1,5 +1,27 @@
 # VINTAGE Changelog
 
+## [0.2.39] - 2026-10-22
+
+### Added
+
+- Resize the left sidebar by dragging its right edge and retain the preferred width across restarts.
+- Add a 25px Gary companion above the sidebar footer, with stair climbing, apple eating, edge turns, and randomized scenery and timing on each round trip.
+- Add a persistent Sidebar Gary visibility toggle to Settings → Appearance. Respect reduced motion and stop animations when hidden.
+
+### Fixed
+
+- Hide ZCode workers without a matched session and exclude Codex exec-server background processes from Monitor.
+- Detect OpenCode 2 as OpenCode and avoid duplicate launcher/service rows.
+
+### Validation and limitations
+
+- Boundary checks, TypeScript, lint, formatting, 547 passing unit tests (one skipped), and production builds passed.
+- Live local Monitor collection and Chrome animation checks passed; UI tests cover sidebar resizing, visibility toggles, and preference restoration.
+- Full Electron interaction and installed-app updater/restart remain unverified for these changes.
+- Windows Monitor remains an experimental pre-release; Windows/macOS Sessions and analysis remain experimental with physical-device testing pending. macOS Monitor remains unverified.
+
+**Full Changelog:** [v0.2.38...v0.2.39](https://github.com/Tomatio13/vintage2/compare/v0.2.38...v0.2.39)
+
 ## [0.2.38] - 2026-10-21
 
 ### Security

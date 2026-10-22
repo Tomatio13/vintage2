@@ -33,6 +33,8 @@ export function SidebarGary() {
           facing.animate(scene.chewing, options),
           apple.animate(scene.food, options),
         ];
+        // Every canceled animation rejects its finished promise, including siblings.
+        animations.forEach((animation) => void animation.finished.catch(() => {}));
         void animations[0]!.finished.then(next).catch(() => {});
       };
       next();

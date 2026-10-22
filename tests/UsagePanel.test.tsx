@@ -112,6 +112,8 @@ describe("UsagePanel", () => {
   });
 
   it.each([3, 0])("prioritizes limit reset credits with available=%s", async (available) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 22, 18, 0, 0));
     enableUsagePanel();
     const expiresAt = new Date(2026, 9, 22, 19, 29, 0).toISOString();
     window.desktop = {
