@@ -58,7 +58,7 @@ function codexService(args: string, start = 1): boolean {
       continue;
     }
     if (token.startsWith("-")) continue;
-    return ["app-server", "mcp-server", "remote-control"].includes(token);
+    return ["app-server", "exec-server", "mcp-server", "remote-control"].includes(token);
   }
   return false;
 }
@@ -68,7 +68,8 @@ export function monitorAgent(row: ProcessRow): MonitorAgent | null {
   const command = monitorCommandName(row.command, windows);
   const argv = row.argv?.map((arg) => arg.replace(/\\/gu, "/"));
   const args = argv ? argv.map((arg) => JSON.stringify(arg)).join(" ") : (row.args ?? "");
-  if (command === "opencode" || command === "opencode-cli") return "opencode";
+  if (["opencode", "opencode-cli", "opencode2", "opencode2.exe"].includes(command))
+    return "opencode";
   if (/^grok(?:-\d+(?:\.\d+)*)?$/u.test(command)) return "grok";
   if (command === "zcode-cli" || command === "zc") return "zcode";
   if (["agy", "antigravity-cli", "antigravity_cli"].includes(command)) return "antigravity";
@@ -81,7 +82,8 @@ export function monitorAgent(row: ProcessRow): MonitorAgent | null {
   if (command === "codex") return codexService(args) ? null : "codex";
   if (command === "node" || command === "bun") {
     const entry = monitorCommandTokens(args)[1] ?? "";
-    if (/(?:^|\/)(?:opencode|opencode-ai)(?:\/|\.(?:c?js|mjs)$|$)/u.test(entry)) return "opencode";
+    if (/(?:^|\/)(?:opencode2?|opencode-ai)(?:\/|\.(?:exe|c?js|mjs)$|$)/u.test(entry))
+      return "opencode";
     if (/(?:^|\/)(?:zcode|zc)(?:\/|\.(?:c?js|mjs)$|$)/u.test(entry)) return "zcode";
     if (/(?:^|[\s/])(?:claude-code|claude)(?:\.js)?(?:[\s/]|$)/u.test(entry)) return "claude";
     if (/(?:^|[\s/])codex(?:\.js)?(?:[\s/]|$)/u.test(entry))
@@ -364,7 +366,8 @@ export class MonitorCollector {
           }
         }
         return !(
-          ["node", "bun"].includes(monitorCommandName(row.command)) &&
+          (["node", "bun"].includes(monitorCommandName(row.command)) ||
+            monitorCommandName(row.command) === "opencode2") &&
           candidates.some(
             (child) => child.parentPid === row.pid && monitorAgent(child) === monitorAgent(row),
           )
@@ -553,11 +556,13 @@ export class MonitorCollector {
           ));
         localReads.set(key, local);
       }
-      // ZCode workers may remain alive long after their task has stopped updating.
+      // ZCode also runs background workers without a matching conversation.
+      // Only show workers tied to a recent session.
       if (
         agent === "zcode" &&
-        local?.state?.lastActivityAt != null &&
-        Date.now() - local.state.lastActivityAt >= 60 * 60 * 1000
+        (!local?.state?.sessionId ||
+          (local.state.lastActivityAt != null &&
+            Date.now() - local.state.lastActivityAt >= 60 * 60 * 1000))
       ) {
         seen.delete(id);
         continue;

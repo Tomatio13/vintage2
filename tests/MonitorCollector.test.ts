@@ -63,6 +63,10 @@ describe("Monitor process ownership", () => {
     ).toBe("claude");
     expect(monitorAgent({ ...row, command: "sh", args: "sh -c echo codex" })).toBeNull();
     expect(monitorAgent({ ...row, args: "codex app-server" })).toBeNull();
+    expect(
+      monitorAgent({ ...row, args: "codex exec-server --remote https://example.test" }),
+    ).toBeNull();
+    expect(monitorAgent({ ...row, args: 'codex exec "inspect exec-server"' })).toBe("codex");
     expect(monitorAgent({ ...row, args: "codex mcp-server" })).toBeNull();
     expect(monitorAgent({ ...row, args: "codex remote-control" })).toBeNull();
     expect(
@@ -108,6 +112,71 @@ describe("Monitor process ownership", () => {
 });
 
 describe("Monitor collection with local fixture logs", () => {
+  it("treats the OpenCode 2 launcher and service as one OpenCode process", async () => {
+    const state = new MonitorTranscript("opencode").state;
+    state.sessionId = "opencode2-session";
+    const localRead = vi.spyOn(localAgents, "readLocalAgent").mockResolvedValue({
+      state,
+      diagnostic: null,
+      verified: false,
+    });
+    vi.mocked(listProcessRows).mockResolvedValue([
+      { pid: 900001, parentPid: 1, command: "opencode2" },
+      {
+        pid: 900002,
+        parentPid: 900001,
+        command: "opencode2.exe",
+        args: "opencode2.exe serve --service",
+      },
+    ]);
+    const snapshot = await new MonitorCollector("/tmp").collect();
+    expect(snapshot.sessions).toHaveLength(1);
+    expect(snapshot.sessions[0]).toMatchObject({
+      agent: "opencode",
+      pid: 900002,
+      sessionId: "opencode2-session",
+    });
+    expect(localRead).toHaveBeenCalledWith(
+      "opencode",
+      expect.any(String),
+      1,
+      expect.any(Array),
+      "/tmp",
+      process.env.XDG_DATA_HOME,
+    );
+  });
+
+  it("hides unmatched ZCode workers and removes previously matched rows when their session disappears", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const state = new MonitorTranscript("zcode").state;
+    state.sessionId = "conversation";
+    state.lastActivityAt = Date.now();
+    const localRead = vi.spyOn(localAgents, "readLocalAgent").mockResolvedValue({
+      state: null,
+      diagnostic: "No local session matches this working directory.",
+      verified: false,
+    });
+    vi.mocked(listProcessRows).mockResolvedValue([
+      { pid: process.pid, parentPid: process.ppid, command: "zcode-cli" },
+      { pid: process.ppid, parentPid: 1, command: "zcode-cli" },
+    ]);
+    const collector = new MonitorCollector("/tmp");
+    expect((await collector.collect()).sessions).toHaveLength(0);
+    vi.setSystemTime(Date.now() + 1000);
+    localRead.mockResolvedValue({ state, diagnostic: null, verified: true });
+    expect((await collector.collect()).sessions).toHaveLength(1);
+    vi.setSystemTime(Date.now() + 1000);
+    localRead.mockResolvedValue({
+      state: null,
+      diagnostic: "No matching session.",
+      verified: false,
+    });
+    expect((await collector.collect()).sessions).toHaveLength(0);
+    vi.setSystemTime(Date.now() + 1000);
+    localRead.mockResolvedValue({ state, diagnostic: null, verified: true });
+    expect((await collector.collect()).sessions).toHaveLength(1);
+  });
+
   it.skipIf(process.platform !== "linux")(
     "hides ZCode after one hour without session updates and restores it when activity resumes",
     async () => {
@@ -282,6 +351,9 @@ it("detects supported runtimes without counting GUI helper processes or commands
   ).toBe("antigravity");
   expect(monitorAgent(row("language_server", "/usr/bin/language_server"))).toBeNull();
   expect(monitorAgent(row("opencode"))).toBe("opencode");
+  expect(monitorAgent(row("opencode2"))).toBe("opencode");
+  expect(monitorAgent(row("opencode2.exe", "opencode2.exe serve --service"))).toBe("opencode");
+  expect(monitorAgent(row("node", "node /tools/bin/opencode2"))).toBe("opencode");
   expect(monitorAgent(row("node", "node /tools/opencode-ai/bin/opencode"))).toBe("opencode");
   expect(monitorAgent(row("zcode-cli"))).toBe("zcode");
   expect(monitorAgent(row("node", "node /tools/zcode.cjs"))).toBe("zcode");
