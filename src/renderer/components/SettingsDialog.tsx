@@ -240,6 +240,7 @@ export function SettingsDialog() {
     () => ({
       theme: store.theme,
       themePreferences: store.themePreferences ?? restoreThemePreferences(undefined),
+      sidebarGaryEnabled: store.sidebarGaryEnabled ?? true,
       characterRippleEnabled: store.characterRippleEnabled,
       characterRippleIntensity: store.characterRippleIntensity,
       characterRippleColor: store.characterRippleColor,
@@ -266,6 +267,7 @@ export function SettingsDialog() {
     [
       store.theme,
       store.themePreferences,
+      store.sidebarGaryEnabled,
       store.characterRippleEnabled,
       store.characterRippleIntensity,
       store.characterRippleColor,
@@ -885,6 +887,18 @@ export function SettingsDialog() {
             </div>
           </section>
           <ThemeSettings settings={draft} change={change} />
+          <Card>
+            <Field
+              label="Sidebar Gary"
+              description="Show Gary wandering over stairs and stopping for an apple above the sidebar footer. Respects reduced motion."
+            >
+              <SettingsToggle
+                label="Show Gary in sidebar"
+                checked={draft.sidebarGaryEnabled ?? true}
+                onChange={(sidebarGaryEnabled) => change({ sidebarGaryEnabled })}
+              />
+            </Field>
+          </Card>
           <Card>
             <Field
               label="Character ripple"

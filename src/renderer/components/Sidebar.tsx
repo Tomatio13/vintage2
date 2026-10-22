@@ -23,6 +23,8 @@ import type {
 import { AgentStatusIcon } from "./AgentStatusIcon.js";
 import { strongestAgentStatus, type AgentNavigationState } from "../lib/agentStatus.js";
 import { Button } from "./Button.js";
+import { SidebarGary } from "./SidebarGary.js";
+import { useUiStore } from "../store/uiStore.js";
 
 export interface SidebarWorkspace {
   id: string;
@@ -149,6 +151,7 @@ export function Sidebar({
   onDismissAttention(item: SidebarAttentionItem): void;
   onOpenSettings(): void;
 }) {
+  const showGary = useUiStore((state) => state.sidebarGaryEnabled !== false);
   const [updateStatus, setUpdateStatus] = useState<DesktopUpdateStatus | null>(null);
   const [updateCheckBusy, setUpdateCheckBusy] = useState(false);
   const [updateNotice, setUpdateNotice] = useState<string | null>(null);
@@ -546,6 +549,7 @@ export function Sidebar({
           {updateNotice}
         </div>
       )}
+      {showGary && <SidebarGary />}
       <footer className="flex h-16 shrink-0 items-center justify-between border-t border-border px-3 text-ui-sm text-foreground-subtle">
         <span className="flex items-center gap-2">
           <img alt="" aria-hidden="true" className="size-[18px]" src="./favicon.svg" />

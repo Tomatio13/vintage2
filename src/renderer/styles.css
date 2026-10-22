@@ -691,3 +691,85 @@ button {
     translate: 1px 0;
   }
 }
+
+/* Gary scene positions are animated together by SidebarGary. */
+.sidebar-gary-track {
+  position: relative;
+  height: 41px;
+  margin-inline: 12px;
+  flex: none;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.sidebar-gary-traveler {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 25px;
+  height: 25px;
+}
+
+.sidebar-gary-facing,
+.sidebar-gary-body {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 90%;
+}
+
+.sidebar-gary-body {
+  background: var(--color-foreground-subtle);
+  mask: url("/Gary_white.svg") center / contain no-repeat;
+}
+
+.sidebar-gary-stairs {
+  position: absolute;
+  bottom: 0;
+  left: calc(34% + 4px);
+  width: calc(32% - 8px);
+  height: 12px;
+  background: var(--color-foreground-subtlest);
+  opacity: 0.3;
+  clip-path: polygon(
+    0 100%,
+    0 67%,
+    18.75% 67%,
+    18.75% 33%,
+    37.5% 33%,
+    37.5% 0,
+    62.5% 0,
+    62.5% 33%,
+    81.25% 33%,
+    81.25% 67%,
+    100% 67%,
+    100% 100%
+  );
+}
+
+.sidebar-gary-apple {
+  position: absolute;
+  bottom: 0;
+  left: calc(82% + 2.5px);
+  width: 12px;
+  height: 12px;
+  color: var(--color-brand);
+  transform-origin: bottom center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sidebar-gary-body {
+    animation: sidebar-gary-crawl 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes sidebar-gary-crawl {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  50% {
+    transform: scale(0.94, 1.025);
+  }
+}

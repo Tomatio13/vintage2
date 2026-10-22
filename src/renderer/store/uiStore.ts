@@ -117,6 +117,7 @@ export const defaultShortcuts: ShortcutBinding[] = [
 export interface VintageSettings {
   theme: Theme;
   themePreferences?: ThemePreferences;
+  sidebarGaryEnabled?: boolean;
   characterRippleEnabled: boolean;
   characterRippleIntensity: number;
   characterRippleColor: string | null;
@@ -252,6 +253,7 @@ export const useUiStore = create<UiState>()(
   persist(
     (set, get) => ({
       theme: "system",
+      sidebarGaryEnabled: true,
       characterRippleEnabled: false,
       characterRippleIntensity: 50,
       characterRippleColor: null,
@@ -671,6 +673,7 @@ export const useUiStore = create<UiState>()(
       partialize: ({
         theme,
         themePreferences,
+        sidebarGaryEnabled,
         characterRippleEnabled,
         characterRippleIntensity,
         characterRippleColor,
@@ -708,6 +711,7 @@ export const useUiStore = create<UiState>()(
       }) => ({
         theme,
         themePreferences,
+        sidebarGaryEnabled,
         characterRippleEnabled,
         characterRippleIntensity,
         characterRippleColor,
@@ -767,6 +771,7 @@ export const useUiStore = create<UiState>()(
             persisted.themePreferences ??
               (persisted.theme === "graphite" ? { dark: "graphite" } : undefined),
           ),
+          sidebarGaryEnabled: persisted.sidebarGaryEnabled !== false,
           characterRippleEnabled: persisted.characterRippleEnabled === true,
           characterRippleColor:
             typeof persisted.characterRippleColor === "string" &&
