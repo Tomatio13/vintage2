@@ -11,6 +11,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { DesktopWindowState } from "../../shared/desktop.js";
 import { useUiStore } from "../store/uiStore.js";
 import { Button } from "./Button.js";
+import { ResizeHandle } from "./ResizeHandle.js";
 
 const DEFAULT_WINDOW_STATE: DesktopWindowState = {
   isMaximized: false,
@@ -50,7 +51,15 @@ export function WindowFrame({
   onSplitDown?: (() => void) | undefined;
 }) {
   const [windowState, setWindowState] = useState(DEFAULT_WINDOW_STATE);
-  const { toggleSidebar, toggleSidePane } = useUiStore();
+  const { toggleSidebar, toggleSidePane, sidebarWidth, setSidebarWidth } = useUiStore();
+  const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
+  const sidebarMaxWidth = Math.max(220, Math.min(600, viewportWidth - 480));
+  const sidebarDisplayWidth = Math.min(sidebarMaxWidth, Math.max(220, sidebarWidth));
+  useEffect(() => {
+    const resize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
   const platform = window.desktop?.platform ?? "linux";
   const windowIsMaximized = windowState.isMaximized || windowState.isFullScreen;
   useEffect(() => {
@@ -81,7 +90,23 @@ export function WindowFrame({
       data-native-rounded={windowState.supportsNativeRoundedCorners ?? "unknown"}
       data-platform={platform}
     >
-      {sidebar && <aside className="h-full w-[270px] shrink-0 overflow-hidden">{sidebar}</aside>}
+      {sidebar && (
+        <aside
+          className="relative h-full shrink-0 overflow-hidden"
+          style={{ width: sidebarDisplayWidth }}
+        >
+          {sidebar}
+          <ResizeHandle
+            axis="x"
+            label="Resize sidebar"
+            min={220}
+            max={sidebarMaxWidth}
+            value={sidebarDisplayWidth}
+            onChange={setSidebarWidth}
+            style={{ position: "absolute", right: 0, top: 0, bottom: 0, zIndex: 20 }}
+          />
+        </aside>
+      )}
       <section className="vintage-content-card flex min-w-0 flex-1 flex-col overflow-hidden border border-border border-l-0 bg-background">
         <header className="window-drag flex h-9 shrink-0 items-stretch border-b border-border bg-header platform-mac:pl-20">
           <button

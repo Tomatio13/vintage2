@@ -80,6 +80,8 @@ You open a terminal. Then another. Three more. Each one is running a different a
 | Warning or failure                     | Warning or error icon |
 | Agent detected, idle or status unknown | Robot icon            |
 
+Drag the right edge of the left sidebar to resize it. The width is saved across restarts.
+
 Status icons appear in Space tabs and sidebar rows. Hover over an icon for its status label. Spinners remain still when reduced motion is enabled.
 
 <br />
