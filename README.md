@@ -1,6 +1,6 @@
 <div align="center">
 
-# VINTAGE
+# VINTAGE - Visual Interface for Terminal Agents
 
 ### The terminal workspace built for the age of AI agents.
 
@@ -24,15 +24,20 @@
 
 </div>
 
----
+______________________________________________________________________
 
 <br />
 
 <div><video controls src="https://github.com/user-attachments/assets/ec6bb6ae-c658-48bf-9b5b-416ab75839d5" muted="false"></video></div>
 
+![fig](assets/manga/manga-en.png)
+
+<p align="center">
+<a href="assets/manga/en/page-01.png">page 1</a> · <a href="assets/manga/en/page-02.png">page 2</a> · <a href="assets/manga/en/page-03.png">page 3</a>
+</p>
 <br />
 
----
+______________________________________________________________________
 
 <br />
 
@@ -50,35 +55,35 @@ You open a terminal. Then another. Three more. Each one is running a different a
 
 <br />
 
----
+______________________________________________________________________
 
 <br />
 
 ## Features
 
-|     | Feature             | What it does                                                                                                               |
+| | Feature | What it does |
 | --- | ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| ⚡  | **Attention**       | Background terminals that finish, error, or stall fire a notification — one click back to that exact terminal. No hunting. |
-| 🔲  | **Space splitting** | Split your workspace horizontally or vertically. Run agents side by side. Each pane independent.                           |
-| 🎛  | **Command Palette** | `Ctrl+Shift+P` — jump to any workspace, Space, terminal, or action from a single input.                                    |
-| 📡  | **Monitor**         | Live CPU, RAM, and every AI session on the machine — tool in use, context %, quota remaining.                              |
-| 🗄  | **Sessions**        | Browse and resume past Claude Code / Codex / Grok / Antigravity conversations. Search, pin, read, resume.                  |
-| 📋  | **Board**           | A Kanban board your agents can write to. Drop tasks in. Agents update cards, add subtasks, close tickets. All local.       |
-| 🎨  | **Themes**          | Vintage · Graphite · Ocean · Grove · Iris · Ember — independent light/dark palettes, full JSON import/export.              |
+| ⚡ | **Attention** | Background terminals that finish, error, or stall fire a notification — one click back to that exact terminal. No hunting. |
+| 🔲 | **Space splitting** | Split your workspace horizontally or vertically. Run agents side by side. Each pane independent. |
+| 🎛 | **Command Palette** | `Ctrl+Shift+P` — jump to any workspace, Space, terminal, or action from a single input. |
+| 📡 | **Monitor** | Live CPU, RAM, and every AI session on the machine — tool in use, context %, quota remaining. |
+| 🗄 | **Sessions** | Browse and resume past Claude Code / Codex / Grok / Antigravity conversations. Search, pin, read, resume. |
+| 📋 | **Board** | A Kanban board your agents can write to. Drop tasks in. Agents update cards, add subtasks, close tickets. All local. |
+| 🎨 | **Themes** | Vintage · Graphite · Ocean · Grove · Iris · Ember — independent light/dark palettes, full JSON import/export. |
 
 <br />
 
 ### Status at a glance
 
-| State                                  | Display               |
+| State | Display |
 | :------------------------------------- | :-------------------- |
-| Normal terminal                        | `>_`                  |
-| Agent thinking or running              | Rotating spinner      |
-| Input needed                           | Message icon          |
-| Waiting                                | Clock icon            |
-| Completed                              | Check icon            |
-| Warning or failure                     | Warning or error icon |
-| Agent detected, idle or status unknown | Robot icon            |
+| Normal terminal | `>_` |
+| Agent thinking or running | Rotating spinner |
+| Input needed | Message icon |
+| Waiting | Clock icon |
+| Completed | Check icon |
+| Warning or failure | Warning or error icon |
+| Agent detected, idle or status unknown | Robot icon |
 
 Drag the right edge of the left sidebar to resize it. The width is saved across restarts. Gary crawls over little stairs and stops for an apple above the sidebar footer, with new positions and timing on each round trip. Toggle Gary in **Settings → Appearance → Sidebar Gary**. Reduced motion keeps the scene still.
 
@@ -86,7 +91,7 @@ Status icons appear in Space tabs and sidebar rows. Hover over an icon for its s
 
 <br />
 
----
+______________________________________________________________________
 
 <br />
 
@@ -113,7 +118,7 @@ pnpm run dist:win     # → NSIS installer
 
 <br />
 
----
+______________________________________________________________________
 
 <br />
 
@@ -125,7 +130,7 @@ pnpm run dist:win     # → NSIS installer
 
 <br />
 
----
+______________________________________________________________________
 
 <br />
 
@@ -138,7 +143,7 @@ pnpm run dist:win     # → NSIS installer
 
 <br />
 
----
+______________________________________________________________________
 
 <br />
 
