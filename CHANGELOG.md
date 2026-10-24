@@ -1,5 +1,21 @@
 # VINTAGE Changelog
 
+## [0.2.40] - 2026-10-24
+
+### Added
+
+- Show colored agent badges beside sidebar Space names, using the same names and colors as Monitor Sessions. Deduplicate each agent type across split panes and retain badges while agents wait for input.
+- Show each agent's state through a subtle pulsing outline while working, a thin agent-colored outline while waiting or reporting a problem, and a faded badge on completion. Hover for the agent name and status; respect reduced motion.
+
+### Validation and limitations
+
+- Boundary checks, TypeScript, lint, formatting, 552 passing tests (one skipped), and production builds passed.
+- Agent ownership, independent per-agent status aggregation, badge updates, and state styling are covered by automated tests.
+- Full Electron interaction, live-agent visual transitions, and installed-app updater/restart remain unverified for these changes.
+- Windows Monitor remains an experimental pre-release; Windows/macOS Sessions and analysis remain experimental with physical-device testing pending. macOS Monitor remains unverified.
+
+**Full Changelog:** [v0.2.39...v0.2.40](https://github.com/Tomatio13/vintage2/compare/v0.2.39...v0.2.40)
+
 ## [0.2.39] - 2026-10-22
 
 ### Added

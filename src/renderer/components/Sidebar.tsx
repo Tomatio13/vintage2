@@ -1,3 +1,4 @@
+import type { MonitorAgent } from "../../shared/monitor.js";
 import {
   Check,
   CircleAlert,
@@ -20,6 +21,7 @@ import type {
   TerminalAttentionState,
   TerminalAttentionStatus,
 } from "../../shared/desktop.js";
+import { AgentBadge } from "./AgentBadge.js";
 import { AgentStatusIcon } from "./AgentStatusIcon.js";
 import { strongestAgentStatus, type AgentNavigationState } from "../lib/agentStatus.js";
 import { Button } from "./Button.js";
@@ -123,6 +125,8 @@ export function Sidebar({
   attentionItems,
   attentionHistory,
   agentStatusByTabId,
+  agentsByTabId,
+  agentStatesByTabId,
   activeWorkspaceId,
   onOpenWorkspace,
   onNewSpace,
@@ -139,6 +143,8 @@ export function Sidebar({
   attentionItems: SidebarAttentionItem[];
   attentionHistory: SidebarAttentionHistoryItem[];
   agentStatusByTabId?: Record<string, AgentNavigationState>;
+  agentsByTabId?: Record<string, MonitorAgent[]>;
+  agentStatesByTabId?: Record<string, Partial<Record<MonitorAgent, AgentNavigationState>>>;
   activeWorkspaceId: string | null;
   onOpenWorkspace(): void;
   onNewSpace(): void;
@@ -373,6 +379,17 @@ export function Sidebar({
                   showTerminal
                 />
                 <span className="min-w-0 flex-1 truncate">{tab.title}</span>
+                {(agentsByTabId?.[tab.id]?.length ?? 0) > 0 && (
+                  <span className="flex shrink-0 items-center gap-1">
+                    {agentsByTabId![tab.id]!.map((agent) => (
+                      <AgentBadge
+                        key={agent}
+                        agent={agent}
+                        state={agentStatesByTabId?.[tab.id]?.[agent]}
+                      />
+                    ))}
+                  </span>
+                )}
               </button>
             );
           })}

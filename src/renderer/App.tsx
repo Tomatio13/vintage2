@@ -1,3 +1,5 @@
+import type { MonitorAgent } from "../shared/monitor.js";
+import { agentStatesForPanes, agentsForPanes, monitorAgentsByPane } from "./lib/agentIdentity.js";
 import { sessionPathsEqual } from "../shared/sessionHistory.js";
 import { sessionLaunch } from "./lib/sessionLaunch.js";
 import { applyTheme } from "./lib/themes.js";
@@ -584,12 +586,26 @@ export function App() {
     );
   const sessionStatusByPane = monitorStatusByPane(monitorSnapshot?.sessions ?? []);
   const agentStatusByTabId: Record<string, AgentNavigationState> = {};
+  const agentsByPane = monitorAgentsByPane(monitorSnapshot?.sessions ?? []);
+  const agentsByTabId: Record<string, MonitorAgent[]> = {};
+  const agentStatesByTabId: Record<
+    string,
+    Partial<Record<MonitorAgent, AgentNavigationState>>
+  > = {};
   for (const workspace of workspaces) {
     for (const tab of workspace.tabs) {
       const state = strongestAgentStatus(
         tab.panes.map((pane) => sessionStatusByPane[pane.id] ?? attentionByPane[pane.id]),
       );
       if (state) agentStatusByTabId[tab.id] = state;
+      agentStatesByTabId[tab.id] = agentStatesForPanes(
+        tab.panes.map((pane) => pane.id),
+        monitorSnapshot?.sessions ?? [],
+      );
+      agentsByTabId[tab.id] = agentsForPanes(
+        tab.panes.map((pane) => pane.id),
+        agentsByPane,
+      );
     }
   }
 
@@ -1675,6 +1691,8 @@ export function App() {
       attentionItems={attentionItems}
       attentionHistory={attentionHistory.filter((item) => item.outcome !== "active")}
       agentStatusByTabId={agentStatusByTabId}
+      agentsByTabId={agentsByTabId}
+      agentStatesByTabId={agentStatesByTabId}
       activeWorkspaceId={activeId}
       onOpenWorkspace={() => void openWorkspace()}
       onNewSpace={addSpace}

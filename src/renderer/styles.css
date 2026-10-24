@@ -773,3 +773,26 @@ button {
     transform: scale(0.94, 1.025);
   }
 }
+
+/* Animate only the badge outline; the tiny agent letters stay steady. */
+@media (prefers-reduced-motion: no-preference) {
+  .agent-badge-working::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: 0 0 0 1px currentColor;
+    pointer-events: none;
+    animation: agent-badge-pulse 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes agent-badge-pulse {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
