@@ -112,7 +112,7 @@ describe("Monitor process ownership", () => {
 });
 
 describe("Monitor collection with local fixture logs", () => {
-  it("treats the OpenCode 2 launcher and service as one OpenCode process", async () => {
+  it("treats the OpenCode 2 launcher and interactive child as one OpenCode process", async () => {
     const state = new MonitorTranscript("opencode").state;
     state.sessionId = "opencode2-session";
     const localRead = vi.spyOn(localAgents, "readLocalAgent").mockResolvedValue({
@@ -126,7 +126,7 @@ describe("Monitor collection with local fixture logs", () => {
         pid: 900002,
         parentPid: 900001,
         command: "opencode2.exe",
-        args: "opencode2.exe serve --service",
+        args: "opencode2.exe",
       },
     ]);
     const snapshot = await new MonitorCollector("/tmp").collect();
@@ -144,6 +144,22 @@ describe("Monitor collection with local fixture logs", () => {
       "/tmp",
       process.env.XDG_DATA_HOME,
     );
+  });
+
+  it("hides the OpenCode service and its launcher without reading session logs", async () => {
+    const localRead = vi.spyOn(localAgents, "readLocalAgent");
+    vi.mocked(listProcessRows).mockResolvedValue([
+      { pid: 900001, parentPid: 1, command: "opencode2" },
+      {
+        pid: 900002,
+        parentPid: 900001,
+        command: "opencode2.exe",
+        args: "/home/masato/.nvm/versions/node/v24.22.1/lib/node_modules/@opencode-ai/cli/bin/opencode2.exe serve --service",
+      },
+    ]);
+    const snapshot = await new MonitorCollector("/tmp").collect();
+    expect(snapshot.sessions).toEqual([]);
+    expect(localRead).not.toHaveBeenCalled();
   });
 
   it("hides unmatched ZCode workers and removes previously matched rows when their session disappears", async () => {
@@ -352,7 +368,17 @@ it("detects supported runtimes without counting GUI helper processes or commands
   expect(monitorAgent(row("language_server", "/usr/bin/language_server"))).toBeNull();
   expect(monitorAgent(row("opencode"))).toBe("opencode");
   expect(monitorAgent(row("opencode2"))).toBe("opencode");
-  expect(monitorAgent(row("opencode2.exe", "opencode2.exe serve --service"))).toBe("opencode");
+  expect(monitorAgent(row("opencode2.exe", "opencode2.exe serve --service"))).toBeNull();
+  expect(monitorAgent(row("opencode", "opencode --log-level debug serve"))).toBeNull();
+  expect(monitorAgent(row("node", "node /tools/bin/opencode2 serve --service"))).toBeNull();
+  expect(monitorAgent(row("bun", "bun /tools/bin/opencode2 serve"))).toBeNull();
+  expect(monitorAgent(row("opencode2", 'opencode2 run "serve --service"'))).toBe("opencode");
+  expect(
+    monitorAgent({
+      ...row("opencode2.exe"),
+      argv: ["C:\\tools\\opencode2.exe", "serve", "--service"],
+    }),
+  ).toBeNull();
   expect(monitorAgent(row("node", "node /tools/bin/opencode2"))).toBe("opencode");
   expect(monitorAgent(row("node", "node /tools/opencode-ai/bin/opencode"))).toBe("opencode");
   expect(monitorAgent(row("zcode-cli"))).toBe("zcode");

@@ -89,6 +89,8 @@ Drag the right edge of the left sidebar to resize it. The width is saved across 
 
 Status icons appear in Space tabs and sidebar rows. Hover over an icon for its status label. Spinners remain still when reduced motion is enabled.
 
+Monitor excludes OpenCode background servers (`serve`, including `opencode2.exe serve --service`) and their launchers; interactive OpenCode sessions remain visible.
+
 Sidebar Space rows also show colored agent badges (such as CD for Codex and OC for OpenCode), matching Monitor Sessions. Split panes with different agents show one badge per agent type, including agents waiting for input. Badge outlines pulse while working, stay emphasized while waiting for input, and fade on completion. Hover for the agent name and status; reduced motion disables the pulse.
 
 <br />

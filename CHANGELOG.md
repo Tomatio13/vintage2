@@ -1,5 +1,20 @@
 # VINTAGE Changelog
 
+## [0.2.41] - 2026-10-28
+
+### Fixed
+
+- Hide OpenCode background servers (`serve`, including `opencode2.exe serve --service`) and their launchers from Monitor while keeping interactive sessions visible.
+
+### Validation and limitations
+
+- Boundary checks, TypeScript, lint, formatting, 553 passing tests (one skipped), and production builds passed.
+- Regression tests cover native, Node/Bun, and Windows command arguments, launcher exclusion, and interactive session detection.
+- Live Electron display and installed-app updater/restart remain unverified for this change.
+- Windows Monitor remains an experimental pre-release; Windows/macOS Sessions and analysis remain experimental with physical-device testing pending. macOS Monitor remains unverified.
+
+**Full Changelog:** [v0.2.40...v0.2.41](https://github.com/Tomatio13/vintage2/compare/v0.2.40...v0.2.41)
+
 ## [0.2.40] - 2026-10-24
 
 ### Added

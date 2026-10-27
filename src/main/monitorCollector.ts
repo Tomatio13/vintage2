@@ -63,13 +63,27 @@ function codexService(args: string, start = 1): boolean {
   return false;
 }
 
-export function monitorAgent(row: ProcessRow): MonitorAgent | null {
+function openCodeService(args: string, start: number): boolean {
+  const tokens = monitorCommandTokens(args);
+  for (let index = start; index < tokens.length; index++) {
+    const token = tokens[index]!;
+    if (token === "--log-level") {
+      index++;
+      continue;
+    }
+    if (token.startsWith("-")) continue;
+    return token === "serve";
+  }
+  return false;
+}
+
+export function monitorAgent(row: ProcessRow, includeServices = false): MonitorAgent | null {
   const windows = row.argv !== undefined || process.platform === "win32";
   const command = monitorCommandName(row.command, windows);
   const argv = row.argv?.map((arg) => arg.replace(/\\/gu, "/"));
   const args = argv ? argv.map((arg) => JSON.stringify(arg)).join(" ") : (row.args ?? "");
   if (["opencode", "opencode-cli", "opencode2", "opencode2.exe"].includes(command))
-    return "opencode";
+    return !includeServices && openCodeService(args, 1) ? null : "opencode";
   if (/^grok(?:-\d+(?:\.\d+)*)?$/u.test(command)) return "grok";
   if (command === "zcode-cli" || command === "zc") return "zcode";
   if (["agy", "antigravity-cli", "antigravity_cli"].includes(command)) return "antigravity";
@@ -83,7 +97,7 @@ export function monitorAgent(row: ProcessRow): MonitorAgent | null {
   if (command === "node" || command === "bun") {
     const entry = monitorCommandTokens(args)[1] ?? "";
     if (/(?:^|\/)(?:opencode2?|opencode-ai)(?:\/|\.(?:exe|c?js|mjs)$|$)/u.test(entry))
-      return "opencode";
+      return !includeServices && openCodeService(args, 2) ? null : "opencode";
     if (/(?:^|\/)(?:zcode|zc)(?:\/|\.(?:c?js|mjs)$|$)/u.test(entry)) return "zcode";
     if (/(?:^|[\s/])(?:claude-code|claude)(?:\.js)?(?:[\s/]|$)/u.test(entry)) return "claude";
     if (/(?:^|[\s/])codex(?:\.js)?(?:[\s/]|$)/u.test(entry))
@@ -328,8 +342,9 @@ export class MonitorCollector {
     const rows = await listProcessRows();
     if (!rows) throw new Error("Unable to inspect local processes.");
     const parents = new Map(rows.map((row) => [row.pid, row]));
+    // Keep OpenCode services until launcher deduplication so their parents cannot appear instead.
     const candidates = rows.filter((row) => {
-      if (!monitorAgent(row) || sessionAnalysisProcesses.has(row.pid)) return false;
+      if (!monitorAgent(row, true) || sessionAnalysisProcesses.has(row.pid)) return false;
       // Usage probes launched by CodexBar are not interactive agent sessions.
       let pid = row.parentPid;
       const visited = new Set<number>([row.pid]);
@@ -369,10 +384,12 @@ export class MonitorCollector {
           (["node", "bun"].includes(monitorCommandName(row.command)) ||
             monitorCommandName(row.command) === "opencode2") &&
           candidates.some(
-            (child) => child.parentPid === row.pid && monitorAgent(child) === monitorAgent(row),
+            (child) =>
+              child.parentPid === row.pid && monitorAgent(child, true) === monitorAgent(row, true),
           )
         );
       })
+      .filter((row) => monitorAgent(row) !== null)
       .slice(0, 128);
     const files = await openFiles(agents);
     const antigravityRoots = agents.filter((row) => monitorAgent(row) === "antigravity");
