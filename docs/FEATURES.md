@@ -217,9 +217,9 @@ Within Browser pages and controls, `Ctrl+L` selects the address, `Ctrl+W` closes
 
 #### Local files and limits
 
-For example, enter `file:///home/user/docs/index.html` to open a local HTML page. Its CSS, images, scripts, and relative links can load, and local URLs support bookmarks, the start-page setting, and restart restoration. Only files on this computer are supported; remote file hosts such as `file://server/share/page.html` are rejected.
+For example, enter `file:///home/user/docs/index.html` to open a local HTML page. Its CSS, images, scripts, and relative links can load, and local URLs support bookmarks, the start-page setting, and restart restoration. VINTAGE displays and saves the original `file:///` URL but internally converts it to a temporary `vintage-local:` URL that serves only the initially opened HTML file's parent folder. Only files on this computer are supported; remote file hosts such as `file://server/share/page.html`, paths outside that parent folder, and out-of-scope symlink targets are rejected.
 
-Browser pages run with sandboxing and isolation, without Node.js integration or access to VINTAGE’s desktop API. Web pages cannot automatically navigate into local files. Browser file pages differ from the isolated HTML preview in **Files**, which blocks scripts and external resources.
+Browser pages run with sandboxing and isolation, without Node.js integration or access to VINTAGE’s desktop API. Local HTML uses a separate non-persistent partition and cannot make HTTP(S) requests. HTTP(S) links on a local page open in a new regular Browser tab. Web pages cannot automatically navigate into local files. Browser file pages differ from the isolated HTML preview in **Files**, which blocks scripts.
 
 Downloads, extensions, and saved login credentials are not supported.
 

@@ -1,6 +1,12 @@
 import { expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 
+const autoUpdaterMock = vi.hoisted(() => ({
+  on: vi.fn(),
+  checkForUpdates: vi.fn(),
+  allowDowngrade: true,
+}));
+
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
   const read = () => actual.readFileSync("package.json", "utf8");
@@ -13,7 +19,7 @@ vi.mock("electron", () => ({
   shell: {},
 }));
 vi.mock("electron-updater", () => ({
-  default: { autoUpdater: { on: vi.fn(), checkForUpdates: vi.fn() } },
+  default: { autoUpdater: autoUpdaterMock },
 }));
 
 import { UpdateManager } from "../src/main/updateManager.js";
@@ -26,4 +32,5 @@ it("reports the project version in development without invoking the installed up
     currentVersion: metadata.version,
   });
   expect(await manager.checkForUpdates()).toEqual(manager.getStatus());
+  expect(autoUpdaterMock.allowDowngrade).toBe(false);
 });

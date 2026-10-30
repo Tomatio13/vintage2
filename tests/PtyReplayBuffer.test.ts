@@ -51,4 +51,22 @@ describe("createReplayBuffer", () => {
     expect(buffer.snapshot()).toBe("");
     expect(buffer.length).toBe(0);
   });
+
+  it("bounds CPU and retained output while processing a sustained 100 MiB burst", () => {
+    const cap = 1024 * 1024;
+    const buffer = createReplayBuffer(cap);
+    const beforeHeap = process.memoryUsage().heapUsed;
+    const startedAt = performance.now();
+
+    for (let index = 0; index < 100 * 1024; index += 1) {
+      buffer.append(`${String(index).padStart(10, "0")}:${"x".repeat(1_013)}`);
+    }
+
+    const elapsedMs = performance.now() - startedAt;
+    const heapGrowth = process.memoryUsage().heapUsed - beforeHeap;
+    expect(buffer.length).toBe(cap);
+    expect(buffer.snapshot()).toHaveLength(cap);
+    expect(elapsedMs).toBeLessThan(5_000);
+    expect(heapGrowth).toBeLessThan(128 * 1024 * 1024);
+  }, 10_000);
 });

@@ -1,0 +1,19 @@
+# ローカル実行とfilesystem競合の信頼境界
+
+VINTAGEは現在ログインしているOSユーザーの権限で、ユーザーが選択したWorkspaceとAgent CLIを操作します。OSユーザー内部に別の権限境界を作るsandboxではありません。
+
+## Agent CLI
+
+自動検出はPATHと既知のユーザーdirectoryから`codex`、`claude`、`grok`、`agy`を探し、regular executable fileを使用します。明示設定では絶対pathを要求します。command名とresume引数を制限し、shell展開は使用しません。
+
+POSIXで所有者やgroup/other書込権限による一律拒否は行いません。ユーザー自身が所有・更新する`~/.local/bin`、npm、nvm、pnpm、Homebrewなどが通常経路であり、owner-writableを拒否すると機能しません。group-writableな開発環境や管理配布も存在し、permission bitだけでは信頼性を正しく判定できません。
+
+PATH先頭の偽CLIが選択される攻撃fixtureにより、この信頼前提は確認済みです。PATH、明示設定path、CLI installerを信頼できない場合、VINTAGEからそのCLIを起動してはいけません。将来、管理対象端末向けallowlist、hash pin、Windows署名検証などを追加する場合はopt-in policyとして設計します。
+
+## Workspace filesystemとTOCTOU
+
+VINTAGEは操作前にrealpath、Workspace境界、symlink、file typeを検証します。ただし、検証後からOSのpathベースAPIを呼ぶまでに、同一ユーザーの別プロセスが親directoryをsymlinkへ差し替える競合を完全には排除できません。再現fixtureではOS Trash callbackへ渡る時点でpathをWorkspace外へ向けられることを確認しています。
+
+この競合は現行版では残余リスクとして受容します。同一ユーザーの別プロセスはVINTAGEを経由せず同じファイルを直接変更・削除できるため、VINTAGEのpath検証をその相手に対するsandbox境界とは扱いません。一方、rendererやWeb pageにはfilesystem APIを公開せず、IPC送信元と入力を検証することで、Webコンテンツ単独では競合を作れない境界を維持します。
+
+より強い境界が必要な環境では、OS別のdirectory handle相対操作、broker process、権限分離、またはfilesystem sandboxが必要です。

@@ -41,6 +41,7 @@ export class UpdateManager {
   constructor() {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.allowDowngrade = false;
 
     autoUpdater.on("checking-for-update", () => {
       this.#setStatus({ status: "checking", currentVersion: currentVersion() });

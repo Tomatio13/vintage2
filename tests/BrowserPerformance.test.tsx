@@ -36,6 +36,14 @@ it("does not notify subscribers or write storage for repeated page metadata", ()
   unsubscribe();
 });
 
+it("warns for HTTP pages without warning for HTTPS pages", () => {
+  const view = render(<BrowserPane tabId="browser-1" initialUrl="http://example.com/" active />);
+  expect(screen.getByLabelText("HTTP connection is not secure")).toBeInTheDocument();
+  view.unmount();
+  render(<BrowserPane tabId="browser-1" initialUrl="https://example.com/" active />);
+  expect(screen.queryByLabelText("HTTP connection is not secure")).not.toBeInTheDocument();
+});
+
 it("suspends background pages while preserving tab addresses and the selected page", () => {
   const store = useUiStore.getState();
   store.openInBrowserTab("https://first.example/");

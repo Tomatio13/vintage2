@@ -1,18 +1,21 @@
 import { browserShortcut } from "../shared/browserShortcuts.js";
-import { Menu, session, type BrowserWindow, type WebContents } from "electron";
+import { Menu, session, type BrowserWindow, type Session, type WebContents } from "electron";
 
 import { canNavigateBrowserGuest, isAllowedBrowserUrl } from "../shared/browserUrl.js";
 
 import { DesktopChannels } from "../shared/desktop.js";
 
 import { browserContextMenuItems } from "./browserContextMenu.js";
+import { LOCAL_BROWSER_PARTITION } from "./localBrowser.js";
 
 export const BROWSER_PARTITION = "persist:starter-browser";
 
-export function configureBrowserSession(): void {
-  const browserSession = session.fromPartition(BROWSER_PARTITION);
+export function configureBrowserSession(
+  browserSession: Session = session.fromPartition(BROWSER_PARTITION),
+): void {
   browserSession.setPermissionCheckHandler(() => false);
   browserSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  browserSession.on("will-download", (event) => event.preventDefault());
 }
 
 export function configureWebviewSecurity(window: BrowserWindow): void {
@@ -28,7 +31,11 @@ export function configureWebviewSecurity(window: BrowserWindow): void {
       );
   });
   window.webContents.on("will-attach-webview", (event, webPreferences, params) => {
-    if (typeof params.src !== "string" || !isAllowedBrowserUrl(params.src)) {
+    if (
+      typeof params.src !== "string" ||
+      !isAllowedBrowserUrl(params.src) ||
+      new URL(params.src).protocol === "file:"
+    ) {
       event.preventDefault();
       return;
     }
@@ -38,7 +45,10 @@ export function configureWebviewSecurity(window: BrowserWindow): void {
     webPreferences.sandbox = true;
     webPreferences.webSecurity = true;
     webPreferences.allowRunningInsecureContent = false;
-    webPreferences.partition = BROWSER_PARTITION;
+    webPreferences.partition =
+      webPreferences.partition === LOCAL_BROWSER_PARTITION
+        ? LOCAL_BROWSER_PARTITION
+        : BROWSER_PARTITION;
   });
 
   window.webContents.on("did-attach-webview", (_event, contents) => {
@@ -84,11 +94,33 @@ export function configureWebviewSecurity(window: BrowserWindow): void {
   });
 }
 
-function hardenGuest(
+export function hardenGuest(
   contents: WebContents,
   openTab: (url: string, background?: boolean) => void,
 ): void {
+  contents.on("certificate-error", (event, _url, _error, _certificate, callback) => {
+    event.preventDefault();
+    callback(false);
+  });
+  contents.on("login", (event, _details, _authInfo, callback) => {
+    event.preventDefault();
+    callback();
+  });
   contents.on("will-navigate", (event, url) => {
+    try {
+      const current = new URL(contents.getURL());
+      const target = new URL(url);
+      if (
+        current.protocol === "vintage-local:" &&
+        (target.protocol === "http:" || target.protocol === "https:")
+      ) {
+        event.preventDefault();
+        openTab(url);
+        return;
+      }
+    } catch {
+      // The normal navigation policy below rejects malformed URLs.
+    }
     if (!canNavigateBrowserGuest(contents.getURL(), url)) event.preventDefault();
   });
   contents.on("will-redirect", (event, url) => {

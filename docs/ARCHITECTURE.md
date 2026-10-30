@@ -173,6 +173,8 @@ Notes・BoardのON/OFFは`uiStore`へ保存します。表示中のタブをOff�
 
 Browserは`persist:starter-browser`の専用セッションを共有し、アプリのRendererセッションと分離します。権限要求は拒否し、新規ウィンドウは生成せず、許可URLを同じゲストへ読み込みます。メインウィンドウの遷移制限は[`windowNavigation.ts`](../src/main/windowNavigation.ts)が担当します。
 
+ローカルHTMLは通常Webサイトと同じセッションへ直接 `file:` URLを渡しません。Mainの[`localBrowser.ts`](../src/main/localBrowser.ts)がタブごとの一時capabilityを発行し、元ファイルの親フォルダだけを`vintage-local:`で配信します。ローカルWebviewは非永続の`vintage-local-browser` partitionを使い、HTTP(S)要求と権限要求を拒否します。Rendererのアドレス欄、ブックマーク、復元状態には元の`file:///` URLを保持し、タブを閉じるとcapabilityを破棄します。
+
 ## 保存データ
 
 Main側の保存先は原則として`app.getPath("userData")`です。Renderer側のUI設定と下書きはlocalStorageに置きます。

@@ -79,20 +79,23 @@ export function registerTerminalIpc(
   resolveWorkspace: (id: unknown) => string,
   evaluationQueue: JevEvaluationQueue,
   attentionSettings: AttentionSettingsManager,
+  assertTrustedSender: (event: IpcMainInvokeEvent) => void,
 ): void {
-  ipcMain.handle(DesktopChannels.terminalCreate, (event, rawSize: unknown) =>
-    createTerminal(
+  ipcMain.handle(DesktopChannels.terminalCreate, (event, rawSize: unknown) => {
+    assertTrustedSender(event);
+    return createTerminal(
       event,
       parseCreateOptions(rawSize),
       resolveWorkspace,
       evaluationQueue,
       attentionSettings,
-    ),
-  );
+    );
+  });
   attentionSettings.onSettingsChanged((settings) => {
     for (const terminal of sessions.values()) terminal.attention.updateAttentionSettings(settings);
   });
   ipcMain.handle(DesktopChannels.terminalReady, (event, rawId: unknown) => {
+    assertTrustedSender(event);
     const terminal = requireOwnedSession(event, rawId);
     if (terminal.ready) return;
     terminal.ready = true;
@@ -116,6 +119,7 @@ export function registerTerminalIpc(
     }
   });
   ipcMain.handle(DesktopChannels.terminalWrite, (event, rawId: unknown, rawData: unknown) => {
+    assertTrustedSender(event);
     if (typeof rawData !== "string" || rawData.length > MAX_WRITE_LENGTH) {
       throw new TypeError("Terminal input must be a string no larger than 1 MiB");
     }
@@ -126,6 +130,7 @@ export function registerTerminalIpc(
   ipcMain.handle(
     DesktopChannels.terminalPasteClipboard,
     async (event, rawId: unknown): Promise<TerminalClipboardPasteResult> => {
+      assertTrustedSender(event);
       const terminal = requireOwnedSession(event, rawId);
       const items = await clipboard.read();
       const imageItem = items.find((item) => item.types.some((type) => type.startsWith("image/")));
@@ -156,10 +161,12 @@ export function registerTerminalIpc(
     },
   );
   ipcMain.handle(DesktopChannels.terminalResize, (event, rawId: unknown, rawSize: unknown) => {
+    assertTrustedSender(event);
     const size = parseSize(rawSize);
     requireOwnedSession(event, rawId).process.resize(size.cols, size.rows);
   });
   ipcMain.handle(DesktopChannels.terminalSetActive, (event, rawId: unknown, active: unknown) => {
+    assertTrustedSender(event);
     if (typeof active !== "boolean") {
       throw new TypeError("Terminal active state must be a boolean");
     }
@@ -168,6 +175,7 @@ export function registerTerminalIpc(
   ipcMain.handle(
     DesktopChannels.terminalSetMonitorMode,
     (event, rawId: unknown, rawMode: unknown) => {
+      assertTrustedSender(event);
       if (!isTerminalMonitorMode(rawMode)) throw new TypeError("Unsupported terminal monitor mode");
       const terminal = requireOwnedSession(event, rawId);
       attentionSettings.setTerminalMode(terminal.profileKey, rawMode);
@@ -176,9 +184,11 @@ export function registerTerminalIpc(
     },
   );
   ipcMain.handle(DesktopChannels.terminalDismissAttention, (event, rawId: unknown) => {
+    assertTrustedSender(event);
     requireOwnedSession(event, rawId).attention.dismiss();
   });
   ipcMain.handle(DesktopChannels.terminalClose, (event, rawId: unknown) => {
+    assertTrustedSender(event);
     closeSession(requireOwnedSession(event, rawId));
   });
 }

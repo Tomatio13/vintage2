@@ -1,4 +1,13 @@
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -93,4 +102,26 @@ it("propagates trash failures without deleting the file", async () => {
     }),
   ).rejects.toThrow("Trash unavailable");
   expect(await readFile(join(root, "note.md"), "utf8")).toBe("hello");
+});
+
+it("reproduces the residual parent-swap race between path validation and the OS trash call", async () => {
+  const outside = await mkdtemp(join(tmpdir(), "vintage-files-outside-"));
+  const folder = join(root, "folder");
+  const held = join(root, "folder-held");
+  await writeFile(join(folder, "victim.txt"), "inside");
+  await writeFile(join(outside, "victim.txt"), "outside");
+  let observedTarget = "";
+
+  try {
+    await trashEntry(root, "folder/victim.txt", async (validatedPath) => {
+      await rename(folder, held);
+      await symlink(outside, folder);
+      observedTarget = await realpath(validatedPath);
+      await rm(folder);
+      await rename(held, folder);
+    });
+    expect(observedTarget).toBe(join(outside, "victim.txt"));
+  } finally {
+    await rm(outside, { recursive: true, force: true });
+  }
 });

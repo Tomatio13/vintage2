@@ -2,7 +2,10 @@ import { pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { createRendererNavigationGuard } from "../src/main/windowNavigation.js";
+import {
+  createRendererNavigationGuard,
+  resolveDevServerUrl,
+} from "../src/main/windowNavigation.js";
 
 const rendererFileUrl = pathToFileURL("/opt/vintage/resources/renderer/index.html").toString();
 
@@ -56,5 +59,20 @@ describe("createRendererNavigationGuard", () => {
     );
     const isAllowed = createRendererNavigationGuard({ rendererFileUrl });
     expect(isAllowed("file://")).toBe(false);
+  });
+});
+
+describe("resolveDevServerUrl", () => {
+  it("ignores the development override in packaged builds", () => {
+    expect(resolveDevServerUrl("https://attacker.example/", true)).toBeUndefined();
+  });
+
+  it("accepts only loopback HTTP development servers", () => {
+    expect(resolveDevServerUrl("http://127.0.0.1:5173", false)).toBe("http://127.0.0.1:5173/");
+    expect(resolveDevServerUrl("http://localhost:5173", false)).toBe("http://localhost:5173/");
+    expect(resolveDevServerUrl("http://[::1]:5173", false)).toBe("http://[::1]:5173/");
+    expect(() => resolveDevServerUrl("https://example.com/", false)).toThrow(
+      "must use HTTP on a loopback host",
+    );
   });
 });

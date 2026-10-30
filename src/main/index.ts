@@ -47,7 +47,7 @@ import { JevEvaluationQueue } from "./jevEvaluationQueue.js";
 import { UpdateManager } from "./updateManager.js";
 import { restartApp } from "./restartApp.js";
 import { monitorTerminalsForOwner, registerTerminalIpc } from "./terminalManager.js";
-import { createRendererNavigationGuard } from "./windowNavigation.js";
+import { createRendererNavigationGuard, resolveDevServerUrl } from "./windowNavigation.js";
 import {
   getWorkspaceGitReview,
   getWorkspaceGitReviewDiff,
@@ -56,12 +56,26 @@ import {
 import { restoreSavedProjects } from "./workspaceRestore.js";
 import { parseWorkspaceState, WorkspaceStateManager } from "./workspaceState.js";
 import { configureBrowserSession, configureWebviewSecurity } from "./webviewSecurity.js";
+import { assertTrustedRendererSender } from "./ipcSecurity.js";
+import {
+  configureLocalBrowserSession,
+  LOCAL_BROWSER_SCHEME,
+  prepareLocalBrowserUrl,
+  releaseLocalBrowserUrl,
+  resolveLocalBrowserUrl,
+} from "./localBrowser.js";
 
 import { MonitorCollector, paneForMonitorPid } from "./monitorCollector.js";
 import { listProcessRows } from "./processMonitor.js";
 
 const monitorCollector = new MonitorCollector();
 const currentDir = dirname(fileURLToPath(import.meta.url));
+const rendererFileUrl = pathToFileURL(resolve(currentDir, "../renderer/index.html")).toString();
+const devServerUrl = resolveDevServerUrl(process.env.VITE_DEV_SERVER_URL, app.isPackaged);
+const isAllowedRendererNavigation = createRendererNavigationGuard({
+  rendererFileUrl,
+  devServerUrl,
+});
 let _mainWindow: BrowserWindow | null = null;
 const workspaces = new Map<string, RegisteredWorkspace>();
 const homeWorkspaceId = "vintage:home";
@@ -114,6 +128,15 @@ const NOTIFICATION_LIMIT_PER_MINUTE = 30;
 protocol.registerSchemesAsPrivileged([
   {
     scheme: workspacePreviewScheme,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+    },
+  },
+  {
+    scheme: LOCAL_BROWSER_SCHEME,
     privileges: {
       standard: true,
       secure: true,
@@ -338,6 +361,7 @@ function publishWindowState(window: BrowserWindow): void {
 }
 
 function resolveSenderWindow(event: Electron.IpcMainInvokeEvent): BrowserWindow {
+  assertTrustedRendererSender(event, isAllowedRendererNavigation);
   const window = BrowserWindow.fromWebContents(event.sender);
   if (!window) throw new Error("The IPC sender is not attached to an application window");
   return window;
@@ -426,12 +450,25 @@ function registerDesktopIpc(
   ipcMain.handle(DesktopChannels.getWindowState, (event) =>
     readWindowState(resolveSenderWindow(event)),
   );
-  ipcMain.handle(DesktopChannels.openExternal, async (_event, rawUrl: unknown) => {
+  ipcMain.handle(DesktopChannels.openExternal, async (event, rawUrl: unknown) => {
+    resolveSenderWindow(event);
     if (typeof rawUrl !== "string") throw new TypeError("URL must be a string");
     const url = new URL(rawUrl);
     if (!new Set(["https:", "http:", "mailto:"]).has(url.protocol))
       throw new Error(`Unsupported external URL protocol: ${url.protocol}`);
     await shell.openExternal(url.toString());
+  });
+  ipcMain.handle(DesktopChannels.browserLocalPrepare, async (event, tabId, rawUrl) => {
+    resolveSenderWindow(event);
+    return prepareLocalBrowserUrl(event.sender.id, tabId, rawUrl);
+  });
+  ipcMain.handle(DesktopChannels.browserLocalResolve, (event, rawUrl) => {
+    resolveSenderWindow(event);
+    return resolveLocalBrowserUrl(event.sender.id, rawUrl);
+  });
+  ipcMain.handle(DesktopChannels.browserLocalRelease, (event, tabId) => {
+    resolveSenderWindow(event);
+    releaseLocalBrowserUrl(event.sender.id, tabId);
   });
   ipcMain.handle(DesktopChannels.clipboardWriteText, (event, text: unknown) => {
     resolveSenderWindow(event);
@@ -676,7 +713,8 @@ function registerDesktopIpc(
   );
   ipcMain.handle(
     DesktopChannels.workspaceListFiles,
-    async (_event, workspaceId: unknown, directoryPath: unknown) => {
+    async (event, workspaceId: unknown, directoryPath: unknown) => {
+      resolveSenderWindow(event);
       const directory = await resolveWorkspaceDirectory(workspaceId, directoryPath);
       return listWorkspaceEntries(directory, (directoryPath as string | undefined) ?? "");
     },
@@ -811,7 +849,8 @@ function registerDesktopIpc(
   );
   ipcMain.handle(
     DesktopChannels.workspaceReadFile,
-    async (_event, workspaceId: unknown, rawPath: unknown) => {
+    async (event, workspaceId: unknown, rawPath: unknown) => {
+      resolveSenderWindow(event);
       const file = await resolveWorkspaceFile(workspaceId, rawPath);
       const fileHandle = await open(file, "r");
       try {
@@ -830,7 +869,8 @@ function registerDesktopIpc(
   );
   ipcMain.handle(
     DesktopChannels.workspaceReadImage,
-    async (_event, workspaceId: unknown, rawPath: unknown) => {
+    async (event, workspaceId: unknown, rawPath: unknown) => {
+      resolveSenderWindow(event);
       const file = await resolveWorkspaceFile(workspaceId, rawPath);
       const mimeType = workspaceImageMimeTypes[extname(file).toLowerCase()];
       if (typeof mimeType !== "string") throw new Error("Unsupported workspace image type");
@@ -949,12 +989,6 @@ async function createMainWindow(): Promise<BrowserWindow> {
   });
   // The renderer is a single-page app: block top-level navigation attempts
   // (for example an unhandled link click) away from the app's own origin.
-  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
-  const rendererFileUrl = pathToFileURL(resolve(currentDir, "../renderer/index.html")).toString();
-  const isAllowedRendererNavigation = createRendererNavigationGuard({
-    rendererFileUrl,
-    devServerUrl,
-  });
   window.webContents.on("will-navigate", (event, url) => {
     if (!isAllowedRendererNavigation(url)) event.preventDefault();
   });
@@ -976,9 +1010,17 @@ app.whenReady().then(async () => {
   await restoreWorkspaceState(workspaceState);
   const updates = new UpdateManager();
   registerDesktopIpc(jevSettings, attentionSettings, workspaceState, updates);
-  registerTerminalIpc((id) => registeredWorkspace(id).path, evaluationQueue, attentionSettings);
+  registerTerminalIpc(
+    (id) => registeredWorkspace(id).path,
+    evaluationQueue,
+    attentionSettings,
+    (event) => {
+      resolveSenderWindow(event);
+    },
+  );
   app.on("before-quit", () => workspaceState.flush());
   configureBrowserSession();
+  configureLocalBrowserSession();
   _mainWindow = await createMainWindow();
   app.on("activate", async () => {
     if (BrowserWindow.getAllWindows().length === 0) _mainWindow = await createMainWindow();

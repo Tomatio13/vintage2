@@ -14,6 +14,7 @@ import {
   Plus,
   MousePointerClick,
   RefreshCw,
+  ShieldAlert,
   X,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
@@ -55,6 +56,11 @@ interface WebviewFailureEvent extends WebviewNavigationEvent {
 interface PageElementPickResult {
   status: "cancelled" | "selected";
   selector?: string;
+}
+
+interface BrowserGuestTarget {
+  url: string;
+  partition: "persist:starter-browser" | "vintage-local-browser";
 }
 
 const ELEMENT_PICKER_SCRIPT = `(() => {
@@ -196,6 +202,7 @@ export const BrowserPane = memo(function BrowserPane({
   const renameBookmark = useUiStore((state) => state.renameBrowserBookmark);
   const openBookmark = useUiStore((state) => state.openInBrowserTab);
   const [currentUrl, setCurrentUrl] = useState(initialUrl);
+  const insecureHttp = currentUrl.startsWith("http:");
   const isBookmarked = bookmarks.some(
     (item) => item.url === currentUrl && (item.workspaceId ?? null) === bookmarkScope,
   );
@@ -209,6 +216,7 @@ export const BrowserPane = memo(function BrowserPane({
   activeRef.current = active;
   const hostRef = useRef<HTMLDivElement>(null);
   const guestRef = useRef<EmbeddedWebviewElement | null>(null);
+  const loadedTargetUrlRef = useRef<string | null>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const pickerGenerationRef = useRef(0);
   const initialUrlRef = useRef(initialUrl);
@@ -222,34 +230,70 @@ export const BrowserPane = memo(function BrowserPane({
   const [pickingElement, setPickingElement] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [historyState, setHistoryState] = useState({ back: false, forward: false });
+  const [guestTarget, setGuestTarget] = useState<BrowserGuestTarget | null>(() =>
+    new URL(initialUrlRef.current).protocol === "file:"
+      ? null
+      : { url: initialUrlRef.current, partition: "persist:starter-browser" },
+  );
 
-  const syncNavigationState = () => {
+  const prepareGuestTarget = async (url: string): Promise<BrowserGuestTarget> => {
+    if (new URL(url).protocol === "file:") {
+      const prepare = window.desktop?.prepareLocalBrowserUrl;
+      if (!prepare) return { url, partition: "persist:starter-browser" };
+      const prepared = await prepare(tabId, url);
+      if (!addressDirtyRef.current) setAddress(prepared.displayUrl);
+      return { url: prepared.url, partition: "vintage-local-browser" };
+    }
+    await window.desktop?.releaseLocalBrowserUrl?.(tabId);
+    return { url, partition: "persist:starter-browser" };
+  };
+
+  const loadLogicalUrl = async (url: string) => {
+    const target = await prepareGuestTarget(url);
+    setGuestTarget(target);
+  };
+
+  const syncNavigationState = async () => {
     const guest = guestRef.current;
     if (!guest) return;
     const current = guest.getURL();
     if (current) {
-      if (!addressDirtyRef.current) setAddress(current);
-      setCurrentUrl(current);
+      const logical = (await window.desktop?.resolveLocalBrowserUrl?.(current)) ?? current;
+      if (!addressDirtyRef.current) setAddress(logical);
+      setCurrentUrl(logical);
       const title = guest.getTitle();
       setPageTitle(title);
-      updatePage(tabId, current, title);
+      updatePage(tabId, logical, title);
     }
     setHistoryState({ back: guest.canGoBack(), forward: guest.canGoForward() });
   };
 
   useEffect(() => {
+    if (!window.desktop) return;
+    if (new URL(initialUrlRef.current).protocol === "file:") {
+      void loadLogicalUrl(initialUrlRef.current).catch((error: unknown) => {
+        setStatus(error instanceof Error ? error.message : String(error));
+      });
+    }
+    return () => {
+      void window.desktop?.releaseLocalBrowserUrl?.(tabId);
+    };
+  }, [tabId]);
+
+  useEffect(() => {
     const host = hostRef.current;
-    if (!host || !window.desktop) {
+    if (!host || !window.desktop || !guestTarget) {
       setStatus("Embedded browser is available in the desktop app");
       return;
     }
 
     const guest = document.createElement("webview") as EmbeddedWebviewElement;
     guest.className = "embedded-webview";
-    guest.setAttribute("partition", "persist:starter-browser");
+    guest.setAttribute("partition", guestTarget.partition);
     // Main denies native popup windows and routes allowed URLs into app tabs.
     guest.setAttribute("allowpopups", "");
-    guest.src = initialUrlRef.current;
+    guest.src = guestTarget.url;
+    loadedTargetUrlRef.current = guestTarget.url;
     guestRef.current = guest;
     host.replaceChildren(guest);
 
@@ -260,11 +304,11 @@ export const BrowserPane = memo(function BrowserPane({
     const stop = () => {
       setLoading(false);
       setStatus("Ready");
-      syncNavigationState();
+      void syncNavigationState();
     };
     const navigate = (event: Event) => {
-      if (!addressDirtyRef.current) setAddress((event as WebviewNavigationEvent).url);
-      syncNavigationState();
+      void (event as WebviewNavigationEvent).url;
+      void syncNavigationState();
     };
     const fail = (event: Event) => {
       const failure = event as WebviewFailureEvent;
@@ -282,7 +326,7 @@ export const BrowserPane = memo(function BrowserPane({
       if (titleTimer) return;
       titleTimer = setTimeout(() => {
         titleTimer = undefined;
-        syncNavigationState();
+        void syncNavigationState();
       }, 500);
     };
     const ready = () => {
@@ -310,9 +354,19 @@ export const BrowserPane = memo(function BrowserPane({
       guest.removeEventListener("did-navigate-in-page", navigate);
       guest.removeEventListener("did-fail-load", fail);
       guestRef.current = null;
+      loadedTargetUrlRef.current = null;
       guest.remove();
     };
-  }, []);
+  }, [guestTarget?.partition]);
+
+  useEffect(() => {
+    const guest = guestRef.current;
+    if (!guest || !guestTarget || loadedTargetUrlRef.current === guestTarget.url) return;
+    loadedTargetUrlRef.current = guestTarget.url;
+    void guest.loadURL(guestTarget.url).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : String(error));
+    });
+  }, [guestTarget]);
 
   useEffect(() => {
     // Chromium shares zoom by origin; reapply the selected tab's saved preference.
@@ -322,15 +376,18 @@ export const BrowserPane = memo(function BrowserPane({
   useEffect(() => {
     return window.desktop?.onBrowserOpenTabRequested?.((guestId, url, background) => {
       if (guestRef.current?.getWebContentsId() !== guestId) return;
-      // Keep the new tab in its source tab's scope, including Common tabs.
-      const state = useUiStore.getState();
-      const source = state.browserTabs.find((tab) => tab.id === tabId);
-      if (!source) return;
-      state.openInBrowserTab(url, {
-        newTab: true,
-        background,
-        workspaceId: source.workspaceId ?? null,
-      });
+      void (async () => {
+        const logical = (await window.desktop?.resolveLocalBrowserUrl?.(url)) ?? url;
+        // Keep the new tab in its source tab's scope, including Common tabs.
+        const state = useUiStore.getState();
+        const source = state.browserTabs.find((tab) => tab.id === tabId);
+        if (!source) return;
+        state.openInBrowserTab(logical, {
+          newTab: true,
+          background,
+          workspaceId: source.workspaceId ?? null,
+        });
+      })();
     });
   }, [tabId]);
 
@@ -462,7 +519,7 @@ export const BrowserPane = memo(function BrowserPane({
     try {
       const url = normalizeBrowserUrl(navigateRequestUrl);
       setStatus("Loading…");
-      void guest.loadURL(url).catch((error: unknown) => {
+      void loadLogicalUrl(url).catch((error: unknown) => {
         setStatus(error instanceof Error ? error.message : String(error));
       });
     } catch (error) {
@@ -545,7 +602,7 @@ export const BrowserPane = memo(function BrowserPane({
       addressDirtyRef.current = false;
       setAddress(url);
       setStatus("Loading…");
-      void guest.loadURL(url).catch((error: unknown) => {
+      void loadLogicalUrl(url).catch((error: unknown) => {
         setStatus(error instanceof Error ? error.message : String(error));
       });
     } catch (error) {
@@ -628,6 +685,15 @@ export const BrowserPane = memo(function BrowserPane({
             setAddress(event.target.value);
           }}
         />
+        {insecureHttp ? (
+          <span
+            aria-label="HTTP connection is not secure"
+            className="flex size-7 shrink-0 items-center justify-center text-warning"
+            title="HTTP connection is not encrypted. Do not enter credentials or sensitive data."
+          >
+            <ShieldAlert aria-hidden="true" className="size-4" />
+          </span>
+        ) : null}
         <Button
           aria-label={isBookmarked ? "Remove bookmark" : "Bookmark page"}
           className="size-7 px-0"

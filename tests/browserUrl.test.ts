@@ -29,5 +29,8 @@ describe("normalizeBrowserUrl", () => {
     expect(() => normalizeBrowserUrl("javascript:alert(1)")).toThrow(
       "Only HTTP, HTTPS, and local file URLs are supported",
     );
+    expect(() => normalizeBrowserUrl("vintage-local://secret/index.html")).toThrow(
+      "Only HTTP, HTTPS, and local file URLs are supported",
+    );
   });
 });

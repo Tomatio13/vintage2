@@ -1,9 +1,17 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  ftruncateSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  writeFileSync,
+  writeSync,
+} from "node:fs";
 import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { _electron as electron } from "playwright-core";
 
 const server = createServer((request, response) => {
@@ -314,9 +322,19 @@ try {
     1,
     "Common bookmark must stay available",
   );
-  await window
-    .getByRole("textbox", { name: `Bookmark name for ${url}`, exact: true })
-    .fill("Project docs");
+  const projectBookmarkName = window.getByRole("textbox", {
+    name: `Bookmark name for ${url}`,
+    exact: true,
+  });
+  await projectBookmarkName.fill("Project docs");
+  await projectBookmarkName.press("Enter");
+  await window.waitForFunction(
+    ({ targetUrl, title }) =>
+      JSON.parse(localStorage.getItem("ai-workspace-starter-ui")).state.browserBookmarks.some(
+        (bookmark) => bookmark.url === targetUrl && bookmark.title === title,
+      ),
+    { targetUrl: url, title: "Project docs" },
+  );
   await app.close();
   app = await launch();
   window = await app.firstWindow();
@@ -344,13 +362,41 @@ try {
   const localRoot = mkdtempSync(join(tmpdir(), "vintage local 資料-"));
   const localFile = join(localRoot, "local 資料.html");
   const nextFile = join(localRoot, "next page.html");
+  const outsideFile = `${localRoot}-outside.txt`;
   writeFileSync(
     localFile,
-    '<title>Local file fixture</title><link rel="stylesheet" href="style.css"><script src="script.js"></script><h1>Local HTML</h1><img src="image.svg"><a href="next page.html#anchor">Next local page</a>',
+    '<title>Local file fixture</title><link rel="stylesheet" href="style.css"><script type="module" src="module.mjs"></script><script src="script.js"></script><h1>Local HTML</h1><img src="image.svg"><iframe src="frame.html"></iframe><a href="next page.html#anchor">Next local page</a>',
   );
   writeFileSync(nextFile, '<title>Next local file</title><h1 id="anchor">Local anchor</h1>');
+  writeFileSync(outsideFile, "must not be readable");
   writeFileSync(join(localRoot, "style.css"), "h1 { color: rgb(12, 34, 56); }");
-  writeFileSync(join(localRoot, "script.js"), "window.localReady = true;");
+  writeFileSync(join(localRoot, "frame.html"), '<p id="frame-ready">frame-ok</p>');
+  writeFileSync(join(localRoot, "module-dependency.mjs"), 'export const value = "module-ok";');
+  writeFileSync(
+    join(localRoot, "module.mjs"),
+    'import("./module-dependency.mjs").then(({ value }) => { window.moduleResult = value; });',
+  );
+  writeFileSync(join(localRoot, "worker.js"), 'self.postMessage("worker-ok");');
+  writeFileSync(join(localRoot, "range.txt"), "0123456789");
+  writeFileSync(
+    join(localRoot, "script.js.map"),
+    JSON.stringify({ version: 3, sources: ["script.ts"], names: [], mappings: "" }),
+  );
+  const largeMediaSize = 32 * 1024 * 1024;
+  const largeMedia = openSync(join(localRoot, "large-media.mp4"), "w");
+  ftruncateSync(largeMedia, largeMediaSize);
+  writeSync(largeMedia, Buffer.from("END!"), 0, 4, largeMediaSize - 4);
+  closeSync(largeMedia);
+  writeFileSync(
+    join(localRoot, "script.js"),
+    `window.localReady = true;
+     fetch(${JSON.stringify(url)}).then(() => window.externalFetch = "allowed").catch(() => window.externalFetch = "blocked");
+     fetch(${JSON.stringify(`../${basename(outsideFile)}`)}).then((response) => window.escapeFetch = response.ok ? "allowed" : "blocked").catch(() => window.escapeFetch = "blocked");
+     const workerResult = new Promise((resolve) => { const worker = new Worker("worker.js"); worker.onmessage = (event) => { window.workerResult = event.data; worker.terminate(); resolve(); }; worker.onerror = () => { window.workerResult = "failed"; resolve(); }; });
+     const wasmBytes = new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,127,3,2,1,0,7,7,1,3,114,117,110,0,0,10,6,1,4,0,65,42,11]);
+     const wasmResult = WebAssembly.instantiate(wasmBytes).then(({ instance }) => { window.wasmResult = instance.exports.run(); }).catch(() => { window.wasmResult = "failed"; });
+     window.advancedReady = Promise.all([workerResult, wasmResult]);`,
+  );
   writeFileSync(
     join(localRoot, "image.svg"),
     '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="blue"/></svg>',
@@ -374,48 +420,102 @@ try {
   await localAddress.fill(localUrl);
   await localAddress.press("Enter");
   await window.getByRole("button", { name: "Local file fixture", exact: true }).waitFor();
-  await window.waitForFunction((expected) => {
+  await window.waitForFunction(() => {
     try {
       const guest = [...document.querySelectorAll("webview")].find(
         (element) => element.getBoundingClientRect().width > 0,
       );
-      return guest && guest.getURL() === expected && !guest.isLoading();
+      return guest && guest.getURL().startsWith("vintage-local:") && !guest.isLoading();
     } catch {
       return false;
     }
-  }, localUrl);
+  });
+  assert.equal(await localAddress.inputValue(), localUrl);
   const localGuest = await app.evaluate(
     ({ webContents }) =>
       webContents
         .getAllWebContents()
         .find(
-          (contents) => contents.getURL().startsWith("file:") && contents.getType() === "webview",
+          (contents) =>
+            contents.getURL().startsWith("vintage-local:") && contents.getType() === "webview",
         )?.id,
   );
-  const localResult = await app.evaluate(async ({ webContents }, id) => {
+  const localResult = await app.evaluate(async ({ webContents, session }, id) => {
     const guest = webContents.fromId(id);
     const page = await guest.executeJavaScript(
-      '({ color: getComputedStyle(document.querySelector("h1")).color, ready: window.localReady, image: document.querySelector("img").naturalWidth, require: typeof require, desktop: typeof window.desktop })',
+      'Promise.all([window.advancedReady, new Promise((resolve) => { const check = () => window.externalFetch && window.escapeFetch && window.moduleResult && document.querySelector("iframe")?.contentDocument?.querySelector("#frame-ready") ? resolve() : setTimeout(check, 25); check(); })]).then(() => ({ color: getComputedStyle(document.querySelector("h1")).color, ready: window.localReady, image: document.querySelector("img").naturalWidth, externalFetch: window.externalFetch, escapeFetch: window.escapeFetch, frame: document.querySelector("iframe").contentDocument.querySelector("#frame-ready").textContent, worker: window.workerResult, wasm: window.wasmResult, module: window.moduleResult, require: typeof require, desktop: typeof window.desktop }))',
+    );
+    const rangeResponse = await guest.session.fetch(
+      new URL("range.txt", guest.getURL()).toString(),
+      {
+        headers: { Range: "bytes=2-5" },
+      },
+    );
+    const invalidRangeResponse = await guest.session.fetch(
+      new URL("range.txt", guest.getURL()).toString(),
+      { headers: { Range: "bytes=99-100" } },
+    );
+    const largeRangeResponse = await guest.session.fetch(
+      new URL("large-media.mp4", guest.getURL()).toString(),
+      { headers: { Range: `bytes=${32 * 1024 * 1024 - 4}-` } },
+    );
+    const sourceMapResponse = await guest.session.fetch(
+      new URL("script.js.map", guest.getURL()).toString(),
     );
     const preferences = guest.getLastWebPreferences();
     return {
       ...page,
+      range: {
+        status: rangeResponse.status,
+        range: rangeResponse.headers.get("content-range"),
+        body: await rangeResponse.text(),
+      },
+      invalidRange: {
+        status: invalidRangeResponse.status,
+        range: invalidRangeResponse.headers.get("content-range"),
+      },
+      largeRange: {
+        status: largeRangeResponse.status,
+        range: largeRangeResponse.headers.get("content-range"),
+        body: await largeRangeResponse.text(),
+      },
+      sourceMap: {
+        status: sourceMapResponse.status,
+        type: sourceMapResponse.headers.get("content-type"),
+        version: (await sourceMapResponse.json()).version,
+      },
       nodeIntegration: preferences.nodeIntegration,
       sandbox: preferences.sandbox,
       webSecurity: preferences.webSecurity,
       contextIsolation: preferences.contextIsolation,
+      localPartition: guest.session === session.fromPartition("vintage-local-browser"),
     };
   }, localGuest);
   assert.deepEqual(localResult, {
     color: "rgb(12, 34, 56)",
     ready: true,
     image: 32,
+    externalFetch: "blocked",
+    escapeFetch: "blocked",
+    frame: "frame-ok",
+    worker: "worker-ok",
+    wasm: 42,
+    module: "module-ok",
+    range: { status: 206, range: "bytes 2-5/10", body: "2345" },
+    invalidRange: { status: 416, range: "bytes */10" },
+    largeRange: {
+      status: 206,
+      range: "bytes 33554428-33554431/33554432",
+      body: "END!",
+    },
+    sourceMap: { status: 200, type: "application/json; charset=utf-8", version: 3 },
     require: "undefined",
     desktop: "undefined",
     nodeIntegration: false,
     sandbox: true,
     webSecurity: true,
     contextIsolation: true,
+    localPartition: true,
   });
   await window
     .getByRole("button", { name: "Bookmark page", exact: true })

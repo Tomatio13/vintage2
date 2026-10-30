@@ -6,6 +6,7 @@ export function isAllowedBrowserUrl(rawUrl: string): boolean {
     return (
       url.protocol === "http:" ||
       url.protocol === "https:" ||
+      (url.protocol === "vintage-local:" && Boolean(url.hostname)) ||
       (url.protocol === "file:" && url.hostname === "")
     );
   } catch {
@@ -16,9 +17,9 @@ export function isAllowedBrowserUrl(rawUrl: string): boolean {
 /** Website navigation must never grant access to a local document. */
 export function canNavigateBrowserGuest(fromUrl: string, toUrl: string): boolean {
   if (!isAllowedBrowserUrl(toUrl)) return false;
-  return (
-    new URL(toUrl).protocol !== "file:" ||
-    (isAllowedBrowserUrl(fromUrl) && new URL(fromUrl).protocol === "file:") ||
-    fromUrl === "about:blank"
-  );
+  const fromProtocol = isAllowedBrowserUrl(fromUrl) ? new URL(fromUrl).protocol : null;
+  const toProtocol = new URL(toUrl).protocol;
+  if (toProtocol === "file:") return false;
+  if (toProtocol === "vintage-local:") return fromProtocol === "vintage-local:";
+  return true;
 }

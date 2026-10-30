@@ -7,6 +7,7 @@ export interface ReplayBuffer {
 
 export function createReplayBuffer(maxLength: number): ReplayBuffer {
   let chunks: string[] = [];
+  let head = 0;
   let length = 0;
   return {
     append(data: string): void {
@@ -15,21 +16,26 @@ export function createReplayBuffer(maxLength: number): ReplayBuffer {
       length += data.length;
       while (length > maxLength) {
         const excess = length - maxLength;
-        const first = chunks[0]!;
+        const first = chunks[head]!;
         if (first.length > excess) {
-          chunks[0] = first.slice(excess);
+          chunks[head] = first.slice(excess);
           length = maxLength;
           break;
         }
         length -= first.length;
-        chunks.shift();
+        head += 1;
+      }
+      if (head > 1_024 && head * 2 > chunks.length) {
+        chunks = chunks.slice(head);
+        head = 0;
       }
     },
     snapshot(): string {
-      return chunks.join("");
+      return chunks.slice(head).join("");
     },
     clear(): void {
       chunks = [];
+      head = 0;
       length = 0;
     },
     get length(): number {

@@ -21,6 +21,14 @@ export default {
   asar: true,
   npmRebuild: true,
   asarUnpack: ["node_modules/node-pty/**"],
+  electronFuses: {
+    runAsNode: false,
+    enableCookieEncryption: true,
+    enableNodeOptionsEnvironmentVariable: false,
+    enableNodeCliInspectArguments: false,
+    enableEmbeddedAsarIntegrityValidation: true,
+    onlyLoadAppFromAsar: true,
+  },
   mac: {
     target: ["dmg", "zip"],
     category: "public.app-category.developer-tools",

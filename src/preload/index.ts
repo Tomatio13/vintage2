@@ -70,6 +70,10 @@ const bridge: DesktopBridge = {
     return () => ipcRenderer.removeListener(DesktopChannels.browserZoomRequested, wrapped);
   },
   openExternal: (url) => ipcRenderer.invoke(DesktopChannels.openExternal, url),
+  prepareLocalBrowserUrl: (tabId, url) =>
+    ipcRenderer.invoke(DesktopChannels.browserLocalPrepare, tabId, url),
+  resolveLocalBrowserUrl: (url) => ipcRenderer.invoke(DesktopChannels.browserLocalResolve, url),
+  releaseLocalBrowserUrl: (tabId) => ipcRenderer.invoke(DesktopChannels.browserLocalRelease, tabId),
   showAttentionNotification: (notification: AttentionNotification) =>
     ipcRenderer.invoke(DesktopChannels.showAttentionNotification, notification),
   onAttentionNotificationClick(listener) {

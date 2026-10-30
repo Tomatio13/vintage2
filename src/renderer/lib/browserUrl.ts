@@ -7,7 +7,7 @@ export function normalizeBrowserUrl(input: string): string {
 
   const candidate = /^[a-z][a-z\d+.-]*:/iu.test(trimmed) ? trimmed : `https://${trimmed}`;
   const url = new URL(candidate);
-  if (!isAllowedBrowserUrl(url.toString())) {
+  if (url.protocol === "vintage-local:" || !isAllowedBrowserUrl(url.toString())) {
     throw new Error("Only HTTP, HTTPS, and local file URLs are supported");
   }
   return url.toString();

@@ -398,9 +398,10 @@ export function normalizeOutputForJev(output: string): string[] {
       // oxlint-disable-next-line no-control-regex -- terminal output contains ANSI CSI sequences.
       .replace(/\u001b\[[0-?]*[ -/]*[@-~]/gu, "")
       .replace(
-        /-----BEGIN [^-]+ PRIVATE KEY-----[\s\S]*?-----END [^-]+ PRIVATE KEY-----/giu,
+        /-----BEGIN (?:(?:RSA|EC|DSA|OPENSSH) )?PRIVATE KEY-----[\s\S]*?-----END (?:(?:RSA|EC|DSA|OPENSSH) )?PRIVATE KEY-----/giu,
         "<PRIVATE_KEY_REDACTED>",
-      ),
+      )
+      .replace(/(https?:\/\/)[^/\s:@]+:[^/\s@]+@/giu, "$1<REDACTED>@"),
   )
     .replace(
       /\b([A-Za-z0-9_-]*(?:secret|token|password|passwd|api[_-]?key|access[_-]?key)[a-z0-9_-]*)\s*[:=]\s*(?:"[^"]*"|'[^']*'|\S+)/giu,

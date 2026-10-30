@@ -87,7 +87,7 @@ describe("Browser context menu", () => {
     const { contents, click, openTab } = setup({ linkURL: "file:///tmp/next" });
     contents.getURL.mockReturnValue("file:///tmp/source");
     click("Open link in new tab");
-    expect(openTab).toHaveBeenCalledWith("file:///tmp/next");
+    expect(openTab).not.toHaveBeenCalled();
   });
   it("copies image pixels and URL, even when opening a data image is unavailable", () => {
     const { contents, item, click } = setup({

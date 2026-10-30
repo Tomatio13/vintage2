@@ -17,6 +17,9 @@ export const DesktopChannels = {
   browserCommandRequested: "browser:command-requested",
   browserZoomRequested: "browser:zoom-requested",
   openExternal: "desktop:open-external",
+  browserLocalPrepare: "browser:local-prepare",
+  browserLocalResolve: "browser:local-resolve",
+  browserLocalRelease: "browser:local-release",
   showAttentionNotification: "attention:show-notification",
   attentionNotificationClicked: "attention:notification-clicked",
   clipboardWriteText: "clipboard:write-text",
@@ -470,6 +473,9 @@ export interface DesktopBridge {
   onBrowserZoomRequested(listener: (guestId: number, direction: "in" | "out") => void): () => void;
   onWindowStateChanged(listener: (state: DesktopWindowState) => void): () => void;
   openExternal(url: string): Promise<void>;
+  prepareLocalBrowserUrl(tabId: string, url: string): Promise<{ url: string; displayUrl: string }>;
+  resolveLocalBrowserUrl(url: string): Promise<string | null>;
+  releaseLocalBrowserUrl(tabId: string): Promise<void>;
   showAttentionNotification(notification: AttentionNotification): Promise<boolean>;
   onAttentionNotificationClick(listener: (target: AttentionNotificationTarget) => void): () => void;
   writeClipboardText(text: string): Promise<void>;

@@ -73,6 +73,24 @@ describe("Jev evaluation preparation", () => {
     ]);
   });
 
+  it("redacts private keys, bearer credentials and URL userinfo from terminal output", () => {
+    expect(
+      normalizeOutputForJev(
+        [
+          "Authorization: Bearer dqu9mZq7YcWk4rA2fP0x",
+          "clone https://user:password@example.com/private.git",
+          "-----BEGIN PRIVATE KEY-----",
+          "secret-private-key-material",
+          "-----END PRIVATE KEY-----",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      "Authorization: Bearer <REDACTED>",
+      "clone https://<REDACTED>@example.com/private.git",
+      "<PRIVATE_KEY_REDACTED>",
+    ]);
+  });
+
   it("applies token format redaction to commands sent via buildJevState", () => {
     const state = buildJevState({
       background: false,

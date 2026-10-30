@@ -1,3 +1,7 @@
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 import { resolveSessionCommand } from "../src/main/sessionCommand.js";
 import { sessionPathsEqual } from "../src/shared/sessionHistory.js";
@@ -84,6 +88,24 @@ describe("cross-platform session launch", () => {
     ).toThrow("claude was not found");
     expect(() => resolveSessionCommand("grok", ["--resume", `${sid}&calc`])).toThrow("Unsupported");
     expect(() => resolveSessionCommand("cmd", ["/c", "anything"])).toThrow("Unsupported");
+  });
+  it("demonstrates that a runnable executable in the first PATH directory is trusted", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "vintage-path-attack-"));
+    const executable = join(directory, "codex");
+    await writeFile(executable, "#!/bin/sh\nexit 0\n");
+    await chmod(executable, 0o755);
+
+    try {
+      const command = resolveSessionCommand("codex", ["resume", sid], {
+        platform: "linux",
+        home: "/home/test",
+        env: { PATH: `${directory}:/usr/bin:/bin` },
+        readDirectories: () => [],
+      });
+      expect(command.file).toBe(executable);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
   it("matches Windows directory separators and case without folding POSIX paths", () => {
     expect(sessionPathsEqual("C:\\Users\\Test\\Project\\", "c:/users/test/project", true)).toBe(

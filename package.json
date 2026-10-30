@@ -33,8 +33,10 @@
     "test:e2e:sessions": "pnpm build && node tests/e2e/sessions-smoke.mjs",
     "test:e2e:board": "pnpm build && node tests/e2e/board-smoke.mjs",
     "test:e2e:clipboard": "pnpm build && node tests/e2e/clipboard-smoke.mjs",
+    "test:e2e:ipv6-dev": "pnpm build && node tests/e2e/ipv6-dev-smoke.mjs",
     "test:e2e": "pnpm build && node tests/e2e/electron-smoke.mjs",
     "verify:boundaries": "node scripts/check-boundaries.mjs",
+    "verify:safe-storage": "electron scripts/check-safe-storage.cjs",
     "verify": "pnpm verify:boundaries && pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm test && pnpm build"
   },
   "dependencies": {
