@@ -1,5 +1,27 @@
 # VINTAGE Changelog
 
+## [0.2.42] - 2026-10-31
+
+### Security
+
+- Validate IPC sender frames and renderer origins, enforce renderer CSP, and harden packaged Electron fuses.
+- Isolate local HTML in a non-persistent partition with temporary capability URLs, scoped file access, blocked external requests, and byte-range resource delivery.
+- Reject Browser downloads, invalid certificates, and HTTP/proxy authentication challenges; display an HTTP connection warning.
+- Extend Jev credential redaction to private keys and URL userinfo, and explicitly disable updater downgrades.
+
+### Improved
+
+- Bound replay-buffer work during sustained terminal output and add security regression and stress coverage.
+- Document Browser, Jev, local execution, updater trust boundaries, and the security verification checklist.
+
+### Validation and limitations
+
+- TypeScript, lint, formatting, boundary checks, 570 passing tests (one skipped), and production builds passed.
+- Linux Electron Browser/local HTML and IPv6 development startup passed; gnome_libsecret encryption round-trip passed.
+- Windows/macOS signing, installed-app updates, and OS-specific security checks remain unverified. Windows Monitor and Windows/macOS Sessions and analysis remain experimental; macOS Monitor remains unverified.
+
+**Full Changelog:** [v0.2.41...v0.2.42](https://github.com/Tomatio13/vintage2/compare/v0.2.41...v0.2.42)
+
 ## [0.2.41] - 2026-10-28
 
 ### Fixed
