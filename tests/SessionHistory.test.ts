@@ -412,3 +412,126 @@ it("hides Codex Guardian review sessions by metadata while preserving ordinary s
       metadata.id,
     );
 });
+
+describe("OpenCode history", () => {
+  it("lists independent DB sessions, excludes subagents and hidden parts, and resumes with opencode2", async () => {
+    const { DatabaseSync } = await import("node:sqlite");
+    const root = await import("node:fs/promises").then((fs) =>
+      fs.mkdtemp(join(tmpdir(), "vintage-opencode-")),
+    );
+    dirs.push(root);
+    const db = new DatabaseSync(join(root, "opencode.db"));
+    db.exec(`CREATE TABLE session(id TEXT,directory TEXT,title TEXT,time_updated INTEGER,parent_id TEXT);
+      CREATE TABLE message(id TEXT,session_id TEXT,time_created INTEGER,data TEXT);
+      CREATE TABLE part(id TEXT,message_id TEXT,session_id TEXT,time_created INTEGER,data TEXT);`);
+    for (const [id, parent] of [
+      ["ses_one", null],
+      ["ses_two", null],
+      ["ses_child", "ses_one"],
+    ])
+      db.prepare("INSERT INTO session VALUES (?, '/project', ?, 1000, ?)").run(id!, id!, parent!);
+    db.prepare("INSERT INTO message VALUES ('m1','ses_one',1,?)").run(
+      JSON.stringify({ role: "user" }),
+    );
+    db.prepare("INSERT INTO message VALUES ('m2','ses_one',2,?)").run(
+      JSON.stringify({ role: "assistant" }),
+    );
+    for (const [id, messageId, data] of [
+      ["p1", "m1", { type: "text", text: "Fix sessions" }],
+      ["p2", "m2", { type: "reasoning", text: "PRIVATE" }],
+      ["p3", "m2", { type: "tool", text: "PRIVATE" }],
+      ["p4", "m2", { type: "text", text: "PRIVATE", synthetic: true }],
+      ["p5", "m2", { type: "text", text: "Done" }],
+    ] as const)
+      db.prepare("INSERT INTO part VALUES (?,?,'ses_one',1,?)").run(
+        id,
+        messageId,
+        JSON.stringify(data),
+      );
+    db.close();
+    const history = new SessionHistory([{ agent: "opencode", path: root }]);
+    const list = await history.list();
+    expect(list.warnings).toEqual([]);
+    expect(list.sessions).toHaveLength(2);
+    expect(new Set(list.sessions.map((session) => session.key)).size).toBe(2);
+    const session = list.sessions.find((session) => session.sessionId === "ses_one")!;
+    expect(session).toMatchObject({
+      agent: "opencode",
+      title: "ses_one",
+      preview: "Fix sessions",
+      canResume: true,
+    });
+    expect((await history.detail(session.key)).messages).toEqual([
+      { role: "user", text: "Fix sessions" },
+      { role: "assistant", text: "Done" },
+    ]);
+    expect(history.resume(session.key, "/project")).toMatchObject({
+      file: "opencode2",
+      args: ["--session", "ses_one"],
+    });
+    expect(() => history.resume(session.key, "/other")).toThrow();
+    expect(JSON.stringify(await history.analysisSource(session.key))).not.toContain("PRIVATE");
+  });
+  it("warns for unsupported databases", async () => {
+    const { DatabaseSync } = await import("node:sqlite");
+    const root = await import("node:fs/promises").then((fs) =>
+      fs.mkdtemp(join(tmpdir(), "vintage-opencode-")),
+    );
+    dirs.push(root);
+    new DatabaseSync(join(root, "opencode.db")).close();
+    expect(
+      (await new SessionHistory([{ agent: "opencode", path: root }]).list()).warnings,
+    ).toContain("Some OpenCode history could not be read or its schema is unsupported.");
+  });
+});
+
+it("uses opencode2 v2 sessions and messages when legacy tables coexist", async () => {
+  const { DatabaseSync } = await import("node:sqlite");
+  const root = await import("node:fs/promises").then((fs) =>
+    fs.mkdtemp(join(tmpdir(), "vintage-opencode-v2-")),
+  );
+  dirs.push(root);
+  const db = new DatabaseSync(join(root, "opencode.db"));
+  db.exec(`CREATE TABLE session(id TEXT,directory TEXT,title TEXT,time_updated INTEGER,parent_id TEXT);
+    INSERT INTO session VALUES ('ses_legacy','/project','Legacy',1,NULL);
+    CREATE TABLE session_v2(id TEXT,directory TEXT,title TEXT,time_updated INTEGER,parent_id TEXT);
+    CREATE TABLE session_message(id TEXT,session_id TEXT,type TEXT,seq INTEGER,data TEXT);`);
+  const id = "ses_e707d00fcffeJz5ny5u6aXwMqR";
+  db.prepare("INSERT INTO session_v2 VALUES (?,'/project','V2 conversation',2,NULL)").run(id);
+  for (const [type, seq, data] of [
+    ["user", 1, { text: "Hello v2" }],
+    ["synthetic", 2, { text: "PRIVATE" }],
+    [
+      "assistant",
+      3,
+      {
+        content: [
+          { type: "reasoning", text: "PRIVATE" },
+          { type: "tool", text: "PRIVATE" },
+          { type: "text", text: "Hello back" },
+        ],
+      },
+    ],
+  ] as const)
+    db.prepare("INSERT INTO session_message VALUES (?,?,?,?,?)").run(
+      `msg_${seq}`,
+      id,
+      type,
+      seq,
+      JSON.stringify(data),
+    );
+  db.close();
+  const history = new SessionHistory([{ agent: "opencode", path: root }]);
+  const list = await history.list();
+  expect(list.warnings).toEqual([]);
+  expect(list.sessions).toHaveLength(1);
+  expect(list.sessions[0]).toMatchObject({
+    sessionId: id,
+    title: "V2 conversation",
+    preview: "Hello v2",
+  });
+  expect((await history.detail(list.sessions[0]!.key)).messages).toEqual([
+    { role: "user", text: "Hello v2" },
+    { role: "assistant", text: "Hello back" },
+  ]);
+});

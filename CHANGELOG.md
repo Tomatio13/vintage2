@@ -1,5 +1,21 @@
 # VINTAGE Changelog
 
+## [0.2.43] - 2026-10-31
+
+### Added
+
+- Browse, search, filter, and read OpenCode (opencode2) history in Sessions, and resume conversations in a new Space with `opencode2 --session <id>`.
+- Read OpenCode 2 `session_v2` / `session_message` data, falling back to legacy tables only when v2 is absent. Exclude internal reasoning, tool output, and subagent sessions.
+
+### Validation and limitations
+
+- Boundary checks, TypeScript, lint, formatting, 573 passing tests (one skipped), and production builds passed.
+- Verified the reported opencode2 session against the local database; the user confirmed it appears in Sessions.
+- Linux Electron Sessions smoke coverage includes v2 conversation display and existing session analysis/resume behavior with a mock CLI.
+- Windows Monitor remains an experimental pre-release; Windows/macOS Sessions and analysis remain experimental with physical-device testing pending. macOS Monitor and installed-app updates remain unverified.
+
+**Full Changelog:** [v0.2.42...v0.2.43](https://github.com/Tomatio13/vintage2/compare/v0.2.42...v0.2.43)
+
 ## [0.2.42] - 2026-10-31
 
 ### Security

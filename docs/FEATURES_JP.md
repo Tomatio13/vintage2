@@ -225,7 +225,7 @@ Browserのページはサンドボックスと分離を有効にして実行し�
 
 ## Sessions
 
-**Sessions**は、保存済みのCodex・Claude Code・Grok・Antigravityの会話を探すパネルです。Monitorの実行中プロセス一覧とは別に表示し、初期状態で有効です。**Settings → Panels**、**Ctrl+Alt+Y**（macOSは**⌘+Option+Y**）、コマンドパレットの**Toggle Sessions tab**でON/OFFできます。キーは**Settings → Shortcuts → Side pane**で変更できます。
+**Sessions**は、保存済みのCodex・Claude Code・OpenCode（opencode2）・Grok・Antigravityの会話を探すパネルです。Monitorの実行中プロセス一覧とは別に表示し、初期状態で有効です。**Settings → Panels**、**Ctrl+Alt+Y**（macOSは**⌘+Option+Y**）、コマンドパレットの**Toggle Sessions tab**でON/OFFできます。キーは**Settings → Shortcuts → Side pane**で変更できます。
 
 - **探す**：初期表示は**Current project**です。**All projects**への切り替え、Agentでの絞り込み、保存済みタイトル・依頼プレビューの検索に対応します。最終更新日でまとめ、ピン留めしたSessionを先頭に表示します。ピンはローカルに保存します。
 - **読む**：Sessionを選ぶと概要カードとChatを表示します。ユーザー発言は右側の吹き出し、Agentの応答はMarkdown・コードブロック・リスト・表に対応し、発言ごとにコピーできます。外部画像や埋め込みHTMLは読み込みません。HTTP/HTTPSリンクはクリック時にシステムブラウザーで開きます。
@@ -233,13 +233,16 @@ Browserのページはサンドボックスと分離を有効にして実行し�
 - **再開する**：**Resume in new Space**は、Sessionの作業ディレクトリに対応するVINTAGEの開いているWorkspaceに新しいターミナルを追加し、既存ターミナルを維持します。MonitorがVINTAGE内の稼働中Sessionと認識している場合は**Open terminal**でその端末へ戻ります。VINTAGE外で稼働中と認識したSessionは、このパネルから重ねて再開しません。各OSに対応するCLIの導入が必要です。
 - **Monitorから移動する**：詳細の**Open in Sessions**で、取得上限内に存在する対応会話を開きます。
 
-| Agent           | ローカル履歴の取得元                                          | 再開コマンド              |
-| :-------------- | :------------------------------------------------------------ | :------------------------ |
-| Codex           | `$CODEX_HOME/sessions`、未設定なら`~/.codex/sessions`         | `codex resume <id>`       |
-| Claude Code     | `$CLAUDE_CONFIG_DIR/projects`、未設定なら`~/.claude/projects` | `claude --resume <id>`    |
-| Grok            | `~/.grok/sessions`の要約と更新ログ                            | `grok --resume <id>`      |
-| Antigravity CLI | `~/.gemini/antigravity-cli`の会話DBとbrainログ                | `agy --conversation <id>` |
-| Antigravity IDE | `~/.gemini/antigravity`、`~/.gemini/antigravity-ide`          | 閲覧のみ                  |
+| Agent                | ローカル履歴の取得元                                                          | 再開コマンド               |
+| :------------------- | :---------------------------------------------------------------------------- | :------------------------- |
+| Codex                | `$CODEX_HOME/sessions`、未設定なら`~/.codex/sessions`                         | `codex resume <id>`        |
+| Claude Code          | `$CLAUDE_CONFIG_DIR/projects`、未設定なら`~/.claude/projects`                 | `claude --resume <id>`     |
+| OpenCode (opencode2) | `$XDG_DATA_HOME/opencode/opencode.db` (`~/.local/share/opencode/opencode.db`) | `opencode2 --session <id>` |
+| Grok                 | `~/.grok/sessions`の要約と更新ログ                                            | `grok --resume <id>`       |
+| Antigravity CLI      | `~/.gemini/antigravity-cli`の会話DBとbrainログ                                | `agy --conversation <id>`  |
+| Antigravity IDE      | `~/.gemini/antigravity`、`~/.gemini/antigravity-ide`                          | 閲覧のみ                   |
+
+OpenCode 2は`session_v2`／`session_message`を読み取ります。旧形式の`session`／`message`／`part`はv2テーブルがない場合に使用します。
 
 履歴はローカルから読み取り専用で取得します。ディレクトリ走査には上限を設け、一覧は最終更新順に最大500ログ／会話です。走査上限や読み取り不可の場合は警告を表示します。大きな会話は先頭・末尾の上限付き読み取りと最大100メッセージの抜粋表示で、検索対象はタイトルと依頼プレビューです。会話全文検索ではありません。Grok／Antigravityはログがなくてもメタデータを表示できます。内部思考やツール出力は会話から除外します。Claudeは通常起動で未設定だった`CLAUDE_CONFIG_DIR`を追加しないため、再開時に初期設定ファイルの参照先を切り替えません。
 

@@ -15,7 +15,7 @@ export interface SessionCommand {
   args: string[] | string;
   env: Record<string, string>;
 }
-const commands = new Set(["codex", "claude", "grok", "agy"]);
+const commands = new Set(["codex", "claude", "grok", "agy", "opencode2"]);
 const windowsExtensions = new Set([".exe", ".com", ".cmd", ".bat"]);
 function variable(env: Record<string, string>, name: string): string {
   const key = Object.keys(env).find((key) => key.toLowerCase() === name.toLowerCase());

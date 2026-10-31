@@ -336,6 +336,7 @@ export function SessionsPanel({
               { id: "codex", label: "Codex" },
               { id: "claude", label: "Claude Code" },
               { id: "grok", label: "Grok" },
+              { id: "opencode", label: "OpenCode" },
               { id: "antigravity", label: "Antigravity" },
             ]}
           />

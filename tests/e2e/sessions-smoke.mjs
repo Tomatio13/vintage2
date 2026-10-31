@@ -1,3 +1,4 @@
+import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
 import { access, mkdtemp, mkdir, writeFile, readFile, appendFile, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
@@ -11,6 +12,18 @@ const fixture = await mkdtemp(join(tmpdir(), "vintage-sessions-smoke-"));
 let app;
 try {
   const root = join(fixture, "codex");
+  const dataHome = join(fixture, "data");
+  await mkdir(join(dataHome, "opencode"), { recursive: true });
+  const db = new DatabaseSync(join(dataHome, "opencode", "opencode.db"));
+  db.exec(`CREATE TABLE session_v2(id TEXT,directory TEXT,title TEXT,time_updated INTEGER,parent_id TEXT);
+    CREATE TABLE session_message(id TEXT,session_id TEXT,type TEXT,seq INTEGER,data TEXT);`);
+  db.prepare(
+    "INSERT INTO session_v2 VALUES ('ses_smoke',?,'OpenCode saved conversation',?,NULL)",
+  ).run(homedir(), Date.now());
+  db.prepare("INSERT INTO session_message VALUES ('m1','ses_smoke','user',1,?)").run(
+    JSON.stringify({ text: "OpenCode history is visible" }),
+  );
+  db.close();
   const bin = join(fixture, "bin");
   const profile = join(fixture, "profile");
   const dir = join(root, "sessions", "2026", "10", "19");
@@ -88,6 +101,7 @@ else if (args[0] === 'exec') {
     env: {
       ...process.env,
       CODEX_HOME: root,
+      XDG_DATA_HOME: dataHome,
       CLAUDE_CONFIG_DIR: join(fixture, "claude"),
       [pathKey]: `${bin}${delimiter}${dirname(process.execPath)}${delimiter}${process.env[pathKey] ?? ""}`,
       VINTAGE_SESSIONS_TEST_ANALYSIS_COUNT: join(fixture, "analysis-count.txt"),
@@ -123,6 +137,9 @@ else if (args[0] === 'exec') {
     window.sessionsOriginalTerminal = document.querySelector('[data-pane-kind="terminal"] .xterm');
   });
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
+  await page.getByRole("button", { name: /OpenCode saved conversation/ }).click();
+  await page.getByText("OpenCode history is visible", { exact: true }).last().waitFor();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   await page.getByRole("button", { name: /Restore the Browser tabs/ }).click();
   await page
     .getByText("The tabs now scroll horizontally and preserve terminal sessions.", { exact: true })

@@ -157,6 +157,77 @@ function parseAdditionalHistory(text: string, agent: "grok" | "antigravity") {
     messages,
   };
 }
+function openCodeSessionTable(db: DatabaseSync): "session_v2" | "session" {
+  return db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='session_v2'").get()
+    ? "session_v2"
+    : "session";
+}
+
+function readOpenCodeMessages(path: string, sessionId: string, limit: number) {
+  const db = new DatabaseSync(path, { readOnly: true });
+  try {
+    if (openCodeSessionTable(db) === "session_v2") {
+      const records = db
+        .prepare(
+          "SELECT type,data FROM session_message WHERE session_id=? AND type IN ('user','assistant') ORDER BY seq LIMIT ?",
+        )
+        .all(sessionId, limit + 1) as Row[];
+      const messages: HistoryMessage[] = [];
+      for (const record of records.slice(0, limit)) {
+        const data = row(JSON.parse(clean(record.data)));
+        const text = (
+          record.type === "user"
+            ? clean(data.text)
+            : content(
+                Array.isArray(data.content)
+                  ? data.content.filter((part) => {
+                      const item = row(part);
+                      return item.synthetic !== true && item.ignored !== true;
+                    })
+                  : [],
+              )
+        ).trim();
+        if (text)
+          messages.push({
+            role: record.type as HistoryMessage["role"],
+            text: text.slice(0, 24000),
+          });
+      }
+      return {
+        messages,
+        truncated:
+          records.length > limit || messages.some((message) => message.text.length >= 24000),
+      };
+    }
+    const records = db
+      .prepare(`SELECT m.id, json_extract(m.data,'$.role') role,
+      p.data FROM message m JOIN part p ON p.message_id=m.id AND p.session_id=m.session_id
+      WHERE m.session_id=? AND json_extract(m.data,'$.role') IN ('user','assistant')
+      AND json_extract(p.data,'$.type')='text'
+      AND COALESCE(json_extract(p.data,'$.synthetic'),0)=0
+      AND COALESCE(json_extract(p.data,'$.ignored'),0)=0
+      ORDER BY m.time_created,m.id,p.time_created,p.id LIMIT ?`)
+      .all(sessionId, limit + 1) as Row[];
+    const messages: HistoryMessage[] = [];
+    let previousId = "";
+    for (const record of records.slice(0, limit)) {
+      const text = clean(row(JSON.parse(clean(record.data))).text).trim();
+      if (!text) continue;
+      if (record.id === previousId) {
+        messages.at(-1)!.text = (messages.at(-1)!.text + "\n" + text).slice(0, 24000);
+      } else {
+        messages.push({ role: record.role as HistoryMessage["role"], text: text.slice(0, 24000) });
+      }
+      previousId = clean(record.id);
+    }
+    return {
+      messages,
+      truncated: records.length > limit || messages.some((message) => message.text.length >= 24000),
+    };
+  } finally {
+    db.close();
+  }
+}
 interface HistoryRoot {
   agent: HistoryAgent;
   path: string;
@@ -195,6 +266,10 @@ export class SessionHistory {
         agent: "claude",
         path: process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude"),
         configDirExplicit: Boolean(process.env.CLAUDE_CONFIG_DIR),
+      },
+      {
+        agent: "opencode",
+        path: join(process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"), "opencode"),
       },
       { agent: "grok", path: join(homedir(), ".grok") },
       ...["antigravity-cli", "antigravity", "antigravity-ide"].map(
@@ -280,6 +355,41 @@ export class SessionHistory {
     };
     for (const root of this.roots) {
       const { agent, path } = root;
+      if (agent === "opencode") {
+        const dbPath = join(path, "opencode.db");
+        if (!(await stat(dbPath).catch(() => null))) continue;
+        let db: DatabaseSync | undefined;
+        try {
+          db = new DatabaseSync(dbPath, { readOnly: true });
+          const records = db
+            .prepare(
+              `SELECT id,directory,title,time_updated FROM ${openCodeSessionTable(db)} WHERE parent_id IS NULL OR parent_id='' ORDER BY time_updated DESC LIMIT 501`,
+            )
+            .all() as Row[];
+          if (records.length > 500) warnings.add("Showing up to 500 OpenCode sessions.");
+          for (const record of records.slice(0, 500)) {
+            const sessionId = clean(record.id);
+            if (!/^ses_[a-zA-Z0-9_-]+$/.test(sessionId)) continue;
+            candidates.push({
+              agent,
+              root: path,
+              path: dbPath,
+              updatedAt: Number(record.time_updated) || 0,
+              metadata: {
+                sessionId,
+                cwd: clean(record.directory),
+                title: clean(record.title),
+                preview: "",
+              },
+            });
+          }
+        } catch {
+          warnings.add("Some OpenCode history could not be read or its schema is unsupported.");
+        } finally {
+          db?.close();
+        }
+        continue;
+      }
       if (agent === "antigravity") {
         const dbPath = join(path, "conversation_summaries.db");
         if (!(await stat(dbPath).catch(() => null))) continue;
@@ -366,14 +476,24 @@ export class SessionHistory {
     const entries = new Map<string, Entry>();
     for (const candidate of candidates.slice(0, 500)) {
       try {
-        const log = await this.read(candidate.path, 128 * 1024).catch(
-          (error: NodeJS.ErrnoException) => {
-            if (candidate.metadata && error.code === "ENOENT")
-              return { text: "", truncated: false };
-            throw error;
-          },
-        );
+        const log =
+          candidate.agent === "opencode"
+            ? { text: "", truncated: false }
+            : await this.read(candidate.path, 128 * 1024).catch((error: NodeJS.ErrnoException) => {
+                if (candidate.metadata && error.code === "ENOENT")
+                  return { text: "", truncated: false };
+                throw error;
+              });
         const parsed = parseHistoryLog(log.text, candidate.agent);
+        if (candidate.agent === "opencode") {
+          parsed.messages = readOpenCodeMessages(
+            candidate.path,
+            candidate.metadata!.sessionId,
+            16,
+          ).messages;
+          parsed.preview =
+            parsed.messages.find((message) => message.role === "user")?.text.slice(0, 240) ?? "";
+        }
         if (candidate.agent === "codex" && "isGuardianReview" in parsed && parsed.isGuardianReview)
           continue;
         if (candidate.metadata) {
@@ -387,7 +507,13 @@ export class SessionHistory {
           !(this.platform === "win32" ? win32.isAbsolute(parsed.cwd) : isAbsolute(parsed.cwd))
         )
           continue;
-        const key = createHash("sha256").update(candidate.path).digest("hex");
+        const key = createHash("sha256")
+          .update(
+            candidate.agent === "opencode"
+              ? `${candidate.path}:${parsed.sessionId}`
+              : candidate.path,
+          )
+          .digest("hex");
         const session: HistorySession = {
           key,
           agent: candidate.agent,
@@ -397,7 +523,9 @@ export class SessionHistory {
           preview: parsed.preview,
           updatedAt: candidate.updatedAt,
           canResume:
-            uuid.test(parsed.sessionId) &&
+            (candidate.agent === "opencode"
+              ? /^ses_[a-zA-Z0-9_-]+$/.test(parsed.sessionId)
+              : uuid.test(parsed.sessionId)) &&
             (candidate.agent !== "antigravity" || candidate.metadata?.canResume === true),
         };
         entries.set(key, {
@@ -452,6 +580,14 @@ export class SessionHistory {
     await this.list();
     const entry = this.entries.get(key);
     if (!entry) throw new Error("Session no longer available. Refresh the list.");
+    if (entry.session.agent === "opencode") {
+      const result = readOpenCodeMessages(entry.path, entry.session.sessionId, 2000);
+      return {
+        session: entry.session,
+        messages: result.messages.slice(0, 1).concat(result.messages.slice(1).slice(-99)),
+        truncated: result.truncated || result.messages.length > 100,
+      };
+    }
     const log = await this.read(entry.path, 1024 * 1024).catch((error: NodeJS.ErrnoException) => {
       if (["grok", "antigravity"].includes(entry.session.agent) && error.code === "ENOENT")
         return { text: "", truncated: false };
@@ -471,6 +607,17 @@ export class SessionHistory {
     await this.refresh();
     const entry = this.entries.get(key);
     if (!entry) throw new Error("Session no longer available. Refresh the list.");
+    if (entry.session.agent === "opencode") {
+      const detail = await this.detail(key);
+      return {
+        detail: { ...detail, toolEvidence: [] as string[] },
+        version: createHash("sha256")
+          .update(JSON.stringify(detail))
+          .update(String(entry.session.updatedAt))
+          .digest("hex"),
+        updatedAt: entry.session.updatedAt,
+      };
+    }
     const before = await stat(entry.path).catch(() => null);
     const detail = await this.detail(key);
     const log = await this.read(entry.path, 256 * 1024).catch(() => ({
@@ -552,6 +699,12 @@ export class SessionHistory {
     )
       throw new Error("Open this session's project before resuming it.");
     const { agent, sessionId } = entry.session;
+    if (agent === "opencode")
+      return {
+        file: "opencode2",
+        args: ["--session", sessionId],
+        env: { XDG_DATA_HOME: resolve(entry.root, "..") },
+      };
     if (agent === "grok") return { file: "grok", args: ["--resume", sessionId], env: {} };
     if (agent === "antigravity")
       return { file: "agy", args: ["--conversation", sessionId], env: {} };

@@ -1,4 +1,4 @@
-export type HistoryAgent = "codex" | "claude" | "grok" | "antigravity";
+export type HistoryAgent = "codex" | "claude" | "grok" | "antigravity" | "opencode";
 export interface HistorySession {
   key: string;
   agent: HistoryAgent;
@@ -27,6 +27,7 @@ export interface SessionHistoryDetail {
 export const historyAgentStyle = {
   codex: { name: "Codex", badge: "CD", color: "bg-cyan-500/10 text-cyan-500" },
   claude: { name: "Claude Code", badge: "CC", color: "bg-amber-500/10 text-amber-500" },
+  opencode: { name: "OpenCode", badge: "OC", color: "bg-emerald-500/10 text-emerald-500" },
   grok: { name: "Grok", badge: "GK", color: "bg-teal-500/10 text-teal-500" },
   antigravity: { name: "Antigravity", badge: "AG", color: "bg-violet-500/10 text-violet-500" },
 } satisfies Record<HistoryAgent, { name: string; badge: string; color: string }>;

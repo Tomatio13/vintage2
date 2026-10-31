@@ -82,12 +82,12 @@ CPU・メモリに加えて、マシン上のAIセッションをリアルタイ
 
 ## 並走に必要なのは、これだけ。
 
-|     | 機能                       | できること                                                                                                     |
-| --- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| 01  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/space-dark.svg"><img src="assets/brand/icons/space.svg" height="20" alt=""></picture> **Space分割** | ターミナルを左右・上下に分割し、エージェントをペイン単位で並走。各ペインは独立して動作するので、重いビルドもほかの作業を止めません。 |
-| 02  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/sessions-dark.svg"><img src="assets/brand/icons/sessions.svg" height="20" alt=""></picture> **Sessions** | Claude Code / Codex / Grok / Antigravityの過去の会話を検索・ピン留め・閲覧・再開。「あの作業、どのセッションでやったっけ？」がなくなります。 |
-| 03  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/palette-dark.svg"><img src="assets/brand/icons/palette.svg" height="20" alt=""></picture> **コマンドパレット** | `Ctrl+Shift+P` から、ワークスペース・Space・ターミナルへの移動と各種操作をまとめて検索。キーボードから手を離しません。 |
-| 04  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/theme-dark.svg"><img src="assets/brand/icons/theme.svg" height="20" alt=""></picture> **テーマ** | Vintage · Graphite · Ocean · Grove · Iris · Ember。ライト・ダークの配色を個別に選択でき、JSONでの入出力にも対応します。 |
+|     | 機能                                                                                                                                                                                            | できること                                                                                                                                                          |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/space-dark.svg"><img src="assets/brand/icons/space.svg" height="20" alt=""></picture> **Space分割**            | ターミナルを左右・上下に分割し、エージェントをペイン単位で並走。各ペインは独立して動作するので、重いビルドもほかの作業を止めません。                                |
+| 02  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/sessions-dark.svg"><img src="assets/brand/icons/sessions.svg" height="20" alt=""></picture> **Sessions**       | Claude Code / Codex / OpenCode (opencode2) / Grok / Antigravityの過去の会話を検索・ピン留め・閲覧・再開。「あの作業、どのセッションでやったっけ？」がなくなります。 |
+| 03  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/palette-dark.svg"><img src="assets/brand/icons/palette.svg" height="20" alt=""></picture> **コマンドパレット** | `Ctrl+Shift+P` から、ワークスペース・Space・ターミナルへの移動と各種操作をまとめて検索。キーボードから手を離しません。                                              |
+| 04  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/theme-dark.svg"><img src="assets/brand/icons/theme.svg" height="20" alt=""></picture> **テーマ**               | Vintage · Graphite · Ocean · Grove · Iris · Ember。ライト・ダークの配色を個別に選択でき、JSONでの入出力にも対応します。                                             |
 
 <details>
 <summary><b>サイドバーとステータス表示の詳細</b></summary>

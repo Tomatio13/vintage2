@@ -225,7 +225,7 @@ Downloads, extensions, and saved login credentials are not supported.
 
 ## Sessions
 
-**Sessions** is a library of saved Codex, Claude Code, Grok, and Antigravity conversations, separate from the running processes shown in Monitor. It is enabled by default. Toggle the tab in **Settings → Panels**, with **Ctrl+Alt+Y** (**⌘+Option+Y** on macOS), or with **Toggle Sessions tab** in the command palette. Reassign the shortcut in **Settings → Shortcuts → Side pane**.
+**Sessions** is a library of saved Codex, Claude Code, OpenCode (opencode2), Grok, and Antigravity conversations, separate from the running processes shown in Monitor. It is enabled by default. Toggle the tab in **Settings → Panels**, with **Ctrl+Alt+Y** (**⌘+Option+Y** on macOS), or with **Toggle Sessions tab** in the command palette. Reassign the shortcut in **Settings → Shortcuts → Side pane**.
 
 - **Find a conversation:** Start with **Current project**, switch to **All projects**, filter by agent, or search saved titles and request previews. Sessions are grouped by last-updated date; pinned sessions appear first. Pins are saved locally.
 - **Read:** Select a session to see its summary card and chat. User messages appear in right-aligned bubbles; agent replies support Markdown, code blocks, lists, and tables. Copy individual messages with the copy action. Remote images and embedded HTML are not loaded. HTTP/HTTPS links open in the system browser when clicked.
@@ -233,13 +233,16 @@ Downloads, extensions, and saved login credentials are not supported.
 - **Resume:** **Resume in new Space** creates a new terminal in an already open workspace for that session's working directory, keeping existing terminals intact. When Monitor recognizes the session in a VINTAGE terminal, **Open terminal** returns to it instead. A recognized session running outside VINTAGE cannot be resumed again from this panel. Resume requires the corresponding CLI installed on that OS.
 - **Monitor link:** **Open in Sessions** in Monitor details opens the matching saved conversation, when it is present in the bounded history list.
 
-| Agent           | Local history source                                           | Resume command            |
-| :-------------- | :------------------------------------------------------------- | :------------------------ |
-| Codex           | `$CODEX_HOME/sessions`, or `~/.codex/sessions`                 | `codex resume <id>`       |
-| Claude Code     | `$CLAUDE_CONFIG_DIR/projects`, or `~/.claude/projects`         | `claude --resume <id>`    |
-| Grok            | `~/.grok/sessions` summaries and update logs                   | `grok --resume <id>`      |
-| Antigravity CLI | `~/.gemini/antigravity-cli` summaries DB and brain transcripts | `agy --conversation <id>` |
-| Antigravity IDE | `~/.gemini/antigravity` and `~/.gemini/antigravity-ide`        | Browse only               |
+| Agent                | Local history source                                                          | Resume command             |
+| :------------------- | :---------------------------------------------------------------------------- | :------------------------- |
+| Codex                | `$CODEX_HOME/sessions`, or `~/.codex/sessions`                                | `codex resume <id>`        |
+| Claude Code          | `$CLAUDE_CONFIG_DIR/projects`, or `~/.claude/projects`                        | `claude --resume <id>`     |
+| OpenCode (opencode2) | `$XDG_DATA_HOME/opencode/opencode.db` (`~/.local/share/opencode/opencode.db`) | `opencode2 --session <id>` |
+| Grok                 | `~/.grok/sessions` summaries and update logs                                  | `grok --resume <id>`       |
+| Antigravity CLI      | `~/.gemini/antigravity-cli` summaries DB and brain transcripts                | `agy --conversation <id>`  |
+| Antigravity IDE      | `~/.gemini/antigravity` and `~/.gemini/antigravity-ide`                       | Browse only                |
+
+OpenCode 2 uses the `session_v2` / `session_message` tables; legacy `session` / `message` / `part` tables are used only when v2 is absent.
 
 History reads are local and read-only. The list is limited to 500 recently updated log files/conversations, with a bounded directory scan; warnings identify scan limits or unreadable sources. Large conversations show labeled excerpts (bounded beginning/end reads and at most 100 displayed messages), and search covers titles and request previews rather than the entire transcript. Sessions with missing transcripts can still show Grok/Antigravity metadata. Internal reasoning and tool outputs are excluded. Normal Claude launches preserve an unset `CLAUDE_CONFIG_DIR`, so resuming does not switch to a different initial-setup file.
 
