@@ -1,11 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none" role="img" aria-labelledby="title description">
-  <title id="title">VINTAGE</title>
-  <desc id="description">White VINTAGE terminal mark on a black rounded square</desc>
-  <rect x="40" y="40" width="432" height="432" rx="88" fill="#000000" />
-  <g fill="#ffffff" transform="matrix(1.6438614,0,0,1.6935387,-156.11792,-155.20251)">
-    <path d="m 128,145 h 96 l 22,32 h -95 z" />
-    <path d="m 171,180 h 69 l 46,76 -38,64 z" />
-    <path d="m 372,145 h -65 l -61,104 37,64 z" />
-    <rect x="287" y="320" width="82" height="30" rx="8" />
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect id="plate" x="2" y="2" width="60" height="60" rx="14" fill="#f2f1ed"/><g transform="translate(1.5 -3.91) scale(.61)"><path id="needle" fill="#1c1e20" d="M29.66 22.8L50 58.786L70.34 22.8L81.66 29.2L55.66 75.2L50 72L44.34 75.2L18.34 29.2Z"/><path id="ticks" fill="#1c1e20" d="M14 84L24 84L24 92L14 92ZM76 84L86 84L86 92L76 92Z"/><path id="reading" fill="#e8641c" d="M57 88C57 91.866 53.866 95 50 95C46.134 95 43 91.866 43 88C43 84.134 46.134 81 50 81C53.866 81 57 84.134 57 88Z"/></g></svg>
