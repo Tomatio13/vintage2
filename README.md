@@ -18,7 +18,7 @@ Completion, error, input needed — the moment it matters, it comes to you.
 
 Linux · macOS · Windows ／ Apache 2.0 open source · [GitHub](https://github.com/Tomatio13/vintage2) · [Features guide](docs/FEATURES.md) · [日本語](README_JP.md)
 
-<video controls src="https://github.com/user-attachments/assets/2b817ecc-8b04-4c2c-8a8c-d40265ad0dd3" muted="false"></video>
+https://github.com/user-attachments/assets/2b817ecc-8b04-4c2c-8a8c-d40265ad0dd3
 
 </div>
 

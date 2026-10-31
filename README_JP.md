@@ -18,7 +18,7 @@ VINTAGEは、複数のAIエージェントを1枚の画面で並走させるタ�
 
 Linux · macOS · Windows ／ Apache 2.0 オープンソース · [GitHub](https://github.com/Tomatio13/vintage2) · [機能ガイド](docs/FEATURES_JP.md) · [English](README.md)
 
-<video controls src="https://github.com/user-attachments/assets/2b817ecc-8b04-4c2c-8a8c-d40265ad0dd3" muted="false"></video>
+https://github.com/user-attachments/assets/2b817ecc-8b04-4c2c-8a8c-d40265ad0dd3
 
 </div>
 
