@@ -1,5 +1,5 @@
 {
-  "duration": 35.24,
+  "duration": 34.24,
   "width": 1920,
   "height": 1080,
   "fps": 25,
@@ -9,10 +9,16 @@
   "realModelTasks": true,
   "shellStartup": "source ~/.zshrc, then PS1",
   "terminalColor": "FORCE_COLOR=1; COLORTERM=truecolor",
-  "features": ["Monitor", "Sessions", "Resume", "Claude Code", "Themes"],
+  "features": [
+    "Monitor",
+    "Sessions",
+    "Resume",
+    "Claude Code",
+    "Themes"
+  ],
   "testCount": 3,
   "sampleTelemetry": false,
-  "prompt": "sample-app \u276f ",
+  "prompt": "sample-app ❯ ",
   "reference": "https://github.com/eneskirca/nodeterm/blob/main/docs/assets/hero-tour.mp4",
   "shots": [
     {

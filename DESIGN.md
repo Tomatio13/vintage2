@@ -39,6 +39,16 @@ Avoid:
 - bright full-surface brand fills
 - ambiguous hierarchy between background, card, and popover surfaces
 
+## Brand Identity (Set A — "Signal Meter")
+
+The product brand lives alongside this UI system. Brand surfaces — the landing page (`index.html`), README, app icon, marketing assets — use the identity below. In-app interface styling still follows the semantic tokens in this file; brand colours are accents on brand surfaces, not UI tokens.
+
+- **Mark**: a meter needle as the "V", two scale ticks and one orange reading point. Masters and variants live in `assets/brand/` (lockups light/dark, divider motif, favicons, app icon). The full guidelines kit is generated locally under `design/brand/vintage/kit/A/` (that folder is gitignored).
+- **Brand colours**: Ink `#1c1e20` (刻印墨), Signal Orange `#e8641c` (シグナルオレンジ; use `#c34f08` when orange text sits on light UI surfaces), Porcelain `#ecebe6` (磁器). Signal orange is the brand accent only — never substitute it for `--color-warning` or `--color-destructive`, and never fill large surfaces with it.
+- **Brand typefaces**: display Murecho 700, text Noto Sans JP 400/500 — brand surfaces only. In-app UI keeps the system stacks defined below.
+- **Icon style** (custom icons such as README headings and marketing assets): 24px grid, 1.75px stroke, round caps and joins, no fills except deliberate states, coloured with `currentColor`. The house set is in `assets/brand/icons/` (plus `-dark` variants for dark grounds).
+- **`--color-brand` status**: the token still holds the legacy brass values (`#89682e` / `#c6a66b` / `#d79a54`). Aligning it to Signal Orange across the six themes is a pending decision — do not introduce new brass styling elsewhere.
+
 ## Theme Modes
 
 User-facing theme choices are:

@@ -1,77 +1,96 @@
 <div align="center">
 
-# VINTAGE - Visual Interface for Terminal Agents
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/vintage-lockup-dark.svg">
+  <img src="assets/brand/vintage-lockup-light.svg" alt="VINTAGE - Visual Interface for Terminal Agents" width="440">
+</picture>
 
-### The terminal workspace built for the age of AI agents.
+**The terminal workspace built for the age of AI agents.**
 
-<br />
+## Agents run in parallel. The terminal calls you back.
 
-> _You don't babysit your agents. They report to you._
+**VINTAGE** runs multiple AI agents side by side on one screen.
+Completion, error, input needed — the moment it matters, it comes to you.
 
-<br />
+[![Download for Linux](https://img.shields.io/badge/Download%20for%20Linux-E8641C?style=for-the-badge&labelColor=1C1E20&logo=linux&logoColor=white)](https://github.com/Tomatio13/vintage2/releases/latest)
+[![Download for macOS](https://img.shields.io/badge/Download%20for%20macOS-E8641C?style=for-the-badge&labelColor=1C1E20&logo=apple&logoColor=white)](https://github.com/Tomatio13/vintage2/releases/latest)
+[![Download for Windows](https://img.shields.io/badge/Download%20for%20Windows-E8641C?style=for-the-badge&labelColor=1C1E20&logo=windows&logoColor=white)](https://github.com/Tomatio13/vintage2/releases/latest)
 
-[![License](https://img.shields.io/badge/Apache_2.0-blue?style=for-the-badge)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js_24+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
-[![Electron](https://img.shields.io/badge/Electron_45-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://electronjs.org)
-[![Platforms](https://img.shields.io/badge/Linux_%7C_macOS_%7C_Windows-555?style=for-the-badge)](./)
+Linux · macOS · Windows ／ Apache 2.0 open source · [GitHub](https://github.com/Tomatio13/vintage2) · [Features guide](docs/FEATURES.md) · [日本語](README_JP.md)
 
-<br />
-
-[Get started](#-quick-start) · [See the features](docs/FEATURES.md) · [Architecture](docs/ARCHITECTURE.md) · [日本語](README_JP.md)
-
-<br />
-<br />
+<video controls src="https://github.com/user-attachments/assets/2b817ecc-8b04-4c2c-8a8c-d40265ad0dd3" muted="false"></video>
 
 </div>
 
----
-
-<br />
-
-<div><video controls src="https://github.com/user-attachments/assets/ec6bb6ae-c658-48bf-9b5b-416ab75839d5" muted="false"></video></div>
-
-![fig](assets/manga/manga-en.png)
-
-<p align="center">
-<a href="assets/manga/en/page-01.png">page 1</a> · <a href="assets/manga/en/page-02.png">page 2</a> · <a href="assets/manga/en/page-03.png">page 3</a>
-</p>
-<br />
-
----
-
-<br />
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/vintage-divider-dark.svg">
+  <img src="assets/brand/vintage-divider-light.svg" alt="" width="160">
+</picture>
+</div>
 
 <div align="center">
+
+**Why VINTAGE**
 
 ## You're running 5 agents simultaneously.<br />You have no idea what any of them are doing.
 
 </div>
 
-<br />
-
 You open a terminal. Then another. Three more. Each one is running a different agent on a different task. One finishes and sits waiting for input. One crashes silently. Two are still going. Which is which? You're alt-tabbing between windows, scrolling through output, trying to remember which pane you kicked off that refactor in.
 
-**This is not a tooling problem. This is a workflow problem. VINTAGE fixes it.**
+**Parallel work needs a workspace where you can see the state. VINTAGE is that workspace.**
 
+<details>
+<summary><b>One day with VINTAGE, in three panels</b></summary>
 <br />
 
----
+<img src="assets/manga/manga-en.png" alt="A day with VINTAGE, in three panels" width="640" />
 
-<br />
+<p align="center">
+<a href="assets/manga/en/page-01.png">page 1</a> · <a href="assets/manga/en/page-02.png">page 2</a> · <a href="assets/manga/en/page-03.png">page 3</a>
+</p>
 
-## Features
+</details>
 
-|     | Feature             | What it does                                                                                                               |
-| --- | ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| ⚡  | **Attention**       | Background terminals that finish, error, or stall fire a notification — one click back to that exact terminal. No hunting. |
-| 🔲  | **Space splitting** | Split your workspace horizontally or vertically. Run agents side by side. Each pane independent.                           |
-| 🎛  | **Command Palette** | `Ctrl+Shift+P` — jump to any workspace, Space, terminal, or action from a single input.                                    |
-| 📡  | **Monitor**         | Live CPU, RAM, and every AI session on the machine — tool in use, context %, quota remaining.                              |
-| 🗄  | **Sessions**        | Browse and resume past Claude Code / Codex / Grok / Antigravity conversations. Search, pin, read, resume.                  |
-| 📋  | **Board**           | A Kanban board your agents can write to. Drop tasks in. Agents update cards, add subtasks, close tickets. All local.       |
-| 🎨  | **Themes**          | Vintage · Graphite · Ocean · Grove · Iris · Ember — independent light/dark palettes, full JSON import/export.              |
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/vintage-divider-dark.svg">
+  <img src="assets/brand/vintage-divider-light.svg" alt="" width="160">
+</picture>
+</div>
 
-<br />
+## The terminal comes to you.
+
+### <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/attention-dark.svg"><img src="assets/brand/icons/attention.svg" height="24" alt=""></picture> Attention
+
+When a background terminal finishes, errors, or stalls, VINTAGE fires a notification. One click takes you straight back to that exact terminal. No alt-tab archaeology.
+
+<img src="assets/readme/vintage-attention-routing.png" alt="Attention: a failed terminal notification, with one-click routing back" width="800" />
+
+### <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/monitor-dark.svg"><img src="assets/brand/icons/monitor.svg" height="24" alt=""></picture> Monitor
+
+Live CPU and memory, plus every AI session on the machine — the tool in use, context usage, quota remaining. "I hit the limit without noticing" stops being a thing.
+
+<img src="assets/readme/vintage-monitor.png" alt="Monitor: CPU, memory and AI session usage" width="800" />
+
+### <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/board-dark.svg"><img src="assets/brand/icons/board.svg" height="24" alt=""></picture> Board
+
+Drop tasks in. Agents update cards, add subtasks, and close tickets alongside you. Everything is stored locally.
+
+<img src="assets/readme/vintage-board.png" alt="Board: a Kanban board shared with your agents" width="800" />
+
+## All you need to run in parallel.
+
+| #   | Feature                    | What it does                                                                                                    |
+| --- | -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 01  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/space-dark.svg"><img src="assets/brand/icons/space.svg" height="20" alt=""></picture> **Space splitting** | Split your workspace horizontally or vertically and run agents pane by pane. Each pane is independent, so a heavy build never blocks the rest of your work. |
+| 02  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/sessions-dark.svg"><img src="assets/brand/icons/sessions.svg" height="20" alt=""></picture> **Sessions** | Browse, search, pin, read, and resume past Claude Code / Codex / Grok / Antigravity conversations. "Which session was that in?" stops being a question. |
+| 03  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/palette-dark.svg"><img src="assets/brand/icons/palette.svg" height="20" alt=""></picture> **Command palette** | `Ctrl+Shift+P` jumps to any workspace, Space, terminal, or action. Your hands never leave the keyboard. |
+| 04  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/theme-dark.svg"><img src="assets/brand/icons/theme.svg" height="20" alt=""></picture> **Themes** | Vintage · Graphite · Ocean · Grove · Iris · Ember — independent light/dark palettes, full JSON import/export. |
+
+<details>
+<summary><b>Sidebar and status display details</b></summary>
 
 ### Status at a glance
 
@@ -85,21 +104,39 @@ You open a terminal. Then another. Three more. Each one is running a different a
 | Warning or failure                     | Warning or error icon |
 | Agent detected, idle or status unknown | Robot icon            |
 
-Drag the right edge of the left sidebar to resize it. The width is saved across restarts. Gary crawls over little stairs and stops for an apple above the sidebar footer, with new positions and timing on each round trip. Toggle Gary in **Settings → Appearance → Sidebar Gary**. Reduced motion keeps the scene still.
+- Drag the right edge of the left sidebar to resize it. The width is saved across restarts.
+- Status icons appear in Space tabs and sidebar rows. Hover over an icon for its status label. Spinners remain still when reduced motion is enabled.
+- Sidebar Space rows also show colored agent badges (such as CD for Codex and OC for OpenCode), matching Monitor Sessions. Badge outlines pulse while working, stay emphasized while waiting for input, and fade on completion.
+- Monitor excludes OpenCode background servers (`serve`, including `opencode2.exe serve --service`) and their launchers; interactive OpenCode sessions remain visible.
+- Gary crawls over little stairs and stops for an apple above the sidebar footer, with new positions and timing on each round trip. Toggle Gary in **Settings → Appearance → Sidebar Gary**. Reduced motion keeps the scene still.
 
-Status icons appear in Space tabs and sidebar rows. Hover over an icon for its status label. Spinners remain still when reduced motion is enabled.
+</details>
 
-Monitor excludes OpenCode background servers (`serve`, including `opencode2.exe serve --service`) and their launchers; interactive OpenCode sessions remain visible.
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/vintage-divider-dark.svg">
+  <img src="assets/brand/vintage-divider-light.svg" alt="" width="160">
+</picture>
+</div>
 
-Sidebar Space rows also show colored agent badges (such as CD for Codex and OC for OpenCode), matching Monitor Sessions. Split panes with different agents show one badge per agent type, including agents waiting for input. Badge outlines pulse while working, stay emphasized while waiting for input, and fade on completion. Hover for the agent name and status; reduced motion disables the pulse.
+## Start running in parallel, today.
 
-<br />
+Installers are on GitHub Releases. Free and open source.
 
----
+[![Download for Linux](https://img.shields.io/badge/Download%20for%20Linux-E8641C?style=for-the-badge&labelColor=1C1E20&logo=linux&logoColor=white)](https://github.com/Tomatio13/vintage2/releases/latest)
+[![Download for macOS](https://img.shields.io/badge/Download%20for%20macOS-E8641C?style=for-the-badge&labelColor=1C1E20&logo=apple&logoColor=white)](https://github.com/Tomatio13/vintage2/releases/latest)
+[![Download for Windows](https://img.shields.io/badge/Download%20for%20Windows-E8641C?style=for-the-badge&labelColor=1C1E20&logo=windows&logoColor=white)](https://github.com/Tomatio13/vintage2/releases/latest)
 
-<br />
+Building from source? See the quick start below.
 
-## 🚀 Quick start
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/vintage-divider-dark.svg">
+  <img src="assets/brand/vintage-divider-light.svg" alt="" width="160">
+</picture>
+</div>
+
+## <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/rocket-dark.svg"><img src="assets/brand/icons/rocket.svg" height="24" alt=""></picture> Quick start (from source)
 
 ```bash
 pnpm install
@@ -120,23 +157,11 @@ pnpm run dist:mac     # → .dmg, .zip
 pnpm run dist:win     # → NSIS installer
 ```
 
-<br />
-
----
-
-<br />
-
 ## Requirements
 
 - **Node.js** 24+
 - **pnpm** 10.33.2+
 - **C/C++ build tools** — compiler + `make` + Python (for `node-pty` on Linux)
-
-<br />
-
----
-
-<br />
 
 ## Docs
 
@@ -145,13 +170,11 @@ pnpm run dist:win     # → NSIS installer
 - [Board, storage and Skill distribution](docs/KANBAN.md)
 - [日本語 README](README_JP.md) · [日本語: 機能と画面のガイド](docs/FEATURES_JP.md)
 
-<br />
-
----
-
-<br />
-
 <div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/vintage-divider-dark.svg">
+  <img src="assets/brand/vintage-divider-light.svg" alt="" width="160">
+</picture>
 
 **Apache 2.0** — [LICENSE](LICENSE) · [NOTICE.md](NOTICE.md)
 

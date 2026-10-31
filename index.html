@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VINTAGE — Agents run in parallel. The terminal calls you back.</title>
+<meta name="description" content="VINTAGE is a terminal workspace that runs multiple AI agents side by side on one screen. Completion, error, input needed — the moment it matters, it comes to you. Linux / macOS / Windows, Apache 2.0.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="VINTAGE — Visual Interface for Terminal Agents">
+<meta property="og:description" content="A terminal workspace that runs multiple AI agents side by side on one screen. The moment it matters, it comes to you.">
+<meta property="og:image" content="https://raw.githubusercontent.com/Tomatio13/vintage2/main/assets/demo-desktop-poster.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="assets/brand/vintage-favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Murecho:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1c1e20;
+  --ink-2:#3a3d40;
+  --muted:#5c6065;
+  --porcelain:#ecebe6;
+  --paper:#f7f6f3;
+  --white:#ffffff;
+  --orange:#e8641c;
+  --orange-deep:#c34f08;
+  --night:#101112;
+  --night-2:#1a1c1e;
+  --night-line:rgba(243,243,243,.12);
+  --line:rgba(28,30,32,.14);
+  --radius:14px;
+  --font-display:"Murecho","Noto Sans JP",system-ui,sans-serif;
+  --font-body:"Noto Sans JP",system-ui,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font-body);
+  color:var(--ink);
+  background:var(--porcelain);
+  font-size:16px;
+  line-height:1.75;
+  -webkit-font-smoothing:antialiased;
+}
+img,video{max-width:100%;display:block}
+a{color:inherit}
+section{scroll-margin-top:76px}
+.wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+.narrow{max-width:760px}
+
+/* ---- type ---- */
+h1,h2,h3{font-family:var(--font-display);line-height:1.3;letter-spacing:-.005em;text-wrap:balance}
+.ic{width:1.12em;height:1.12em;vertical-align:-.16em;margin-right:.35em}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:10px;
+  font-family:var(--font-display);font-weight:500;
+  font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--orange-deep);
+}
+.eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--orange)}
+h2{font-size:clamp(24px,3.4vw,34px);font-weight:700;margin:14px 0 18px}
+.lead{color:var(--ink-2);max-width:44em}
+
+/* ---- header ---- */
+header{
+  position:sticky;top:0;z-index:50;
+  background:color-mix(in srgb,var(--porcelain) 86%,transparent);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.bar{display:flex;align-items:center;gap:28px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-family:var(--font-display);font-weight:700;letter-spacing:.14em;font-size:15px}
+.brand svg{width:26px;height:26px}
+nav{margin-left:auto;display:flex;align-items:center;gap:22px;font-size:13.5px;font-weight:500}
+nav a{text-decoration:none;color:var(--ink-2)}
+nav a:hover{color:var(--ink)}
+.btn{
+  display:inline-block;text-decoration:none;text-align:center;
+  font-family:var(--font-display);font-weight:700;font-size:14px;
+  padding:11px 22px;border-radius:10px;border:1.5px solid transparent;
+  transition:transform .12s ease,box-shadow .12s ease,background .12s ease;
+}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:var(--orange);color:var(--ink);box-shadow:0 2px 0 rgba(28,30,32,.22)}
+.btn-primary:hover{box-shadow:0 4px 0 rgba(28,30,32,.22)}
+.btn-ghost{border-color:var(--line);color:var(--ink);background:transparent}
+.btn-sm{padding:8px 16px;font-size:13px}
+
+/* ---- hero ---- */
+.hero{position:relative;overflow:hidden;text-align:center;padding:92px 0 72px}
+.hero-bg{position:absolute;inset:0;pointer-events:none;color:var(--ink);opacity:.045}
+.hero-bg svg{position:absolute;right:-140px;top:-60px;width:560px;height:560px}
+.hero h1{font-size:clamp(30px,5vw,52px);font-weight:700;margin:22px auto 18px;max-width:22em}
+.hero .lead{margin:0 auto 30px}
+.cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.note{font-size:12.5px;color:var(--muted);margin-top:14px}
+.hero-video{
+  margin:56px auto 0;max-width:920px;
+  background:var(--night);border-radius:var(--radius);
+  padding:10px;box-shadow:0 24px 60px -30px rgba(28,30,32,.5);
+}
+.hero-video video{width:100%;border-radius:8px}
+
+/* ---- divider motif ---- */
+.divider{display:flex;justify-content:center;padding:10px 0}
+.divider svg{width:150px;height:auto}
+
+/* ---- sections ---- */
+.sec{padding:84px 0}
+.sec-white{background:var(--white);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.center{text-align:center}
+.center .lead{margin-left:auto;margin-right:auto}
+.hl{
+  background:linear-gradient(transparent 62%,rgba(232,100,28,.28) 0);
+  font-weight:700;padding:0 2px;
+}
+
+/* ---- dark product band ---- */
+.band{background:var(--night);color:#f3f3f3;padding:96px 0}
+.band .eyebrow{color:var(--orange)}
+.band h2{color:#fff}
+.feat{display:grid;grid-template-columns:5fr 7fr;gap:48px;align-items:center;padding:44px 0}
+.feat+.feat{border-top:1px solid var(--night-line)}
+.feat.flip .txt{order:2}
+.feat h3{font-size:clamp(20px,2.4vw,26px);margin:10px 0 12px}
+.feat p{color:#b9bcc0;font-size:15px}
+.feat img{border-radius:10px;border:1px solid var(--night-line);width:100%}
+.chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.chip{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:var(--font-display);font-size:12px;letter-spacing:.08em;
+  border:1px solid var(--night-line);border-radius:999px;padding:6px 14px;color:#cfd2d5;
+}
+.chip i{width:7px;height:7px;border-radius:50%;background:#7a7f84}
+.chip.run i{background:var(--orange);animation:pulse 1.6s ease-in-out infinite}
+.chip.ask i{background:#f3f3f3}
+.chip.done i{background:#7a7f84}
+@keyframes pulse{50%{opacity:.35}}
+
+/* ---- feature grid ---- */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:34px}
+.card{
+  background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
+  padding:26px 26px 24px;
+}
+.card .idx{font-family:var(--font-display);font-weight:700;font-size:12px;letter-spacing:.18em;color:var(--orange-deep)}
+.card h3{font-size:17.5px;margin:8px 0 8px}
+.card p{font-size:14px;color:var(--muted);line-height:1.85}
+kbd{
+  font-family:var(--font-mono);font-size:.86em;
+  border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;
+  padding:1px 7px;background:var(--paper);white-space:nowrap;
+}
+
+/* ---- download ---- */
+.dl{background:var(--white);border-top:1px solid var(--line)}
+.platforms{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:26px 0 12px}
+.platforms .btn{min-width:210px}
+.src{font-size:13px;color:var(--muted);text-align:center}
+.src a{color:var(--orange-deep)}
+
+/* ---- footer ---- */
+footer{background:var(--night);color:#b9bcc0;padding:64px 0 44px;text-align:center}
+footer .brand{justify-content:center;color:#f3f3f3;display:inline-flex}
+.tag{font-family:var(--font-display);font-size:15px;color:#f3f3f3;margin:18px 0 22px}
+.flinks{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;font-size:13px;margin-bottom:22px}
+.flinks a{text-decoration:none;color:#b9bcc0}
+.flinks a:hover{color:#fff}
+.copy{font-size:12px;color:#7a7f84}
+
+/* ---- reveal ---- */
+.rv{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}
+.rv.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .rv{opacity:1;transform:none;transition:none}
+  .chip.run i{animation:none}
+}
+@media (max-width:880px){
+  nav .hide-m{display:none}
+  .feat{grid-template-columns:1fr;gap:20px;padding:36px 0}
+  .feat.flip .txt{order:0}
+  .grid{grid-template-columns:1fr}
+  .hero{padding:64px 0 56px}
+  .sec{padding:60px 0}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap bar">
+    <a class="brand" href="#top" aria-label="VINTAGE home">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><g fill="currentColor"><path d="M29.66 22.8 50 58.786 70.34 22.8 81.66 29.2 55.66 75.2 44.34 75.2 18.34 29.2Z"/><circle cx="50" cy="88" r="7"/></g></svg>
+      VINTAGE
+    </a>
+    <nav>
+      <a class="hide-m" href="#features">Features</a>
+      <a class="hide-m" href="#demo">Demo</a>
+      <a class="hide-m" href="https://github.com/Tomatio13/vintage2" target="_blank" rel="noopener">GitHub</a>
+      <a class="btn btn-primary btn-sm" href="#download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-bg" aria-hidden="true">
+      <svg viewBox="0 0 100 100" fill="currentColor"><g><path d="M29.66 22.8 18.34 29.2 44.34 75.2 55.66 68.8Z"/><path d="M70.34 22.8 81.66 29.2 55.66 75.2 44.34 68.8Z"/></g></svg>
+    </div>
+    <div class="wrap">
+      <span class="eyebrow">The terminal workspace built for the age of AI agents</span>
+      <h1>Agents run in parallel.<br>The terminal calls you back.</h1>
+      <p class="lead">VINTAGE is a terminal workspace that runs multiple AI agents side by side on one screen. Completion, error, input needed — the moment it matters, it comes to you.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#download">Download free</a>
+        <a class="btn btn-ghost" href="https://github.com/Tomatio13/vintage2" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+      <p class="note">Linux · macOS · Windows ／ Apache 2.0 open source</p>
+
+      <div class="hero-video rv" id="demo">
+        <video controls preload="none" poster="assets/demo-desktop-poster.png"
+          src="assets/demo-desktop.mp4"></video>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROBLEM -->
+  <section class="sec">
+    <div class="wrap narrow center rv">
+      <span class="eyebrow">Why VINTAGE</span>
+      <h2>You're running 5 agents simultaneously.<br>Do you know what any of them are doing?</h2>
+    </div>
+    <div class="wrap narrow rv">
+      <p class="lead">You open a terminal. Then another. Three more. Each one is running a different agent on a different task. One finishes and sits waiting for input. One crashes silently. Two are still going. Which is which? You're alt-tabbing between windows, scrolling through output, trying to remember which pane you kicked off that refactor in.</p>
+      <p class="lead"><span class="hl">Parallel work needs a workspace where you can see the state.</span> VINTAGE is that workspace.</p>
+    </div>
+  </section>
+
+  <!-- PRODUCT BAND -->
+  <section class="band" id="features">
+    <div class="wrap">
+      <div class="center rv">
+        <span class="eyebrow">Attention Routing</span>
+        <h2>The terminal comes to you.</h2>
+      </div>
+
+      <div class="feat rv">
+        <div class="txt">
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.8 15.8 V11 a5.2 5.2 0 0 1 10.4 0 v4.8 L18.6 18 H5.4 Z"/><path d="M10.3 20.6 a1.7 1.7 0 0 0 3.4 0"/><circle cx="18.8" cy="5.2" r="2" fill="#e8641c" stroke="none"/></svg> Attention</h3>
+          <p>When a background terminal finishes, errors, or stalls, VINTAGE fires a notification. One click takes you straight back to that exact terminal. No alt-tab archaeology.</p>
+          <div class="chips" aria-label="Status display examples">
+            <span class="chip run"><i></i>Running</span>
+            <span class="chip ask"><i></i>Input needed</span>
+            <span class="chip"><i></i>Waiting</span>
+            <span class="chip done"><i></i>Done</span>
+          </div>
+        </div>
+        <img src="assets/readme/vintage-attention-routing.png" alt="Attention: a failed terminal notification, with one-click routing back" loading="lazy">
+      </div>
+
+      <div class="feat flip rv">
+        <div class="txt">
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16.5 a8 8 0 0 1 16 0"/><path d="M12 16.5 L16.8 9.8"/><circle cx="12" cy="16.5" r="1.4" fill="currentColor" stroke="none"/></svg> Monitor</h3>
+          <p>Live CPU and memory, plus every AI session on the machine — the tool in use, context usage, quota remaining. "I hit the limit without noticing" stops being a thing.</p>
+        </div>
+        <img src="assets/readme/vintage-monitor.png" alt="Monitor: CPU, memory and AI session usage" loading="lazy">
+      </div>
+
+      <div class="feat rv">
+        <div class="txt">
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.2" y="5" width="4.6" height="14" rx="1.4"/><rect x="9.7" y="5" width="4.6" height="14" rx="1.4"/><rect x="15.2" y="5" width="4.6" height="9.5" rx="1.4"/></svg> Board</h3>
+          <p>Drop tasks in. Agents update cards, add subtasks, and close tickets alongside you. Everything is stored locally.</p>
+        </div>
+        <img src="assets/readme/vintage-board.png" alt="Board: a Kanban board shared with your agents" loading="lazy">
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURE GRID -->
+  <section class="sec sec-white">
+    <div class="wrap">
+      <div class="center rv">
+        <span class="eyebrow">Workspace</span>
+        <h2>All you need to run in parallel.</h2>
+      </div>
+      <div class="grid rv">
+        <div class="card">
+          <div class="idx">01</div>
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.4"/><path d="M12 4.5 V19.5"/></svg> Space splitting</h3>
+          <p>Split your workspace horizontally or vertically and run agents pane by pane. Each pane is independent, so a heavy build never blocks the rest of your work.</p>
+        </div>
+        <div class="card">
+          <div class="idx">02</div>
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.8" y="4.6" width="16.4" height="11" rx="2.4"/><path d="M8 15.6 V19.2 L12.2 15.6"/><path d="M8 9 h8 M8 12 h5"/></svg> Sessions</h3>
+          <p>Browse, search, pin, read, and resume past Claude Code / Codex / Grok / Antigravity conversations. "Which session was that in?" stops being a question.</p>
+        </div>
+        <div class="card">
+          <div class="idx">03</div>
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2.4"/><path d="M7.6 10 l3.2 2.6 -3.2 2.6"/><path d="M13.4 15.2 h3.2"/></svg> Command palette</h3>
+          <p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> jumps to any workspace, Space, terminal, or action. Your hands never leave the keyboard.</p>
+        </div>
+        <div class="card">
+          <div class="idx">04</div>
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="7.4"/><path d="M12 4.6 A7.4 7.4 0 0 1 12 19.4 Z" fill="currentColor" stroke="none"/></svg> Themes</h3>
+          <p>Vintage · Graphite · Ocean · Grove · Iris · Ember — independent light/dark palettes, full JSON import/export.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOWNLOAD -->
+  <section class="sec dl" id="download">
+    <div class="wrap center rv">
+      <span class="eyebrow">Download</span>
+      <h2>Start running in parallel, today.</h2>
+      <p class="lead" style="margin:0 auto 8px">Installers are on GitHub Releases. Free and open source.</p>
+      <div class="platforms">
+        <a class="btn btn-primary" href="https://github.com/Tomatio13/vintage2/releases/latest" target="_blank" rel="noopener">Linux — AppImage / .deb</a>
+        <a class="btn btn-primary" href="https://github.com/Tomatio13/vintage2/releases/latest" target="_blank" rel="noopener">macOS — .dmg / .zip</a>
+        <a class="btn btn-primary" href="https://github.com/Tomatio13/vintage2/releases/latest" target="_blank" rel="noopener">Windows — NSIS</a>
+      </div>
+      <p class="src">Building from source? See the <a href="https://github.com/Tomatio13/vintage2#quick-start-from-source">quick start in the README</a></p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="brand">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><g fill="currentColor"><path d="M29.66 22.8 50 58.786 70.34 22.8 81.66 29.2 55.66 75.2 44.34 75.2 18.34 29.2Z"/><circle cx="50" cy="88" r="7"/></g></svg>
+      VINTAGE
+    </span>
+    <p class="tag">The right terminal calls you back.</p>
+    <div class="flinks">
+      <a href="https://github.com/Tomatio13/vintage2" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/Tomatio13/vintage2/blob/main/docs/FEATURES.md" target="_blank" rel="noopener">Features guide</a>
+      <a href="https://github.com/Tomatio13/vintage2/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener">Architecture</a>
+      <a href="https://github.com/Tomatio13/vintage2/blob/main/README_JP.md" target="_blank" rel="noopener">日本語</a>
+      <a href="https://github.com/Tomatio13/vintage2/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+    </div>
+    <p class="copy">© 2026 VINTAGE contributors</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var els=document.querySelectorAll('.rv');
+  if(reduced||!('IntersectionObserver' in window)){els.forEach(function(e){e.classList.add('in')});return}
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}});
+  },{threshold:.12});
+  els.forEach(function(e){io.observe(e)});
+})();
+</script>
+
+</body>
+</html>
