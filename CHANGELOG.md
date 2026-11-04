@@ -1,5 +1,20 @@
 # VINTAGE Changelog
 
+## [0.2.45] - 2026-11-05
+
+### Improved
+
+- Keep the new-tab buttons directly beside the last Browser and Space tabs when there is room, while keeping them accessible when the tab strips overflow.
+
+### Validation and limitations
+
+- Boundary checks, TypeScript, lint, formatting, 579 passing tests (one skipped), and production builds passed.
+- Linux Electron Browser smoke checks passed, including page restoration, bookmarks, zoom, workspace scopes, and terminal-session retention.
+- Terminal split controls retain their existing placement and appearance.
+- Windows Monitor remains an experimental pre-release; Windows/macOS Sessions and analysis remain experimental with physical-device testing pending. Installed-app updates remain unverified.
+
+**Full Changelog:** [v0.2.44...v0.2.45](https://github.com/Tomatio13/vintage2/compare/v0.2.44...v0.2.45)
+
 ## [0.2.44] - 2026-11-04
 
 ### Improved

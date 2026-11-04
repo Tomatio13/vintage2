@@ -78,7 +78,7 @@ export function SpaceTabStrip({
       )}
       <div
         ref={viewport}
-        className="workspace-tab-strip h-full min-w-0 flex-1 overflow-x-auto overflow-y-hidden px-2 pt-1"
+        className="workspace-tab-strip h-full min-w-0 overflow-x-auto overflow-y-hidden px-2 pt-1"
         onScroll={measure}
       >
         <div ref={content} className="flex h-full w-max min-w-full items-end gap-0.5">
@@ -101,7 +101,7 @@ export function SpaceTabStrip({
       <Button
         aria-label="New space"
         title="New space"
-        className="mr-1 size-7"
+        className="mr-1 size-7 shrink-0"
         size="icon"
         variant="ghost"
         onClick={onNewSpace}

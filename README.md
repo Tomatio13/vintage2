@@ -145,7 +145,7 @@ pnpm dev
 
 Done. VINTAGE opens with `Space 1` and `Terminal 1` in your home directory.
 
-Use the right-edge toolbar to switch tools; hover for names and shortcuts. Overflowing Space tabs have scroll arrows and a fixed add button. See the [features guide](docs/FEATURES.md) for details.
+Use the right-edge toolbar to switch tools; hover for names and shortcuts. Browser and Space add buttons sit beside their tabs and remain accessible when tabs overflow. See the [features guide](docs/FEATURES.md) for details.
 
 **`Ctrl+Shift+P`** — command palette. One input for workspaces, Spaces, terminals, and actions.
 

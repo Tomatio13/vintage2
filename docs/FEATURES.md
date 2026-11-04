@@ -31,7 +31,7 @@ _The Checks terminal after selecting Open terminal in the Attention notification
 - VINTAGE starts in your home directory with `Space 1` and `Terminal 1` ready to use.
 - Add a project with **Open folder**. The selected folder becomes the working directory for new terminals in that workspace.
 - Create multiple Spaces per workspace and switch between them using tabs or keyboard shortcuts. A new Space starts with `Terminal 1`.
-- When Space tabs overflow, left/right buttons scroll the tab row without showing a scrollbar. The New space button stays fixed, and selecting a Space or narrowing the window keeps the active tab in view.
+- When Space tabs overflow, left/right buttons scroll the tab row without showing a scrollbar. The New space button sits beside the last tab when there is room and stays outside the scrolling area when tabs overflow, and selecting a Space or narrowing the window keeps the active tab in view.
 - Split the active terminal to the right or below. Close Spaces and panes with their close controls. Double-click a Space or terminal title to rename it; press `Enter` or move focus to save, or `Escape` to cancel.
 - Choose zsh, bash, fish, or the operating system’s default shell. Selecting terminal output with the mouse copies it to the clipboard.
 - Press the find shortcut (`Ctrl+F` by default, `⌘F` on macOS) to search terminal scrollback; `Enter` and `Shift+Enter` move between matches. The shortcut can be reassigned in **Settings → Shortcuts → Terminal** and only triggers while a terminal has focus.

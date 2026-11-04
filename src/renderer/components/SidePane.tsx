@@ -278,7 +278,7 @@ export function SidePane({
             <>
               <div
                 ref={sideTabHeaderRef}
-                className="flex h-full min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:thin]"
+                className="flex h-full min-w-0 items-center overflow-x-auto [scrollbar-width:thin]"
               >
                 <div
                   aria-label="Browser tabs"
@@ -358,7 +358,7 @@ export function SidePane({
               </div>
               <Button
                 aria-label="New browser tab"
-                className="size-7 px-0"
+                className="size-7 shrink-0 px-0"
                 size="icon"
                 title="New browser tab"
                 variant="ghost"
