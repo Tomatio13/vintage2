@@ -391,17 +391,17 @@ describe("VINTAGE workspace shell", () => {
     expect(maximizeButton.querySelector("svg")).toHaveClass("size-4");
     expect(screen.queryByText("Ctrl+Shift+N")).not.toBeInTheDocument();
     expect(screen.getByText("Open a workspace to browse its files.")).toBeInTheDocument();
-    const paneTabs = screen
-      .getAllByRole("button")
-      .filter((button) => ["Files", "Browser"].includes(button.textContent?.trim() ?? ""));
-    expect(paneTabs.map((button) => button.textContent?.trim())).toEqual(["Files", "Browser"]);
-    expect(paneTabs[0]).toHaveClass("text-ui-sm");
-    expect(paneTabs[0]?.querySelector("svg")).toHaveClass("size-3.5");
-    fireEvent.click(screen.getByRole("button", { name: "Browser" }));
+    const paneTools = within(screen.getByRole("navigation", { name: "Side pane tools" }));
+    expect(paneTools.getByRole("button", { name: "Files" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(paneTools.getByRole("button", { name: "Open Browser" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open Browser" }));
     expect(screen.getByRole("textbox", { name: "Browser address" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Files" }));
     expect(screen.getByText("Open a workspace to browse its files.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Browser" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Browser" }));
     expect(screen.getByRole("textbox", { name: "Browser address" })).toBeInTheDocument();
   });
 
@@ -418,7 +418,7 @@ describe("VINTAGE workspace shell", () => {
 
     renderApp();
 
-    fireEvent.click(screen.getByRole("button", { name: "Browser" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Browser" }));
     const firstWebview = document.querySelector(".embedded-webview");
     expect(firstWebview).not.toBeNull();
     fireEvent.change(screen.getByRole("textbox", { name: "Browser address" }), {
@@ -445,7 +445,11 @@ describe("VINTAGE workspace shell", () => {
     expect(screen.getByRole("textbox", { name: "Browser address" })).toBe(secondAddress);
     expect(secondAddress).toHaveValue("https://second.example/");
 
-    fireEvent.click(screen.getByRole("button", { name: "Browser" }));
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Browser tabs" })).getByRole("button", {
+        name: "Browser",
+      }),
+    );
     expect(screen.getByRole("textbox", { name: "Browser address" })).toHaveValue(
       "https://first.example/",
     );
@@ -642,7 +646,10 @@ describe("VINTAGE workspace shell", () => {
     expect(screen.getByRole("button", { name: "Files" })).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.keyDown(window, { key: "b", ctrlKey: true, shiftKey: true });
-    expect(screen.getByRole("button", { name: "Browser" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Open Browser" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     fireEvent.keyDown(window, { key: "s", ctrlKey: true, shiftKey: true });
     expect(document.querySelector(".workspace-side-panel")).toHaveClass("invisible");
@@ -773,7 +780,7 @@ describe("VINTAGE workspace shell", () => {
     };
     expect(persistedSettings.state?.browserDefaultUrl).toBe(expectedUrl);
 
-    fireEvent.click(screen.getByRole("button", { name: "Browser" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Browser" }));
     expect(screen.getByRole("textbox", { name: "Browser address" })).toHaveValue(expectedUrl);
   });
 

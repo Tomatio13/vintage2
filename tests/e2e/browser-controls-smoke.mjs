@@ -20,7 +20,7 @@ try {
     args: ["--no-sandbox", `--user-data-dir=${profile}`, resolve("dist/main/index.js")],
   });
   const page = await app.firstWindow();
-  await page.getByRole("button", { name: "New browser tab", exact: true }).click();
+  await page.getByRole("button", { name: "Open Browser", exact: true }).click();
   const address = page.getByRole("textbox", { name: "Browser address" }).filter({ visible: true });
   await address.fill(url);
   await address.press("Enter");

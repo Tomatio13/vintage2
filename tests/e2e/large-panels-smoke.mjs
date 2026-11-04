@@ -179,6 +179,7 @@ try {
   assert.ok((await renderedFiles()) < 80);
   await page.screenshot({ path: "/tmp/vintage-large-files-smoke.png" });
 
+  await page.getByRole("button", { name: "Open Browser", exact: true }).click();
   const tabs = page.getByRole("group", { name: "Browser tabs", exact: true });
   await tabs.locator("div").first().getByRole("button").first().click();
   for (let i = 0; i < 8; i++)

@@ -173,7 +173,7 @@ try {
     }),
   );
   if (errors.length) throw new Error("renderer errors");
-  await page.getByRole("button", { name: "Browser", exact: true }).click();
+  await page.getByRole("button", { name: "Open Browser", exact: true }).click();
   await page.getByRole("button", { name: "Monitor", exact: true }).click();
   await page.getByRole("button", { name: "Open terminal", exact: true }).click();
   await page.waitForFunction(() =>

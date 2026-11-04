@@ -1,5 +1,22 @@
 # VINTAGE Changelog
 
+## [0.2.44] - 2026-11-04
+
+### Improved
+
+- Replace the right pane's shared horizontal tool tabs with a fixed vertical toolbar. Keep Browser page tabs inside Browser, pin its new-tab button, and return to the last selected page for each project during the app session.
+- Add themed hover and keyboard-focus tooltips with shortcut keycaps to the VINTAGE logo and right-pane tools. Shortcut labels follow user settings and macOS modifier names.
+- Keep Space tabs readable in narrow windows: hide the scrollbar, show overflow arrows only when needed, pin the new-Space button, and reveal the selected tab after selection or resizing without resetting manual scrolling during routine updates.
+- Use consistent heading case and spacing in Monitor, Usage, Review, and shortcut settings, with theme-aware active-agent figures.
+
+### Validation and limitations
+
+- Boundary checks, TypeScript, lint, formatting, 579 passing tests (one skipped), and production builds passed.
+- Linux Electron checks covered the vertical toolbar, Browser page and draft retention, shortcut tooltips, narrow-window Space tabs, and terminal-node retention.
+- Windows Monitor remains an experimental pre-release; Windows/macOS Sessions and analysis remain experimental with physical-device testing pending. macOS Monitor, Windows/macOS UI runtime, and installed-app updates remain unverified.
+
+**Full Changelog:** [v0.2.43...v0.2.44](https://github.com/Tomatio13/vintage2/compare/v0.2.43...v0.2.44)
+
 ## [0.2.43] - 2026-10-31
 
 ### Added

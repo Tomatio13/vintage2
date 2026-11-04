@@ -212,14 +212,14 @@ export function MonitorPanel({
         )}
         <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-border bg-background/50 px-4 py-3">
           <div>
-            <p className="flex items-center gap-1.5 text-ui-xs font-medium uppercase tracking-widest text-foreground-subtle">
+            <p className="flex items-center gap-1.5 text-ui-xs font-medium text-foreground-subtle">
               <span
                 className={`size-1.5 rounded-full ${active && !error ? "animate-pulse bg-foreground-subtle" : "bg-foreground-subtlest"}`}
               />
               {error ? "Last snapshot" : active ? "Live now" : "Paused"}
             </p>
             <p className="mt-1 flex items-baseline gap-2">
-              <span className="font-mono text-3xl font-semibold tabular-nums text-emerald-500">
+              <span className="font-mono text-3xl font-medium tabular-nums text-foreground">
                 {working}
               </span>
               <span className="text-ui-sm text-foreground-subtle">active agents</span>
@@ -331,7 +331,7 @@ export function MonitorPanel({
         <div className="grid items-start gap-3 @3xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           <div className="min-w-0 rounded-xl border border-border bg-background/50">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
-              <h3 className="text-ui-xs font-semibold uppercase tracking-wider text-foreground-subtle">
+              <h3 className="text-ui-xs font-semibold text-foreground-subtle">
                 Sessions{" "}
                 <span className="ml-1 font-mono text-foreground-subtlest">{sessions.length}</span>
               </h3>
@@ -475,9 +475,7 @@ function SessionDetail({
       aria-label="Session details"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <h3 className="text-ui-xs font-semibold uppercase tracking-wider text-foreground-subtle">
-          Session details
-        </h3>
+        <h3 className="text-ui-xs font-semibold text-foreground-subtle">Session details</h3>
         {session.sessionId &&
           ["codex", "claude", "grok", "antigravity"].includes(session.agent) && (
             <button
@@ -563,7 +561,7 @@ function SessionDetail({
           </div>
         </dl>
         <div>
-          <h4 className="mb-2 text-ui-xs font-semibold uppercase tracking-wider text-foreground-subtle">
+          <h4 className="mb-2 text-ui-xs font-semibold text-foreground-subtle">
             Related processes <span className="font-mono">{session.children?.length ?? 0}</span>
           </h4>
           <div className="max-h-32 space-y-1.5 overflow-auto font-mono text-ui-xs">

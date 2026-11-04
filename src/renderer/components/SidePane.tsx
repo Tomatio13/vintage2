@@ -1,6 +1,7 @@
 import { SessionsPanel } from "./SessionsPanel.js";
 import type { HistorySession } from "../../shared/sessionHistory.js";
 import { browserShortcut } from "../../shared/browserShortcuts.js";
+import { shortcutLabel } from "../lib/shortcuts.js";
 import { runBrowserTabCommand } from "../lib/browserCommands.js";
 import {
   Activity,
@@ -26,6 +27,7 @@ import { firstEnabledSidePaneTab, isSidePaneTabEnabled, useUiStore } from "../st
 import { BrowserScopePicker } from "./BrowserScopePicker.js";
 import { BrowserPane } from "./BrowserPane.js";
 import { Button } from "./Button.js";
+import { TooltipButton } from "./TooltipButton.js";
 import { ReviewPane } from "./ReviewPane.js";
 import { NotesPane } from "./NotesPane.js";
 import { MonitorPanel } from "./MonitorPanel.js";
@@ -78,6 +80,9 @@ export function SidePane({
   const activeTabId = useUiStore((state) => state.activeSidePaneTabId);
   const activateSidePaneTab = useUiStore((state) => state.activateSidePaneTab);
   const activateBrowserTab = useUiStore((state) => state.activateBrowserTab);
+  const openBrowserPane = useUiStore((state) => state.openBrowserPane);
+  const shortcuts = useUiStore((state) => state.shortcuts);
+  const lastBrowserTabs = useRef(new Map<string | null, string>());
   const addBrowserTab = useUiStore((state) => state.addBrowserTab);
   const closeBrowserTab = useUiStore((state) => state.closeBrowserTab);
   const browserTabs = useUiStore((state) => state.browserTabs);
@@ -112,6 +117,73 @@ export function SidePane({
   openFileRef.current = onOpenFile;
   const selectFile = useCallback((path: string) => openFileRef.current(path), []);
   const refreshFiles = useCallback(() => setRefreshVersion((version) => version + 1), []);
+
+  const browserActive = activeTabId.startsWith("browser-");
+  useLayoutEffect(() => {
+    if (
+      useUiStore.getState().activeSidePaneTabId === activeTabId &&
+      browserActive &&
+      browserTabs.some(
+        (tab) => tab.id === activeTabId && (!tab.workspaceId || tab.workspaceId === workspaceId),
+      )
+    ) {
+      lastBrowserTabs.current.set(workspaceId, activeTabId);
+    }
+  }, [activeTabId, browserActive, browserTabs, workspaceId]);
+  const panels = [
+    {
+      id: "files",
+      label: "Files",
+      icon: FolderOpen,
+      enabled: filesPanelEnabled,
+      action: "open-files",
+    },
+    {
+      id: "review",
+      label: "Review",
+      icon: GitBranch,
+      enabled: reviewPanelEnabled,
+      action: "open-review",
+    },
+    {
+      id: "notes",
+      label: "Notes",
+      icon: NotebookPen,
+      enabled: notesPanelEnabled,
+      action: "open-notes",
+    },
+    {
+      id: "board",
+      label: "Board",
+      icon: Columns3,
+      enabled: boardPanelEnabled,
+      action: "open-board",
+    },
+    {
+      id: "monitor",
+      label: "Monitor",
+      icon: Activity,
+      enabled: monitorPanelEnabled,
+      action: "open-monitor",
+    },
+    {
+      id: "sessions",
+      label: "Sessions",
+      icon: History,
+      enabled: sessionsPanelEnabled,
+      action: "toggle-sessions",
+    },
+    {
+      id: "browser",
+      label: "Browser",
+      icon: Globe2,
+      enabled: browserPanelEnabled,
+      action: "open-browser",
+    },
+  ];
+  const activePanel = panels.find(
+    (panel) => panel.id === (browserActive ? "browser" : activeTabId),
+  );
 
   useEffect(() => {
     const target =
@@ -152,7 +224,7 @@ export function SidePane({
       tabIndex={-1}
       data-side-pane
       data-browser-shortcuts={activeTabId.startsWith("browser-") ? "" : undefined}
-      className="icon-motion-surface flex h-full min-w-0 flex-col bg-panel"
+      className="icon-motion-surface flex h-full min-w-0 bg-panel"
       onKeyDownCapture={(event) => {
         const command = browserShortcut({
           key: event.key,
@@ -172,306 +244,289 @@ export function SidePane({
         }
       }}
     >
-      <div
-        ref={sideTabHeaderRef}
-        className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 [scrollbar-width:thin]"
-      >
-        {filesPanelEnabled && (
-          <button
-            aria-pressed={activeTabId === "files"}
-            className={`flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${
-              activeTabId === "files"
-                ? "bg-selected text-foreground"
-                : "text-foreground-subtle hover:bg-hover hover:text-foreground"
-            }`}
-            onClick={() => activateSidePaneTab("files")}
-            type="button"
-          >
-            <FolderOpen aria-hidden="true" className="size-3.5" />
-            <span>Files</span>
-          </button>
-        )}
-        {reviewPanelEnabled && (
-          <button
-            aria-pressed={activeTabId === "review"}
-            className={`flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${
-              activeTabId === "review"
-                ? "bg-selected text-foreground"
-                : "text-foreground-subtle hover:bg-hover hover:text-foreground"
-            }`}
-            onClick={() => activateSidePaneTab("review")}
-            type="button"
-          >
-            <GitBranch aria-hidden="true" className="size-3.5" />
-            <span>Review</span>
-          </button>
-        )}
-        {notesPanelEnabled && (
-          <button
-            type="button"
-            className={`panel-motion-tab flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${activeTabId === "notes" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
-            aria-pressed={activeTabId === "notes"}
-            onClick={() => activateSidePaneTab("notes")}
-          >
-            <NotebookPen
-              key={String(activeTabId === "notes")}
-              aria-hidden="true"
-              className="panel-tab-icon size-3.5 shrink-0"
-              data-motion="notes"
-            />
-            <span>Notes</span>
-          </button>
-        )}
-        {boardPanelEnabled && (
-          <button
-            type="button"
-            className={`panel-motion-tab flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${activeTabId === "board" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
-            aria-pressed={activeTabId === "board"}
-            onClick={() => activateSidePaneTab("board")}
-          >
-            <Columns3
-              key={String(activeTabId === "board")}
-              aria-hidden="true"
-              className="panel-tab-icon size-3.5 shrink-0"
-              data-motion="board"
-            />
-            <span>Board</span>
-          </button>
-        )}
-        {monitorPanelEnabled && (
-          <button
-            aria-pressed={activeTabId === "monitor"}
-            className={`flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium ${activeTabId === "monitor" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
-            type="button"
-            onClick={() => activateSidePaneTab("monitor")}
-          >
-            <Activity aria-hidden="true" className="size-3.5" />
-            <span>Monitor</span>
-          </button>
-        )}
-        {sessionsPanelEnabled && (
-          <button
-            type="button"
-            aria-pressed={activeTabId === "sessions"}
-            className={`panel-motion-tab flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-ui-sm font-medium transition-colors ${activeTabId === "sessions" ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover"}`}
-            onClick={() => activateSidePaneTab("sessions")}
-          >
-            <History
-              key={String(activeTabId === "sessions")}
-              aria-hidden="true"
-              className="panel-tab-icon size-3.5 shrink-0"
-              data-motion="sessions"
-            />
-            <span>Sessions</span>
-          </button>
-        )}
-        {browserPanelEnabled && (
-          <>
-            <div
-              aria-label="Browser tabs"
-              className="flex shrink-0 items-center gap-1"
-              role="group"
-            >
-              {browserTabs
-                .filter((tab) => !tab.workspaceId || tab.workspaceId === workspaceId)
-                .map((browserTab) => {
-                  const active = activeTabId === browserTab.id;
-                  return (
-                    <div
-                      onMouseDown={(event) => {
-                        if (event.button === 1) event.preventDefault();
-                      }}
-                      onAuxClick={(event) => {
-                        if (event.button === 1) {
-                          event.preventDefault();
-                          if (active) event.currentTarget.closest<HTMLElement>("aside")?.focus();
-                          closeBrowserTab(browserTab.id);
-                        }
-                      }}
-                      key={browserTab.id}
-                      ref={(element) => {
-                        if (element) browserTabElements.current.set(browserTab.id, element);
-                        else browserTabElements.current.delete(browserTab.id);
-                      }}
-                      className={`group flex h-7 min-w-0 max-w-36 shrink-0 items-center rounded-lg transition-colors ${
-                        active
-                          ? "bg-selected text-foreground"
-                          : "text-foreground-subtle hover:bg-hover hover:text-foreground"
-                      }`}
-                    >
-                      <button
-                        aria-pressed={active}
-                        className="flex h-full min-w-0 items-center gap-1.5 overflow-hidden pl-2 text-left text-ui-sm font-medium"
-                        onClick={() => activateBrowserTab(browserTab.id)}
-                        title={`${browserTab.title} · ${browserTab.workspaceId ? (workspaceName ?? "This project") : "Common"}`}
-                        onContextMenu={(event) => {
-                          event.preventDefault();
-                          setTabMenu({
-                            id: browserTab.id,
-                            x: Math.min(event.clientX, window.innerWidth - 220),
-                            y: Math.min(event.clientY, window.innerHeight - 100),
-                          });
-                        }}
-                        type="button"
-                      >
-                        {browserTab.workspaceId ? (
-                          <Folder aria-hidden="true" className="size-3.5 shrink-0" />
-                        ) : (
-                          <Globe2 aria-hidden="true" className="size-3.5 shrink-0" />
-                        )}
-                        <span className="truncate">{browserTab.title}</span>
-                      </button>
-                      <button
-                        aria-label={`Close ${browserTab.title} tab`}
-                        className={`mr-1 flex size-5 shrink-0 items-center justify-center rounded-md text-foreground-subtlest transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand ${
-                          active
-                            ? "opacity-100"
-                            : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-                        }`}
-                        onClick={(event) => {
-                          if (active) event.currentTarget.closest<HTMLElement>("aside")?.focus();
-                          closeBrowserTab(browserTab.id);
-                        }}
-                        type="button"
-                      >
-                        <X aria-hidden="true" className="size-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-            </div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div
+          className={`${browserActive ? "hidden" : "flex"} h-11 shrink-0 items-center gap-2 border-b border-border px-3`}
+          hidden={browserActive}
+        >
+          <h2 className="min-w-0 flex-1 truncate text-ui-sm font-medium text-foreground">
+            {activePanel?.label ?? "Panels"}
+          </h2>
+          {filesPanelEnabled && activeTabId === "files" && workspaceName === "Home" && (
             <Button
-              aria-label="New browser tab"
-              className="size-7 px-0"
+              aria-label={revealHiddenFiles ? "Hide hidden files" : "Show hidden files"}
+              aria-pressed={revealHiddenFiles}
+              className="ml-auto size-7 px-0"
               size="icon"
-              title="New browser tab"
+              title={revealHiddenFiles ? "Hide hidden files" : "Show hidden files"}
               variant="ghost"
-              onClick={addBrowserTab}
+              onClick={() => setRevealHiddenFiles((shown) => !shown)}
             >
-              <Plus aria-hidden="true" className="size-4" />
-            </Button>
-          </>
-        )}
-        {filesPanelEnabled && activeTabId === "files" && workspaceName === "Home" && (
-          <Button
-            aria-label={revealHiddenFiles ? "Hide hidden files" : "Show hidden files"}
-            aria-pressed={revealHiddenFiles}
-            className="ml-auto size-7 px-0"
-            size="icon"
-            title={revealHiddenFiles ? "Hide hidden files" : "Show hidden files"}
-            variant="ghost"
-            onClick={() => setRevealHiddenFiles((shown) => !shown)}
-          >
-            {revealHiddenFiles ? (
-              <EyeOff aria-hidden="true" className="size-4" />
-            ) : (
-              <Eye aria-hidden="true" className="size-4" />
-            )}
-          </Button>
-        )}
-      </div>
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        {!activeTabId && (
-          <div className="p-5 text-ui-sm text-foreground-subtle">
-            All panels are hidden. Enable a tab in Settings → Panels.
-          </div>
-        )}
-        <div
-          aria-hidden={!filesPanelEnabled || activeTabId !== "files"}
-          className="absolute inset-0"
-          hidden={!filesPanelEnabled || activeTabId !== "files"}
-        >
-          <WorkspaceFiles
-            key={workspaceId}
-            workspaceId={workspaceId}
-            workspaceName={workspaceName}
-            active={filesPanelEnabled && visible && activeTabId === "files"}
-            refreshVersion={refreshVersion}
-            showHiddenFiles={showHiddenFiles}
-            onRefresh={refreshFiles}
-            onSelect={selectFile}
-            onContextMenu={openMenu}
-          />
-        </div>
-        <div
-          aria-hidden={!reviewPanelEnabled || activeTabId !== "review"}
-          className="absolute inset-0"
-          hidden={!reviewPanelEnabled || activeTabId !== "review"}
-        >
-          <ReviewPane
-            active={reviewPanelEnabled && visible && activeTabId === "review"}
-            refreshVersion={reviewRefreshVersion}
-            workspaceId={workspaceId}
-            onOpenFile={onOpenFile}
-            onRefresh={() => setReviewRefreshVersion((version) => version + 1)}
-          />
-        </div>
-        {monitorPanelEnabled && (
-          <div
-            aria-hidden={activeTabId !== "monitor"}
-            className="absolute inset-0"
-            hidden={activeTabId !== "monitor"}
-          >
-            <MonitorPanel
-              active={visible && activeTabId === "monitor"}
-              onOpenTerminal={onOpenTerminal}
-            />
-          </div>
-        )}
-        {sessionsPanelEnabled && (
-          <div className="absolute inset-0" hidden={activeTabId !== "sessions"}>
-            <SessionsPanel
-              active={visible && activeTabId === "sessions"}
-              workspacePath={workspacePath}
-              onResume={onResumeSession}
-              onOpenTerminal={onOpenTerminal}
-            />
-          </div>
-        )}
-        {(notesPanelEnabled || boardPanelEnabled) && workspaceId && (
-          <div
-            className="h-full min-h-0"
-            hidden={activeTabId !== "notes" && activeTabId !== "board"}
-          >
-            <NotesPane
-              key={workspaceId}
-              workspaceName={workspaceName ?? "Workspace"}
-              workspaceId={workspaceId}
-              visible={visible && (activeTabId === "notes" || activeTabId === "board")}
-              onOpenFile={onOpenFile}
-            />
-          </div>
-        )}
-        {browserTabs.map((browserTab) => {
-          const active =
-            browserPanelEnabled &&
-            activeTabId === browserTab.id &&
-            (!browserTab.workspaceId || browserTab.workspaceId === workspaceId);
-          return (
-            <div
-              key={browserTab.id}
-              aria-hidden={!active}
-              className="absolute inset-0"
-              hidden={!active}
-            >
-              {browserTab.mounted && browserTab.initialUrl && (
-                <BrowserPane
-                  workspaceName={workspaceName}
-                  tabId={browserTab.id}
-                  active={active && visible}
-                  initialUrl={browserTab.initialUrl}
-                  navigateRequest={
-                    browserNavigateRequest?.tabId === browserTab.id
-                      ? browserNavigateRequest
-                      : undefined
-                  }
-                  onNavigateRequestHandled={consumeBrowserNavigateRequest}
-                />
+              {revealHiddenFiles ? (
+                <EyeOff aria-hidden="true" className="size-4" />
+              ) : (
+                <Eye aria-hidden="true" className="size-4" />
               )}
+            </Button>
+          )}
+        </div>
+        <div
+          hidden={!browserActive || !browserPanelEnabled}
+          className={`${browserActive && browserPanelEnabled ? "flex" : "hidden"} h-11 shrink-0 items-center gap-1 border-b border-border px-2`}
+        >
+          {browserPanelEnabled && (
+            <>
+              <div
+                ref={sideTabHeaderRef}
+                className="flex h-full min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:thin]"
+              >
+                <div
+                  aria-label="Browser tabs"
+                  className="flex shrink-0 items-center gap-1"
+                  role="group"
+                >
+                  {browserTabs
+                    .filter((tab) => !tab.workspaceId || tab.workspaceId === workspaceId)
+                    .map((browserTab) => {
+                      const active = activeTabId === browserTab.id;
+                      return (
+                        <div
+                          onMouseDown={(event) => {
+                            if (event.button === 1) event.preventDefault();
+                          }}
+                          onAuxClick={(event) => {
+                            if (event.button === 1) {
+                              event.preventDefault();
+                              if (active)
+                                event.currentTarget.closest<HTMLElement>("aside")?.focus();
+                              closeBrowserTab(browserTab.id);
+                            }
+                          }}
+                          key={browserTab.id}
+                          ref={(element) => {
+                            if (element) browserTabElements.current.set(browserTab.id, element);
+                            else browserTabElements.current.delete(browserTab.id);
+                          }}
+                          className={`group flex h-7 min-w-0 max-w-36 shrink-0 items-center rounded-lg transition-colors ${
+                            active
+                              ? "bg-selected text-foreground"
+                              : "text-foreground-subtle hover:bg-hover hover:text-foreground"
+                          }`}
+                        >
+                          <button
+                            aria-pressed={active}
+                            className="flex h-full min-w-0 items-center gap-1.5 overflow-hidden pl-2 text-left text-ui-sm font-medium"
+                            onClick={() => activateBrowserTab(browserTab.id)}
+                            title={`${browserTab.title} · ${browserTab.workspaceId ? (workspaceName ?? "This project") : "Common"}`}
+                            onContextMenu={(event) => {
+                              event.preventDefault();
+                              setTabMenu({
+                                id: browserTab.id,
+                                x: Math.min(event.clientX, window.innerWidth - 220),
+                                y: Math.min(event.clientY, window.innerHeight - 100),
+                              });
+                            }}
+                            type="button"
+                          >
+                            {browserTab.workspaceId ? (
+                              <Folder aria-hidden="true" className="size-3.5 shrink-0" />
+                            ) : (
+                              <Globe2 aria-hidden="true" className="size-3.5 shrink-0" />
+                            )}
+                            <span className="truncate">{browserTab.title}</span>
+                          </button>
+                          <button
+                            aria-label={`Close ${browserTab.title} tab`}
+                            className={`mr-1 flex size-5 shrink-0 items-center justify-center rounded-md text-foreground-subtlest transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand ${
+                              active
+                                ? "opacity-100"
+                                : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                            }`}
+                            onClick={(event) => {
+                              if (active)
+                                event.currentTarget.closest<HTMLElement>("aside")?.focus();
+                              closeBrowserTab(browserTab.id);
+                            }}
+                            type="button"
+                          >
+                            <X aria-hidden="true" className="size-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+              <Button
+                aria-label="New browser tab"
+                className="size-7 px-0"
+                size="icon"
+                title="New browser tab"
+                variant="ghost"
+                onClick={addBrowserTab}
+              >
+                <Plus aria-hidden="true" className="size-4" />
+              </Button>
+            </>
+          )}
+        </div>
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          {!activeTabId && (
+            <div className="p-5 text-ui-sm text-foreground-subtle">
+              All panels are hidden. Enable a tab in Settings → Panels.
             </div>
-          );
-        })}
+          )}
+          <div
+            aria-hidden={!filesPanelEnabled || activeTabId !== "files"}
+            className="absolute inset-0"
+            hidden={!filesPanelEnabled || activeTabId !== "files"}
+          >
+            <WorkspaceFiles
+              key={workspaceId}
+              workspaceId={workspaceId}
+              workspaceName={workspaceName}
+              active={filesPanelEnabled && visible && activeTabId === "files"}
+              refreshVersion={refreshVersion}
+              showHiddenFiles={showHiddenFiles}
+              onRefresh={refreshFiles}
+              onSelect={selectFile}
+              onContextMenu={openMenu}
+            />
+          </div>
+          <div
+            aria-hidden={!reviewPanelEnabled || activeTabId !== "review"}
+            className="absolute inset-0"
+            hidden={!reviewPanelEnabled || activeTabId !== "review"}
+          >
+            <ReviewPane
+              active={reviewPanelEnabled && visible && activeTabId === "review"}
+              refreshVersion={reviewRefreshVersion}
+              workspaceId={workspaceId}
+              onOpenFile={onOpenFile}
+              onRefresh={() => setReviewRefreshVersion((version) => version + 1)}
+            />
+          </div>
+          {monitorPanelEnabled && (
+            <div
+              aria-hidden={activeTabId !== "monitor"}
+              className="absolute inset-0"
+              hidden={activeTabId !== "monitor"}
+            >
+              <MonitorPanel
+                active={visible && activeTabId === "monitor"}
+                onOpenTerminal={onOpenTerminal}
+              />
+            </div>
+          )}
+          {sessionsPanelEnabled && (
+            <div className="absolute inset-0" hidden={activeTabId !== "sessions"}>
+              <SessionsPanel
+                active={visible && activeTabId === "sessions"}
+                workspacePath={workspacePath}
+                onResume={onResumeSession}
+                onOpenTerminal={onOpenTerminal}
+              />
+            </div>
+          )}
+          {(notesPanelEnabled || boardPanelEnabled) && workspaceId && (
+            <div
+              className="h-full min-h-0"
+              hidden={activeTabId !== "notes" && activeTabId !== "board"}
+            >
+              <NotesPane
+                key={workspaceId}
+                workspaceName={workspaceName ?? "Workspace"}
+                workspaceId={workspaceId}
+                visible={visible && (activeTabId === "notes" || activeTabId === "board")}
+                onOpenFile={onOpenFile}
+              />
+            </div>
+          )}
+          {browserTabs.map((browserTab) => {
+            const active =
+              browserPanelEnabled &&
+              activeTabId === browserTab.id &&
+              (!browserTab.workspaceId || browserTab.workspaceId === workspaceId);
+            return (
+              <div
+                key={browserTab.id}
+                aria-hidden={!active}
+                className="absolute inset-0"
+                hidden={!active}
+              >
+                {browserTab.mounted && browserTab.initialUrl && (
+                  <BrowserPane
+                    workspaceName={workspaceName}
+                    tabId={browserTab.id}
+                    active={active && visible}
+                    initialUrl={browserTab.initialUrl}
+                    navigateRequest={
+                      browserNavigateRequest?.tabId === browserTab.id
+                        ? browserNavigateRequest
+                        : undefined
+                    }
+                    onNavigateRequestHandled={consumeBrowserNavigateRequest}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
+      <nav
+        aria-label="Side pane tools"
+        className="flex w-11 shrink-0 flex-col items-center gap-1 overflow-x-hidden overflow-y-auto border-l border-border py-1 [scrollbar-width:thin]"
+      >
+        {panels
+          .filter((panel) => panel.enabled)
+          .map((panel) => {
+            const selected = panel.id === activePanel?.id;
+            const binding = shortcuts.find((shortcut) => shortcut.action === panel.action);
+            const label = binding ? shortcutLabel(binding) : null;
+            const hint =
+              window.desktop?.platform === "darwin"
+                ? label?.replace(/^Ctrl\+/, "⌘+").replace("Alt+", "Option+")
+                : label;
+            const Icon = panel.icon;
+            return (
+              <TooltipButton
+                key={panel.id}
+                type="button"
+                aria-label={panel.id === "browser" ? "Open Browser" : panel.label}
+                aria-pressed={selected}
+                tooltip={panel.label}
+                shortcut={hint}
+                shortcutDescription={panel.id === "sessions" ? "Toggle visibility" : undefined}
+                placement="left"
+                className={`relative flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand ${selected ? "bg-selected text-foreground" : "text-foreground-subtle hover:bg-hover hover:text-foreground"}`}
+                onClick={() => {
+                  if (panel.id !== "browser") {
+                    activateSidePaneTab(panel.id);
+                    return;
+                  }
+                  const remembered = lastBrowserTabs.current.get(workspaceId);
+                  if (
+                    remembered &&
+                    browserTabs.some(
+                      (tab) =>
+                        tab.id === remembered &&
+                        (!tab.workspaceId || tab.workspaceId === workspaceId),
+                    )
+                  )
+                    activateBrowserTab(remembered);
+                  else openBrowserPane();
+                }}
+              >
+                {selected && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute right-0 h-4 w-0.5 rounded-l bg-brand"
+                  />
+                )}
+                <Icon aria-hidden="true" className="size-4" strokeWidth={1.5} />
+              </TooltipButton>
+            );
+          })}
+      </nav>
       {tabMenu && (
         <div
           role="dialog"

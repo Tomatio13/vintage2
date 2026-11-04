@@ -9,9 +9,11 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 
 import type { DesktopWindowState } from "../../shared/desktop.js";
+import { shortcutLabel } from "../lib/shortcuts.js";
 import { useUiStore } from "../store/uiStore.js";
 import { Button } from "./Button.js";
 import { ResizeHandle } from "./ResizeHandle.js";
+import { TooltipButton } from "./TooltipButton.js";
 
 const DEFAULT_WINDOW_STATE: DesktopWindowState = {
   isMaximized: false,
@@ -51,7 +53,7 @@ export function WindowFrame({
   onSplitDown?: (() => void) | undefined;
 }) {
   const [windowState, setWindowState] = useState(DEFAULT_WINDOW_STATE);
-  const { toggleSidebar, toggleSidePane, sidebarWidth, setSidebarWidth } = useUiStore();
+  const { toggleSidebar, toggleSidePane, sidebarWidth, setSidebarWidth, shortcuts } = useUiStore();
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
   const sidebarMaxWidth = Math.max(220, Math.min(600, viewportWidth - 480));
   const sidebarDisplayWidth = Math.min(sidebarMaxWidth, Math.max(220, sidebarWidth));
@@ -61,6 +63,12 @@ export function WindowFrame({
     return () => window.removeEventListener("resize", resize);
   }, []);
   const platform = window.desktop?.platform ?? "linux";
+  const sidebarBinding = shortcuts.find((binding) => binding.action === "toggle-sidebar");
+  const sidebarShortcut = sidebarBinding ? shortcutLabel(sidebarBinding) : null;
+  const sidebarHint =
+    platform === "darwin"
+      ? sidebarShortcut?.replace(/^Ctrl\+/, "⌘+").replace("Alt+", "Option+")
+      : sidebarShortcut;
   const windowIsMaximized = windowState.isMaximized || windowState.isFullScreen;
   useEffect(() => {
     let receivedEvent = false;
@@ -109,15 +117,17 @@ export function WindowFrame({
       )}
       <section className="vintage-content-card flex min-w-0 flex-1 flex-col overflow-hidden border border-border border-l-0 bg-background">
         <header className="window-drag flex h-9 shrink-0 items-stretch border-b border-border bg-header platform-mac:pl-20">
-          <button
+          <TooltipButton
             aria-label="Toggle sidebar"
+            tooltip="Toggle sidebar"
+            shortcut={sidebarHint}
             className="window-no-drag flex w-9 shrink-0 items-center justify-center text-brand hover:bg-hover"
             onClick={toggleSidebar}
           >
             <img alt="" aria-hidden="true" className="size-5" src="./favicon.svg" />
-          </button>
+          </TooltipButton>
           <div className="flex min-w-0 flex-1 items-stretch">{topContent}</div>
-          <div aria-label="Drag window" className="min-w-12 flex-1" />
+          <div aria-label="Drag window" className="w-12 shrink-0" />
           <div className="window-no-drag flex items-center gap-0.5 px-1">
             {onSplitRight && (
               <Button

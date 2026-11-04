@@ -44,10 +44,11 @@ try {
       version: 0,
     };
     state.state.browserDefaultUrl = url;
+    state.state.browserTabs = [];
     localStorage.setItem("ai-workspace-starter-ui", JSON.stringify(state));
   }, url);
   await window.reload();
-  await window.getByRole("button", { name: "New browser tab", exact: true }).click();
+  await window.getByRole("button", { name: "Open Browser", exact: true }).click();
   await window.getByRole("button", { name: "Browser fixture", exact: true }).waitFor();
   const address = window
     .getByRole("textbox", { name: "Browser address" })

@@ -53,7 +53,7 @@ export function ReviewHistory({
         className="flex min-h-9 shrink-0 items-center gap-2 px-3 text-ui-xs text-foreground-subtle hover:bg-surface-hover"
       >
         {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-        <span className="font-semibold tracking-wider">GRAPH</span>
+        <span className="font-medium">Graph</span>
         <span className="ml-auto flex min-w-0 items-center gap-1 truncate">
           <GitBranch className="size-3 shrink-0" />
           {currentBranch ?? "Detached HEAD"}

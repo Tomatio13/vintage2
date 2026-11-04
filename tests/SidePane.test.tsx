@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SidePane } from "../src/renderer/components/SidePane.js";
@@ -29,16 +29,18 @@ describe("SidePane files", () => {
     render(<SidePane workspaceId={null} onOpenFile={() => {}} />);
 
     const filesTab = screen.getByRole("button", { name: "Files" });
-    const browserTab = screen.getByRole("button", { name: "Browser" });
+    const browserTab = screen.getByRole("button", { name: "Open Browser" });
     expect(filesTab).toHaveAttribute("aria-pressed", "true");
     expect(browserTab).toHaveAttribute("aria-pressed", "false");
-    expect(browserTab.closest('[role="group"]')).not.toHaveClass("flex-1");
-    expect(filesTab).toHaveClass("text-ui-sm");
-    expect(filesTab.querySelector("svg")).toHaveClass("size-3.5");
+    expect(browserTab.closest("nav")).toHaveAccessibleName("Side pane tools");
+    expect(screen.queryByRole("group", { name: "Browser tabs" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Files" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close Files tab" })).not.toBeInTheDocument();
     expect(screen.getByText("Open a workspace to browse its files.")).toBeInTheDocument();
 
     fireEvent.click(browserTab);
+    expect(screen.getByRole("group", { name: "Browser tabs" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Browser" })).not.toBeInTheDocument();
     const firstAddress = screen.getByRole("textbox", { name: "Browser address" });
     expect(firstAddress).toHaveAttribute("placeholder", "Enter a URL and press Enter");
     expect(firstAddress).toHaveClass("h-7", "rounded-lg", "bg-input", "text-ui-base");
@@ -69,6 +71,15 @@ describe("SidePane files", () => {
     const secondAddress = screen.getByRole("textbox", { name: "Browser address" });
     expect(secondAddress).not.toHaveValue("https://first.example/");
     fireEvent.change(secondAddress, { target: { value: "https://second.example/" } });
+    fireEvent.click(filesTab);
+    expect(screen.queryByRole("group", { name: "Browser tabs" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open Browser" }));
+    expect(screen.getByRole("button", { name: "Browser 2" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("textbox", { name: "Browser address" })).toBe(secondAddress);
+    expect(secondAddress).toHaveValue("https://second.example/");
 
     fireEvent.click(screen.getByRole("button", { name: "Browser" }));
     expect(screen.getByRole("textbox", { name: "Browser address" })).toHaveValue(
@@ -80,6 +91,39 @@ describe("SidePane files", () => {
     expect(screen.getByRole("button", { name: "Browser" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "Close Browser tab" }));
     expect(screen.getByRole("button", { name: "Files" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("remembers Browser selection per project without replacing it with another project's Common tab", () => {
+    useUiStore.setState({
+      activeSidePaneTabId: "browser-common",
+      browserWorkspaceId: "a",
+      browserTabs: [
+        { id: "browser-common", title: "Common page", initialUrl: null, mounted: false },
+        {
+          id: "browser-b",
+          title: "Project B page",
+          workspaceId: "b",
+          initialUrl: null,
+          mounted: false,
+        },
+      ],
+    });
+    const view = render(<SidePane workspaceId="a" onOpenFile={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Files" }));
+    view.rerender(<SidePane workspaceId="b" onOpenFile={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open Browser" }));
+    fireEvent.click(screen.getByRole("button", { name: "Project B page" }));
+    fireEvent.click(screen.getByRole("button", { name: "Files" }));
+    view.rerender(<SidePane workspaceId="a" onOpenFile={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open Browser" }));
+    expect(useUiStore.getState().activeSidePaneTabId).toBe("browser-common");
+    view.rerender(<SidePane workspaceId="b" onOpenFile={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open Browser" }));
+    expect(useUiStore.getState().activeSidePaneTabId).toBe("browser-b");
+    fireEvent.click(screen.getByRole("button", { name: "Files" }));
+    act(() => useUiStore.getState().closeBrowserTab("browser-b"));
+    fireEvent.click(screen.getByRole("button", { name: "Open Browser" }));
+    expect(useUiStore.getState().activeSidePaneTabId).toBe("browser-common");
   });
 
   it("opens Review, switches scope, expands a diff, and refreshes the review", async () => {
@@ -221,7 +265,7 @@ describe("SidePane files", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "lib" })).toHaveAttribute("aria-expanded", "true"),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Browser" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Browser" }));
     fireEvent.click(screen.getByRole("button", { name: "Files" }));
     expect(await screen.findByRole("button", { name: "main.ts" })).toBeInTheDocument();
     view.rerender(<SidePane workspaceId="a" visible={false} onOpenFile={() => {}} />);

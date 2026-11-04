@@ -226,7 +226,11 @@ html.platform-mac-desktop.macos-tahoe .vintage-content-card {
 }
 
 .workspace-tab-strip {
-  gap: 2px;
+  scrollbar-width: none;
+}
+
+.workspace-tab-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .workspace-tab {

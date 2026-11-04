@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { within, act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { SettingsDialog } from "../src/renderer/components/SettingsDialog.js";
 import { SidePane } from "../src/renderer/components/SidePane.js";
@@ -57,7 +57,9 @@ it("saves Board visibility independently and falls back from a hidden Board", ()
   settings.unmount();
   useUiStore.setState({ boardPanelEnabled: true, activeSidePaneTabId: "board" });
   render(<SidePane workspaceId={null} onOpenFile={() => {}} />);
-  const labels = screen.getAllByRole("button").map((button) => button.textContent);
+  const labels = within(screen.getByRole("navigation", { name: "Side pane tools" }))
+    .getAllByRole("button")
+    .map((button) => button.getAttribute("aria-label"));
   expect(labels.slice(0, 4)).toEqual(["Files", "Review", "Notes", "Board"]);
   act(() => useUiStore.setState({ boardPanelEnabled: false }));
   expect(screen.queryByRole("button", { name: "Board" })).not.toBeInTheDocument();

@@ -1246,7 +1246,7 @@ export function ReviewPane({
     return (
       <section className="space-y-1.5">
         <div className="flex min-w-0 items-center gap-2 px-1 pt-2">
-          <h3 className="min-w-0 flex-1 truncate text-ui-xs font-semibold uppercase tracking-wide text-foreground-subtle">
+          <h3 className="min-w-0 flex-1 truncate text-ui-xs font-semibold text-foreground-subtle">
             {title}
           </h3>
           <span className="text-ui-xs text-foreground-subtlest">{items.length}</span>

@@ -1378,9 +1378,7 @@ export function SettingsDialog() {
           </div>
           {groups.map(({ title, bindings }) => (
             <section className="mt-4" key={title} aria-label={`${title} shortcuts`}>
-              <h3 className="mb-3 text-ui-sm font-semibold uppercase tracking-wider text-foreground-subtle">
-                {title}
-              </h3>
+              <h3 className="mb-3 text-ui-sm font-semibold text-foreground-subtle">{title}</h3>
               <div className="overflow-hidden rounded-xl border border-border">
                 <table className="w-full table-fixed text-left">
                   <thead className="bg-panel text-ui-base text-foreground-subtle">

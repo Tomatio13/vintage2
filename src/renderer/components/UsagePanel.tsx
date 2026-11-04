@@ -373,11 +373,7 @@ export function UsagePanel({ active, embedded = false }: { active: boolean; embe
         className={`flex ${embedded ? "h-8 px-2" : "h-11 px-3"} shrink-0 items-center justify-between gap-2 border-b border-border`}
       >
         <div className={`min-w-0 ${embedded ? "flex items-baseline gap-2" : ""}`}>
-          <p
-            className={`shrink-0 ${embedded ? "text-ui-xs uppercase tracking-wider" : "text-ui-sm"} font-medium`}
-          >
-            Usage
-          </p>
+          <p className={`shrink-0 ${embedded ? "text-ui-xs" : "text-ui-sm"} font-medium`}>Usage</p>
           <p className="truncate text-ui-xs text-foreground-subtlest">
             {version ? `codexbar ${version} · ` : ""}
             {generated ? `Updated ${generated}` : ""}

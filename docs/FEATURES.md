@@ -31,6 +31,7 @@ _The Checks terminal after selecting Open terminal in the Attention notification
 - VINTAGE starts in your home directory with `Space 1` and `Terminal 1` ready to use.
 - Add a project with **Open folder**. The selected folder becomes the working directory for new terminals in that workspace.
 - Create multiple Spaces per workspace and switch between them using tabs or keyboard shortcuts. A new Space starts with `Terminal 1`.
+- When Space tabs overflow, left/right buttons scroll the tab row without showing a scrollbar. The New space button stays fixed, and selecting a Space or narrowing the window keeps the active tab in view.
 - Split the active terminal to the right or below. Close Spaces and panes with their close controls. Double-click a Space or terminal title to rename it; press `Enter` or move focus to save, or `Escape` to cancel.
 - Choose zsh, bash, fish, or the operating system’s default shell. Selecting terminal output with the mouse copies it to the clipboard.
 - Press the find shortcut (`Ctrl+F` by default, `⌘F` on macOS) to search terminal scrollback; `Enter` and `Shift+Enter` move between matches. The shortcut can be reassigned in **Settings → Shortcuts → Terminal** and only triggers while a terminal has focus.
@@ -89,7 +90,7 @@ _Open Board pane, Toggle Notes tab, and Toggle Board tab can all be reassigned i
 
 ## Right pane
 
-The right pane contains Files, Review, Notes, Board, Monitor, Sessions, and Browser. Show or hide any tab in Settings → Panels. Disabling the active tab selects another enabled tab; disabling every tab shows an empty-state message. Browser tabs and pages are retained while hidden. Press `Ctrl+Shift+S` to show or hide the entire pane. Each tab is also a command palette action, and shortcuts can be reassigned in **Settings → Shortcuts**.
+The right pane has a fixed vertical toolbar on its right edge for Files, Review, Notes, Board, Monitor, Sessions, and Browser. Hover over an icon to see its name and available shortcut. The selected tool is marked with a background and edge indicator; its name appears above the content. Browser page tabs appear only inside Browser, and returning through the toolbar restores the last selected page for the current project during the app session. Show or hide any tab in Settings → Panels. Disabling the active tab selects another enabled tab; disabling every tab shows an empty-state message. Browser tabs and pages are retained while hidden. Press `Ctrl+Shift+S` to show or hide the entire pane. Each tab is also a command palette action, and shortcuts can be reassigned in **Settings → Shortcuts**.
 
 Drag the divider between the terminals and the right pane to adjust its width. The pane can expand with the window, including when maximized, while leaving room for terminals. Your preferred width is saved; shrinking the window temporarily reduces the displayed width. Resizing retains running terminal sessions.
 

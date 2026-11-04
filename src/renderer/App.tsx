@@ -27,6 +27,7 @@ import { ResizeHandle } from "./components/ResizeHandle.js";
 import { CharacterRipple } from "./components/CharacterRipple.js";
 import { SettingsDialog } from "./components/SettingsDialog.js";
 import { SidePane } from "./components/SidePane.js";
+import { SpaceTabStrip } from "./components/SpaceTabStrip.js";
 import { useMonitorSessionNotifications } from "./hooks/useMonitorSessionNotifications.js";
 import { claimWaitToast, monitorWaitSummary } from "./lib/monitorSessionAttention.js";
 import { useMonitorSnapshot } from "./hooks/useMonitorSnapshot.js";
@@ -1169,7 +1170,7 @@ export function App() {
   };
 
   const topContent = (
-    <div className="workspace-tab-strip window-no-drag flex min-w-0 items-end overflow-x-auto overflow-y-hidden px-2 pt-1">
+    <SpaceTabStrip activeTabId={active?.activeTabId} workspaceId={active?.id} onNewSpace={addSpace}>
       {active?.tabs.map((tab) => (
         <div
           className="workspace-tab flex shrink-0 items-center gap-1.5 px-3 text-ui-sm"
@@ -1214,16 +1215,7 @@ export function App() {
           </button>
         </div>
       ))}
-      <Button
-        aria-label="New space"
-        className="mb-0.5 size-7"
-        size="icon"
-        variant="ghost"
-        onClick={addSpace}
-      >
-        <Plus />
-      </Button>
-    </div>
+    </SpaceTabStrip>
   );
 
   const selectLocation = (workspaceId: string, tabId: string, paneId: string) => {
