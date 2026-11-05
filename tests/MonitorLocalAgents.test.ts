@@ -89,6 +89,54 @@ describe("OpenCode and ZCode local databases", () => {
       db.close();
     }
   });
+  it("reads OpenCode2 v2 state and tools instead of coexisting legacy sessions", async () => {
+    const home = await fixture();
+    const base = join(home, ".local/share/opencode");
+    await mkdir(base, { recursive: true });
+    const db = sessionDb(join(base, "opencode.db"));
+    try {
+      db.exec(`CREATE TABLE session_v2(id TEXT,directory TEXT,parent_id TEXT,time_created INTEGER,time_updated INTEGER);
+        INSERT INTO session_v2 VALUES ('v2','/project',NULL,20000,30000);
+        CREATE TABLE session_message(id TEXT,session_id TEXT,type TEXT,time_created INTEGER,time_updated INTEGER,data TEXT);`);
+      const data = {
+        model: { id: "v2-model" },
+        time: { created: 30000 },
+        tokens: { input: 100, output: 20, cache: { read: 200, write: 10 } },
+        content: [
+          {
+            type: "tool",
+            id: "tool-v2",
+            name: "bash",
+            time: { created: 30001 },
+            state: { status: "running", input: "PRIVATE", content: "PRIVATE" },
+          },
+        ],
+      };
+      db.prepare(
+        "INSERT INTO session_message VALUES ('assistant','v2','assistant',30000,30001,?)",
+      ).run(JSON.stringify(data));
+      let result = await readLocalAgent("opencode", "/project", 1, [], home);
+      expect(result.state).toMatchObject({
+        sessionId: "v2",
+        status: "Executing",
+        model: "v2-model",
+        inputTokens: 100,
+        outputTokens: 20,
+        contextTokens: 310,
+        currentTool: { name: "bash" },
+      });
+      expect(JSON.stringify(result)).not.toContain("PRIVATE");
+      db.prepare("UPDATE session_message SET data=?").run(
+        JSON.stringify({ ...data, time: { completed: 31000 }, finish: "stop" }),
+      );
+      result = await readLocalAgent("opencode", "/project", 1, [], home);
+      expect(result.state?.status).toBe("Waiting");
+      expect(result.state?.currentTool).toBeNull();
+      expect((await readLocalAgent("opencode", "/project", 2, [], home)).state).toBeNull();
+    } finally {
+      db.close();
+    }
+  });
   it("uses ZCode's modelId casing and cache-inclusive input accounting", async () => {
     const home = await fixture();
     const base = join(home, ".zcode/cli/db");

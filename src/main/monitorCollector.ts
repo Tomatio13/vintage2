@@ -366,6 +366,20 @@ export class MonitorCollector {
       }
       return true;
     });
+    // OpenCode2's native terminal client can own a background service. It is
+    // not a launcher for that service, even though its process name is opencode2.
+    const nativeOpenCodeClients = new Set<number>();
+    if (process.platform === "linux") {
+      await Promise.all(
+        candidates
+          .filter((row) => monitorCommandName(row.command) === "opencode2")
+          .map(async (row) => {
+            const executable = await readlink(`/proc/${row.pid}/exe`).catch(() => "");
+            if (/^opencode2?(?:\.exe)?$/u.test(basename(executable)))
+              nativeOpenCodeClients.add(row.pid);
+          }),
+      );
+    }
     // A node launcher and its native child represent the same agent, not two sessions.
     const agents = candidates
       .filter((row) => {
@@ -385,7 +399,9 @@ export class MonitorCollector {
             monitorCommandName(row.command) === "opencode2") &&
           candidates.some(
             (child) =>
-              child.parentPid === row.pid && monitorAgent(child, true) === monitorAgent(row, true),
+              child.parentPid === row.pid &&
+              monitorAgent(child, true) === monitorAgent(row, true) &&
+              !(nativeOpenCodeClients.has(row.pid) && monitorAgent(child) === null),
           )
         );
       })

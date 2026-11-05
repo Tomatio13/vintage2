@@ -1,3 +1,5 @@
+import { spawn } from "node:child_process";
+import { copyFile } from "node:fs/promises";
 import { sessionAnalysisProcesses } from "../src/main/sessionAnalysisProcesses.js";
 import { mkdtemp, mkdir, open, writeFile, appendFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -145,6 +147,37 @@ describe("Monitor collection with local fixture logs", () => {
       process.env.XDG_DATA_HOME,
     );
   });
+
+  it.skipIf(process.platform !== "linux")(
+    "keeps the native OpenCode2 client when its child is a background service",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "monitor-native-opencode-"));
+      fixtures.push(root);
+      const executable = join(root, "opencode2.exe");
+      await copyFile("/usr/bin/sleep", executable);
+      const client = spawn(executable, ["30"]);
+      await new Promise<void>((resolve, reject) => {
+        client.once("spawn", resolve);
+        client.once("error", reject);
+      });
+      try {
+        vi.mocked(listProcessRows).mockResolvedValue([
+          { pid: client.pid!, parentPid: 1, command: "opencode2", args: "opencode2" },
+          {
+            pid: 900002,
+            parentPid: client.pid!,
+            command: "opencode2.exe",
+            args: "opencode2.exe serve --service",
+          },
+        ]);
+        const snapshot = await new MonitorCollector("/tmp").collect();
+        expect(snapshot.sessions).toHaveLength(1);
+        expect(snapshot.sessions[0]).toMatchObject({ agent: "opencode", pid: client.pid });
+      } finally {
+        client.kill();
+      }
+    },
+  );
 
   it("hides the OpenCode service and its launcher without reading session logs", async () => {
     const localRead = vi.spyOn(localAgents, "readLocalAgent");

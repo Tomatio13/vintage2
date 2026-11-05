@@ -127,6 +127,25 @@ function readSessionDatabase(
   try {
     db = database(path);
     db.exec("BEGIN");
+    const v2 =
+      agent === "opencode" &&
+      Boolean(
+        db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='session_v2'").get(),
+      );
+    const sessionTable = v2 ? "session_v2" : "session";
+    const messages = v2
+      ? `(SELECT id,session_id,time_created,time_updated,json_set(data,'$.role',type) data
+          FROM session_message WHERE type IN ('user','assistant'))`
+      : "message";
+    const parts = v2
+      ? `(SELECT json_extract(j.value,'$.id') id,m.id message_id,
+          COALESCE(json_extract(j.value,'$.time.created'),m.time_created) time_created,
+          COALESCE(json_extract(j.value,'$.time.completed'),m.time_updated) time_updated,
+          json_object('type','tool','tool',json_extract(j.value,'$.name'),
+            'state',json_object('status',json_extract(j.value,'$.state.status'))) data
+          FROM session_message m,json_each(m.data,'$.content') j
+          WHERE m.type='assistant' AND json_extract(j.value,'$.type')='tool')`
+      : "part";
     // Desktop ZCode can retain several workers in the same directory. Infer
     // one recent session only when ownership is unambiguous or fresh desktop
     // metadata excludes all other recent sessions as finished.
@@ -141,7 +160,7 @@ function readSessionDatabase(
     // ZCode activity is sorted below after matching; avoid a global SQL sort
     // or materializing unrelated Windows sessions before the path comparison.
     const query = db.prepare(
-      `SELECT id,directory,time_created,time_updated FROM session WHERE ${process.platform === "win32" ? "1=1" : "directory=?"} AND (parent_id IS NULL OR parent_id='') ${agent === "zcode" ? "" : `ORDER BY time_updated DESC LIMIT ${process.platform === "win32" ? 4096 : 2}`}`,
+      `SELECT id,directory,time_created,time_updated FROM ${sessionTable} WHERE ${process.platform === "win32" ? "1=1" : "directory=?"} AND (parent_id IS NULL OR parent_id='') ${agent === "zcode" ? "" : `ORDER BY time_updated DESC LIMIT ${process.platform === "win32" ? 4096 : 2}`}`,
     );
     for (const row of query.iterate(...(process.platform === "win32" ? [] : [cwd]))) {
       if (typeof row.directory === "string" && monitorPathsEqual(row.directory, cwd)) {
@@ -150,7 +169,7 @@ function readSessionDatabase(
     }
     const activityQuery =
       agent === "zcode"
-        ? db.prepare(`SELECT ${activity} activity_at FROM session WHERE id=?`)
+        ? db.prepare(`SELECT ${activity} activity_at FROM ${sessionTable} WHERE id=?`)
         : undefined;
     for (const row of directoryRows) {
       row.activity_at = activityQuery
@@ -183,18 +202,18 @@ function readSessionDatabase(
       );
     const message = db
       .prepare(`SELECT id,time_created,time_updated, json_extract(data,'$.role') role,
-      COALESCE(json_extract(data,'$.modelID'),json_extract(data,'$.modelId'),json_extract(data,'$.model.modelID')) model,
+      COALESCE(json_extract(data,'$.modelID'),json_extract(data,'$.modelId'),json_extract(data,'$.model.modelID'),json_extract(data,'$.model.id')) model,
       json_extract(data,'$.time.completed') completed, json_extract(data,'$.finish') finish,
       CASE WHEN json_type(data,'$.error') IN ('object','text') THEN 1 ELSE 0 END error, json_extract(data,'$.tokens.input') input,
       COALESCE(json_extract(data,'$.tokens.cache.read'),0)+COALESCE(json_extract(data,'$.tokens.cache.write'),0) cache
-      FROM message WHERE session_id=? ORDER BY time_created DESC,id DESC LIMIT 1`)
+      FROM ${messages} WHERE session_id=? ORDER BY time_created DESC,id DESC LIMIT 1`)
       .get(row.id as string) as Row | undefined;
     const tool = message
       ? (db
           .prepare(
             `SELECT id,time_created,time_updated,json_extract(data,'$.tool') name,json_extract(data,'$.state.status') status,
             MAX(MAX(time_created,COALESCE(time_updated,0))) OVER () activity_at
-            FROM part WHERE message_id=? AND json_extract(data,'$.type')='tool'
+            FROM ${parts} WHERE message_id=? AND json_extract(data,'$.type')='tool'
             ORDER BY CASE json_extract(data,'$.state.status') WHEN 'running' THEN 0 WHEN 'pending' THEN 0 WHEN 'error' THEN 1 ELSE 2 END,time_created DESC,id DESC LIMIT 1`,
           )
           .get(message.id as string) as Row | undefined)
@@ -203,14 +222,14 @@ function readSessionDatabase(
       .prepare(`SELECT COALESCE(SUM(CASE WHEN json_extract(data,'$.role')='assistant' THEN COALESCE(json_extract(data,'$.tokens.input'),0) ELSE 0 END),0) input,
       COALESCE(SUM(CASE WHEN json_extract(data,'$.role')='assistant' THEN COALESCE(json_extract(data,'$.tokens.output'),0) ELSE 0 END),0) output,
       COALESCE(SUM(CASE WHEN json_extract(data,'$.role')='assistant' THEN COALESCE(json_extract(data,'$.tokens.cache.read'),0)+COALESCE(json_extract(data,'$.tokens.cache.write'),0) ELSE 0 END),0) cache,
-      SUM(CASE WHEN json_extract(data,'$.role')='user' THEN 1 ELSE 0 END) turns FROM message WHERE session_id=?`)
+      SUM(CASE WHEN json_extract(data,'$.role')='user' THEN 1 ELSE 0 END) turns FROM ${messages} WHERE session_id=?`)
       .get(row.id as string) as Row;
     const state = localDatabaseState(agent, row, message, tool, usage);
     state.lastActivityAt = number(row.activity_at) || state.lastActivityAt;
     const context = db
       .prepare(`SELECT json_extract(data,'$.tokens.input') input,
       COALESCE(json_extract(data,'$.tokens.cache.read'),0)+COALESCE(json_extract(data,'$.tokens.cache.write'),0) cache
-      FROM message WHERE session_id=? AND json_extract(data,'$.role')='assistant'
+      FROM ${messages} WHERE session_id=? AND json_extract(data,'$.role')='assistant'
       AND json_extract(data,'$.tokens.input')>0 ORDER BY time_created DESC,id DESC LIMIT 1`)
       .get(row.id as string) as Row | undefined;
     if (context)
