@@ -1,5 +1,26 @@
 # VINTAGE Changelog
 
+## [0.2.46] - 2026-11-05
+
+### Added
+
+- Translate an HTTP/HTTPS page into Japanese with the Browser toolbar's Google Translate button. The translated page opens in a new tab with the source tab's Project or Common scope, keeping the original tab open.
+- Use Google's website translation service without an Analysis CLI or Cloud Translation API key. Preserve query parameters and fragments when building the translation URL.
+
+### Fixed
+
+- Keep native OpenCode2 terminal clients visible in Monitor when they own a background service.
+- Read OpenCode2 v2 session state, tool activity, model, and token usage instead of coexisting legacy records.
+
+### Validation and limitations
+
+- Boundary checks, TypeScript, lint, formatting, 582 passing tests (one skipped), and production builds passed.
+- Linux Electron checks confirmed that the Browser button opens the reported GitHub URL through Google Translate in a new tab and preserves the original tab. Japanese page rendering was also observed during the feature trial; translation timing and availability depend on Google's service.
+- Website translation sends the source URL to Google. Original-site login sessions are not transferred; local/private pages and some websites may not work.
+- Windows Monitor remains an experimental pre-release; Windows/macOS Sessions and analysis remain experimental with physical-device testing pending. Windows/macOS UI runtime and installed-app updates remain unverified.
+
+**Full Changelog:** [v0.2.45...v0.2.46](https://github.com/Tomatio13/vintage2/compare/v0.2.45...v0.2.46)
+
 ## [0.2.45] - 2026-11-05
 
 ### Improved

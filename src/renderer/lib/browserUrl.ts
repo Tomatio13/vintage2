@@ -12,3 +12,16 @@ export function normalizeBrowserUrl(input: string): string {
   }
   return url.toString();
 }
+
+export function googleTranslateUrl(input: string): string {
+  const source = new URL(input);
+  if (!["http:", "https:"].includes(source.protocol) || source.username || source.password)
+    throw new Error(
+      "Google website translation requires an HTTP or HTTPS URL without credentials.",
+    );
+  const target = new URL("https://translate.google.com/translate");
+  target.searchParams.set("sl", "auto");
+  target.searchParams.set("tl", "ja");
+  target.searchParams.set("u", source.toString());
+  return target.toString();
+}

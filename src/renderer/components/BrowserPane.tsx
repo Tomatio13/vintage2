@@ -1,6 +1,7 @@
 import { browserShortcut, type BrowserCommand } from "../../shared/browserShortcuts.js";
 import { runBrowserTabCommand } from "../lib/browserCommands.js";
 import {
+  Languages,
   Bug,
   Bookmark,
   Search,
@@ -20,7 +21,7 @@ import {
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
-import { normalizeBrowserUrl } from "../lib/browserUrl.js";
+import { googleTranslateUrl, normalizeBrowserUrl } from "../lib/browserUrl.js";
 import { useUiStore } from "../store/uiStore.js";
 import { BrowserScopePicker } from "./BrowserScopePicker.js";
 import { Button } from "./Button.js";
@@ -588,6 +589,20 @@ export const BrowserPane = memo(function BrowserPane({
     }
   };
 
+  const translateWithGoogle = () => {
+    setMoreMenuOpen(false);
+    const guest = guestRef.current;
+    if (!guest) return;
+    try {
+      openBookmark(googleTranslateUrl(guest.getURL()), {
+        newTab: true,
+        workspaceId: tabWorkspaceId ?? null,
+      });
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    }
+  };
+
   const openDeveloperTools = () => {
     setMoreMenuOpen(false);
     guestRef.current?.openDevTools();
@@ -703,6 +718,18 @@ export const BrowserPane = memo(function BrowserPane({
           onClick={() => toggleBookmark(currentUrl, pageTitle || currentUrl, bookmarkScope)}
         >
           <Star className={`size-4 ${isBookmarked ? "fill-current" : ""}`} />
+        </Button>
+        <Button
+          aria-label="Translate with Google to Japanese"
+          title="Translate to Japanese with Google · Opens a new tab"
+          className="size-7 px-0"
+          disabled={!browserAvailable || loading || !/^https?:/u.test(currentUrl)}
+          size="icon"
+          type="button"
+          variant="ghost"
+          onClick={translateWithGoogle}
+        >
+          <Languages aria-hidden="true" className="size-4" />
         </Button>
         <Button
           aria-label="Bookmarks"

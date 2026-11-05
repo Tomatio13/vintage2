@@ -179,6 +179,8 @@ _To do, Doing, and Done columns, with AI instruction copy controls for the board
 
 ### Browser
 
+**Translate with Google to Japanese** opens the current HTTP/HTTPS URL through Google’s website translation service in a new Browser tab, keeping the original tab. This route sends the URL to Google and does not use the Analysis CLI or require a Cloud Translation API key. Login sessions on the original site are not transferred to the translated site; local/private pages and some websites may not work.
+
 Right-click a page for a native context menu. Selected text offers Copy; editable fields offer Undo, Redo, Cut, Copy, Paste, Paste as plain text, and Select all. Links offer Open link in new tab and Copy link address; images offer Open image in new tab, Copy image, and Copy image address. Empty page areas offer Back, Forward, and Reload. Inspect element is available in every context. New tabs retain the source tab’s Project or Common scope.
 
 The built-in Browser opens web pages beside your terminals in multiple tabs. Enter an HTTP/HTTPS URL, `about:blank`, or a local `file:///` URL in the address bar. Configure the start page in **Settings → Browser**.

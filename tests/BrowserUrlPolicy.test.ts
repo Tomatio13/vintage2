@@ -32,3 +32,21 @@ it("denies direct file navigation now that local pages use a custom protocol", (
     canNavigateBrowserGuest("https://example.com/", "vintage-local://capability/index.html"),
   ).toBe(false);
 });
+
+it("encodes the complete source URL for Google website translation without losing query or fragment", async () => {
+  const { googleTranslateUrl } = await import("../src/renderer/lib/browserUrl.js");
+  const source =
+    "https://github.com/github/markup?utm_source=opensourceprojects.dev&ref=opensourceprojects.dev#readme";
+  const result = new URL(googleTranslateUrl(source));
+  expect(result.origin + result.pathname).toBe("https://translate.google.com/translate");
+  expect(result.searchParams.get("u")).toBe(source);
+  expect(result.searchParams.get("sl")).toBe("auto");
+  expect(result.searchParams.get("tl")).toBe("ja");
+  for (const url of [
+    "file:///tmp/index.html",
+    "vintage-local://capability/index.html",
+    "javascript:alert(1)",
+    "https://user:password@example.com/",
+  ])
+    expect(() => googleTranslateUrl(url)).toThrow();
+});
