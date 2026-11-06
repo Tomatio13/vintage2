@@ -8,6 +8,7 @@ import {
   dialog,
   ipcMain,
   Notification,
+  nativeImage,
   protocol,
   shell,
 } from "electron";
@@ -747,6 +748,22 @@ function registerDesktopIpc(
     async (event, id: unknown, path: unknown, name: unknown) => {
       resolveSenderWindow(event);
       await renameEntry(registeredWorkspace(id).path, path, name);
+    },
+  );
+  ipcMain.handle(
+    DesktopChannels.workspaceStartDrag,
+    async (event, id: unknown, rawPath: unknown) => {
+      resolveSenderWindow(event);
+      const file = await entryText(registeredWorkspace(id).path, rawPath, "full");
+      const info = await stat(file);
+      if (!info.isFile() && !info.isDirectory()) throw new Error("Unsupported file type");
+      // A non-empty icon is required by native drag on macOS.
+      const icon = nativeImage.createFromBitmap(Buffer.alloc(32 * 32 * 4, 180), {
+        width: 32,
+        height: 32,
+      });
+      const fileIcon = await app.getFileIcon(file);
+      event.sender.startDrag({ file, icon: fileIcon.isEmpty() ? icon : fileIcon });
     },
   );
   ipcMain.handle(

@@ -44,6 +44,7 @@ export const WorkspaceFiles = memo(function WorkspaceFiles({
   const expanded = useMemo(() => new Set(expandedPaths), [expandedPaths]);
   const [listings, setListings] = useState<Record<string, Listing>>({});
   const cache = useRef(listings);
+  const [dragError, setDragError] = useState("");
   const [loading, setLoading] = useState(false);
   const host = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ top: 0, height: 600 });
@@ -208,6 +209,11 @@ export const WorkspaceFiles = memo(function WorkspaceFiles({
               <RefreshCw className={`size-4${loading ? " animate-spin" : ""}`} />
             </Button>
           </div>
+          {dragError && (
+            <p role="alert" className="p-2 text-ui-sm text-destructive">
+              {dragError}
+            </p>
+          )}
           {root?.error && (
             <p className="p-2 text-ui-sm text-destructive">Unable to read this location.</p>
           )}
@@ -232,6 +238,14 @@ export const WorkspaceFiles = memo(function WorkspaceFiles({
                     <button
                       type="button"
                       aria-label={entry.name}
+                      draggable
+                      onDragStart={(event) => {
+                        event.preventDefault();
+                        setDragError("");
+                        void window.desktop
+                          ?.startWorkspaceDrag(workspaceId, entry.path)
+                          .catch(() => setDragError("Unable to drag this file."));
+                      }}
                       className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-ui-sm hover:bg-hover"
                       aria-expanded={entry.kind === "directory" ? open : undefined}
                       onContextMenu={(event) => {

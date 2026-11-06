@@ -943,12 +943,38 @@ export function TerminalPanel({
         </div>
       )}
       <div
+        onDragOver={(event) => {
+          if (event.dataTransfer.types.includes("Files")) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+          }
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!sessionIdRef.current) return;
+          try {
+            const paths = Array.from(event.dataTransfer.files)
+              .map((file) => window.desktop?.getDroppedFilePath(file) ?? "")
+              .filter(Boolean);
+            if (!paths.length) return;
+            terminalRef.current?.paste(paths.map(quoteDroppedPath).join(" ") + " ");
+            terminalRef.current?.focus();
+          } catch {
+            setStatus("Unable to paste dropped file paths");
+          }
+        }}
         ref={hostRef}
         aria-label={`${title} terminal`}
         className="min-h-0 flex-1 overflow-hidden px-2 py-1"
       />
     </section>
   );
+}
+
+function quoteDroppedPath(path: string): string {
+  if (/[\r\n\0]/u.test(path)) throw new Error("Unsupported control characters in path");
+  return "'" + path.replaceAll("'", "'\\''") + "'";
 }
 
 function attentionLevelLabel(level: TerminalAttentionState["attentionLevel"]): string {

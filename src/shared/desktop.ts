@@ -47,6 +47,7 @@ export const DesktopChannels = {
   workspaceCreateEntry: "workspace:create-entry",
   workspaceTrashEntry: "workspace:trash-entry",
   workspaceRenameEntry: "workspace:rename-entry",
+  workspaceStartDrag: "workspace:start-drag",
   workspaceCopyEntryText: "workspace:copy-entry-text",
   workspaceListFiles: "workspace:list-files",
   workspaceKanbanCopy: "workspace:kanban-copy",
@@ -521,6 +522,8 @@ export interface DesktopBridge {
   ): Promise<void>;
   trashWorkspaceEntry(workspaceId: string, path: string): Promise<void>;
   renameWorkspaceEntry(workspaceId: string, path: string, name: string): Promise<void>;
+  startWorkspaceDrag(workspaceId: string, path: string): Promise<void>;
+  getDroppedFilePath(file: File): string;
   copyWorkspaceEntryText(
     workspaceId: string,
     path: string,

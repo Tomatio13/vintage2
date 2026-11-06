@@ -1,5 +1,5 @@
 import type { BrowserCommand } from "../shared/browserShortcuts.js";
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import {
   DesktopChannels,
@@ -129,6 +129,9 @@ const bridge: DesktopBridge = {
     ipcRenderer.invoke(DesktopChannels.workspaceTrashEntry, workspaceId, path),
   renameWorkspaceEntry: (workspaceId, path, name) =>
     ipcRenderer.invoke(DesktopChannels.workspaceRenameEntry, workspaceId, path, name),
+  startWorkspaceDrag: (id, path) =>
+    ipcRenderer.invoke(DesktopChannels.workspaceStartDrag, id, path),
+  getDroppedFilePath: (file) => webUtils.getPathForFile(file),
   copyWorkspaceEntryText: (workspaceId, path, kind) =>
     ipcRenderer.invoke(DesktopChannels.workspaceCopyEntryText, workspaceId, path, kind),
   getWorkspaceFileVersion: (workspaceId, path) =>
