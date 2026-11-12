@@ -1,5 +1,26 @@
 # VINTAGE Changelog
 
+## [0.2.47] - 2026-11-13
+
+### Added
+
+- Render fenced `mermaid` code blocks as diagrams in Files and Notes Markdown previews, including offline. Load Mermaid only when needed, follow light/dark appearance, and use the existing document zoom controls.
+- Drag workspace files and folders to native applications, and drop files onto terminals to paste quoted paths.
+
+### Fixed
+
+- Keep diagram errors local to their block and show the original source when rendering fails. Ignore stale rendering results after source or appearance changes.
+- Exclude hidden SVG styles and scripts from document search while keeping visible diagram labels searchable.
+
+### Validation and limitations
+
+- Boundary checks, TypeScript, lint, formatting, 587 passing tests (one skipped), and production builds passed.
+- Linux Electron checks confirmed Files and Notes diagrams, Japanese labels, multiple diagrams, syntax-error fallback, appearance changes, document zoom, Edit/Preview switching, and diagram-label search without hidden CSS matches.
+- Native drag-and-drop was included from an existing commit; physical drag-and-drop behavior was not re-tested for this release.
+- Windows Monitor remains an experimental pre-release; Windows/macOS Sessions and analysis remain experimental with physical-device testing pending. Windows/macOS UI runtime and installed-app updates remain unverified.
+
+**Full Changelog:** [v0.2.46...v0.2.47](https://github.com/Tomatio13/vintage2/compare/v0.2.46...v0.2.47)
+
 ## [0.2.46] - 2026-11-05
 
 ### Added
