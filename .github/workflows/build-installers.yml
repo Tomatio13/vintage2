@@ -26,7 +26,9 @@ jobs:
       matrix:
         include:
           - platform: linux
-            runner: ubuntu-latest
+            # Native node-pty builds inherit the runner's glibc requirements.
+            # Keep installers compatible with Ubuntu 22.04 and newer.
+            runner: ubuntu-22.04
             script: dist:linux
           - platform: macos-arm64
             runner: macos-latest

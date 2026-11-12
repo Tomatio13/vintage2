@@ -1,5 +1,19 @@
 # VINTAGE Changelog
 
+## [0.2.48] - 2026-11-13
+
+### Fixed
+
+- Build Linux installers on Ubuntu 22.04 instead of the moving `ubuntu-latest` runner. The v0.2.47 Linux terminal module required glibc 2.42 and prevented the main window from opening on Ubuntu 24.04 with glibc 2.39.
+- Restore the older glibc build baseline without requiring an OS upgrade or resetting user settings.
+
+### Validation and limitations
+
+- Confirmed the installed v0.2.47 startup failure and its missing `GLIBC_2.42` dependency on Ubuntu 24.04.
+- Windows Monitor remains an experimental pre-release; Windows/macOS Sessions and analysis remain experimental with physical-device testing pending.
+
+**Full Changelog:** [v0.2.47...v0.2.48](https://github.com/Tomatio13/vintage2/compare/v0.2.47...v0.2.48)
+
 ## [0.2.47] - 2026-11-13
 
 ### Added
