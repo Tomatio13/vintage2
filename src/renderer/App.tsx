@@ -1173,7 +1173,7 @@ export function App() {
     <SpaceTabStrip activeTabId={active?.activeTabId} workspaceId={active?.id} onNewSpace={addSpace}>
       {active?.tabs.map((tab) => (
         <div
-          className="workspace-tab flex shrink-0 items-center gap-1.5 px-3 text-ui-sm"
+          className="workspace-tab window-no-drag flex shrink-0 items-center gap-1.5 px-3 text-ui-sm"
           data-active={tab.id === active.activeTabId}
           key={tab.id}
         >

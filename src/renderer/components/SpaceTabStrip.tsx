@@ -62,7 +62,7 @@ export function SpaceTabStrip({
     measure();
   };
   return (
-    <div className="window-no-drag flex h-full min-w-0 flex-1 items-center gap-0.5">
+    <div className="window-drag flex h-full min-w-0 flex-1 items-center gap-0.5">
       {edges.overflow && (
         <Button
           aria-label="Scroll Spaces left"

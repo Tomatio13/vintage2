@@ -1,5 +1,19 @@
 # VINTAGE Changelog
 
+## [0.2.49] - 2026-11-13
+
+### Fixed
+
+- Allow dragging the window from empty areas of the Space tab bar, including on Ubuntu. Keep Space tabs, scroll arrows, and the new-Space button interactive.
+
+### Validation and limitations
+
+- Boundary checks, TypeScript, lint, formatting, 587 passing tests (one skipped), and production builds passed.
+- The user confirmed window dragging on Ubuntu. Linux Electron checks confirmed drag-region styles, Space creation, and tab switching.
+- Windows Monitor remains an experimental pre-release; Windows/macOS Sessions and analysis remain experimental with physical-device testing pending. Windows/macOS UI runtime and installed-app updates remain unverified.
+
+**Full Changelog:** [v0.2.48...v0.2.49](https://github.com/Tomatio13/vintage2/compare/v0.2.48...v0.2.49)
+
 ## [0.2.48] - 2026-11-13
 
 ### Fixed
