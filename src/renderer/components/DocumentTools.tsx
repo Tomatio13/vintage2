@@ -124,7 +124,7 @@ export function DocumentSearch({
         const nodes: { node: Text; start: number; end: number }[] = [];
         let text = "";
         const append = (node: Node) => {
-          if (node.parentElement?.closest("[data-document-search-ignore]")) return;
+          if (node.parentElement?.closest("[data-document-search-ignore], style, script")) return;
           const value = node.textContent ?? "";
           nodes.push({ node: node as Text, start: text.length, end: text.length + value.length });
           text += value;

@@ -125,6 +125,8 @@ Source and raw previews scroll continuously while rendering up to 600 lines at o
 
 #### Markdown editing
 
+Fenced `mermaid` code blocks render as diagrams in Markdown and Notes previews, including offline. Diagrams follow the light/dark appearance and document zoom. Invalid diagrams show an error and their original source.
+
 Markdown files opened from Files support Preview and Edit. Edit shows line numbers (including blank lines) and highlights headings, lists, emphasis, links, inline code, and fenced code in supported languages. The status bar shows the current line and column and the total line count. Click Go to line, click the cursor position, or press `Ctrl+G` (`⌘G` on macOS) to jump to a line; `Enter` confirms and `Escape` cancels. These editing controls are also available in Scratchpad. Line numbers follow wrapped lines, scrolling, resizing, and zoom. Save explicitly with Save or `Ctrl+S` (`⌘S` on macOS). Saving rejects files changed externally; Reload reads the current file and asks before discarding a dirty draft. Files over 1 MB cannot be edited. Automatic preview refresh runs only for clean previews, never while editing or with unsaved changes.
 
 ![Editing a Markdown file with unsaved changes](../assets/readme/vintage-markdown-editing.png)

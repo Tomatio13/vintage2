@@ -8,7 +8,8 @@ import {
   type ComponentProps,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type ExtraProps } from "react-markdown";
+import { MermaidDiagram } from "./MermaidDiagram.js";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import { classifyMarkdownLink, resolveMarkdownRelativePath } from "../lib/markdownLinks.js";
@@ -157,6 +158,23 @@ function MarkdownImage(props: ComponentProps<"img">) {
   );
 }
 
+function MarkdownPre({ children, node }: ComponentProps<"pre"> & ExtraProps) {
+  const code = node?.children[0];
+  if (
+    node?.children.length === 1 &&
+    code?.type === "element" &&
+    code.tagName === "code" &&
+    Array.isArray(code.properties.className) &&
+    code.properties.className.includes("language-mermaid")
+  ) {
+    const source = code.children
+      .map((child) => (child.type === "text" ? child.value : ""))
+      .join("");
+    return <MermaidDiagram source={source} />;
+  }
+  return <pre className="my-4 overflow-x-auto rounded-lg bg-background p-3">{children}</pre>;
+}
+
 // Defined at module level: react-markdown maps these onto rendered elements, so
 // unstable function identities here would replace the whole Markdown DOM on
 // every render and swallow real mouse clicks (the click event is lost when the
@@ -219,9 +237,7 @@ const markdownComponents = {
     <ol className="my-3 list-decimal space-y-1 pl-6">{children}</ol>
   ),
   p: ({ children }: ComponentProps<"p">) => <p className="my-3">{children}</p>,
-  pre: ({ children }: ComponentProps<"pre">) => (
-    <pre className="my-4 overflow-x-auto rounded-lg bg-background p-3">{children}</pre>
-  ),
+  pre: MarkdownPre,
   strong: ({ children }: ComponentProps<"strong">) => (
     <strong className="font-semibold">{children}</strong>
   ),

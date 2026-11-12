@@ -52,6 +52,7 @@
     "clsx": "^2.1.1",
     "electron-updater": "^6.8.9",
     "lucide-react": "^1.17.0",
+    "mermaid": "^12.3.0",
     "node-pty": "1.1.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
