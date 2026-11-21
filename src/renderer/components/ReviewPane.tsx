@@ -95,6 +95,7 @@ function ReviewPagination({
 }
 
 interface ReviewPaneProps {
+  onAddToAcp?: ((text: string) => void) | undefined;
   workspaceId: string | null;
   active: boolean;
   refreshVersion: number;
@@ -852,7 +853,17 @@ function highlightedCodeLine(content: string, path: string): ReactNode {
   return nodes.length ? nodes : content || " ";
 }
 
-const DiffLineRow = memo(function DiffLineRow({ line, path }: { line: DiffLine; path: string }) {
+const DiffLineRow = memo(function DiffLineRow({
+  line,
+  path,
+  selected,
+  onSelect,
+}: {
+  line: DiffLine;
+  path: string;
+  selected: boolean;
+  onSelect?: ((extend: boolean) => void) | undefined;
+}) {
   const number = line.newLine ?? line.oldLine;
   const color =
     line.kind === "added"
@@ -869,9 +880,22 @@ const DiffLineRow = memo(function DiffLineRow({ line, path }: { line: DiffLine; 
   const marker = line.kind === "added" ? "+" : line.kind === "removed" ? "−" : "";
   return (
     <div className={`grid w-max min-w-full grid-cols-[3.25rem_1.5rem_auto] ${background}`}>
-      <span className="select-none border-r border-border px-1 text-right text-foreground-subtlest">
-        {number ?? ""}
-      </span>
+      {onSelect && number !== null && number !== undefined ? (
+        <button
+          type="button"
+          aria-label={`Select diff line ${number}`}
+          aria-pressed={selected}
+          title="Select line for ACP (Shift-click to extend)"
+          className={`select-none border-r border-border px-1 text-right hover:bg-hover ${selected ? "bg-hover text-brand" : "text-foreground-subtlest"}`}
+          onClick={(event) => onSelect(event.shiftKey)}
+        >
+          {number}
+        </button>
+      ) : (
+        <span className="select-none border-r border-border px-1 text-right text-foreground-subtlest">
+          {number ?? ""}
+        </span>
+      )}
       <span className={`select-none text-center ${color}`}>{marker}</span>
       <code className={`whitespace-pre px-2 ${color}`}>
         {highlightedCodeLine(line.content, path)}
@@ -886,7 +910,9 @@ const DiffPatch = memo(function DiffPatch({
   expandedFolds,
   onToggleFold,
   onOpenFile,
+  onAddToAcp,
 }: {
+  onAddToAcp?: ((text: string) => void) | undefined;
   patch: string;
   path: string;
   expandedFolds: Set<string>;
@@ -894,6 +920,16 @@ const DiffPatch = memo(function DiffPatch({
   onOpenFile(path: string, line: number): void;
 }) {
   const [requestedStart, setStart] = useState(0);
+  const [selection, setSelection] = useState<{
+    patch: string;
+    folds: Set<string>;
+    start: number;
+    end: number;
+  } | null>(null);
+  const [comment, setComment] = useState("");
+  const range = selection?.patch === patch && selection.folds === expandedFolds ? selection : null;
+  const low = range ? Math.min(range.start, range.end) : -1;
+  const high = range ? Math.max(range.start, range.end) : -1;
   const scroll = useRef<HTMLDivElement>(null);
   const focusedFold = useRef<string | null>(null);
   const entries = useMemo(() => {
@@ -950,7 +986,37 @@ const DiffPatch = memo(function DiffPatch({
           setStart(Math.max(0, start + (next > page ? diffRowsPerPage : -diffRowsPerPage)))
         }
       />
-      {visibleEntries.slice(start, start + diffRowsPerPage).map((entry) => {
+      {range && onAddToAcp && (
+        <form
+          className="flex gap-2 p-2 font-sans"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const lines = visibleEntries.slice(low, high + 1).flatMap((line) => {
+              if (line.kind === "fold" || line.kind === "hunk") return [];
+              const marker = line.kind === "added" ? "+" : line.kind === "removed" ? "-" : " ";
+              return [`${line.oldLine ?? "-"} → ${line.newLine ?? "-"} ${marker}${line.content}`];
+            });
+            const excerpt = lines.join("\n");
+            onAddToAcp(
+              `Review: ${path} (old → new line numbers)\n${comment.trim()}\n\n${excerpt.slice(0, 8192)}${excerpt.length > 8192 ? "\n[Diff excerpt truncated]" : ""}`,
+            );
+            setSelection(null);
+            setComment("");
+          }}
+        >
+          <input
+            aria-label="Review comment"
+            placeholder="Add a review comment"
+            value={comment}
+            onChange={(event) => setComment(event.target.value)}
+            className="min-w-0 flex-1 rounded border border-border bg-background px-2"
+          />
+          <Button type="submit" size="compact">
+            Add to ACP
+          </Button>
+        </form>
+      )}
+      {visibleEntries.slice(start, start + diffRowsPerPage).map((entry, offset) => {
         if (entry.kind === "hunk")
           return (
             <div
@@ -976,6 +1042,18 @@ const DiffPatch = memo(function DiffPatch({
               key={`${entry.oldLine}-${entry.newLine}-${entry.content}`}
               line={entry}
               path={path}
+              selected={start + offset >= low && start + offset <= high}
+              onSelect={
+                onAddToAcp
+                  ? (extend) =>
+                      setSelection({
+                        patch,
+                        folds: expandedFolds,
+                        start: extend && range ? range.start : start + offset,
+                        end: start + offset,
+                      })
+                  : undefined
+              }
             />
           );
         const expanded = expandedFolds.has(entry.id);
@@ -1016,6 +1094,7 @@ export function ReviewPane({
   refreshVersion,
   onRefresh,
   onOpenFile,
+  onAddToAcp,
 }: ReviewPaneProps) {
   const [mode, setMode] = useState<WorkspaceGitReviewMode>("branch");
   const [baseRef, setBaseRef] = useState<string | null>(null);
@@ -1342,6 +1421,7 @@ export function ReviewPane({
                         path={change.path}
                         onOpenFile={onOpenFile}
                         onToggleFold={toggleFold}
+                        onAddToAcp={onAddToAcp}
                       />
                     ) : diff?.summary ? (
                       <p className="p-2 text-ui-xs text-foreground-subtle">{diff.summary}</p>

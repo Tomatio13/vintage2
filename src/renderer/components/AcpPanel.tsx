@@ -1431,6 +1431,14 @@ export function AcpPanel({
   const [acpSettings, setAcpSettings] = useState<AcpSettings>(DEFAULT_ACP_SETTINGS);
   const [snapshot, setSnapshot] = useState<AcpSessionSnapshot | null>(null);
   const [draft, setDraft] = useState("");
+  const [queued, setQueued] = useState<{ id: string; text: string; images: AcpPromptImage[] }[]>(
+    [],
+  );
+  const [queueHeld, setQueueHeld] = useState(false);
+  const [queueEdit, setQueueEdit] = useState<{ id: string; text: string } | null>(null);
+  const [dispatching, setDispatching] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const sending = useRef(false);
   const [attachedImages, setAttachedImages] = useState<AcpPromptImage[]>([]);
   const [zoomedImage, setZoomedImage] = useState<{ url: string; label: string } | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -1450,6 +1458,17 @@ export function AcpPanel({
 
   onAttentionChangeRef.current = onAttentionChange;
   desktopNotificationsRef.current = desktopNotifications;
+
+  useEffect(() => {
+    const addToDraft = (event: Event) => {
+      const { paneId: target, text } = (event as CustomEvent<{ paneId: string; text: string }>)
+        .detail;
+      if (target !== paneId) return;
+      setDraft((previous) => (previous ? `${previous}\n\n${text}` : text));
+    };
+    window.addEventListener("vintage:acp-draft", addToDraft);
+    return () => window.removeEventListener("vintage:acp-draft", addToDraft);
+  }, [paneId]);
 
   useEffect(() => {
     if (!editingTitle) setDraftTitle(title);
@@ -1721,7 +1740,10 @@ export function AcpPanel({
           setPopoverOpen(true);
         } else if (item.action === "clear") {
           const sid = sessionIdRef.current;
-          if (sid) void window.desktop?.resetAcpSession(sid).then(setSnapshot);
+          if (sid) {
+            setQueueHeld(true);
+            void window.desktop?.resetAcpSession(sid).then(setSnapshot);
+          }
         } else if (item.action === "settings") {
           setSettingsOpen(true);
         }
@@ -1745,10 +1767,53 @@ export function AcpPanel({
     [composerTrigger, draft, setSettingsOpen],
   );
 
+  const sendPrompt = useCallback(async (text: string, images: AcpPromptImage[]) => {
+    const sid = sessionIdRef.current;
+    if (!sid || !window.desktop || sending.current) return;
+    sending.current = true;
+    setDispatching(true);
+    setSendError(null);
+    try {
+      await window.desktop.sendAcpPrompt(sid, text, images.length ? images : undefined);
+    } catch (error) {
+      setQueueHeld(true);
+      setSendError(error instanceof Error ? error.message : String(error));
+      setDraft((previous) => (previous ? `${text}\n\n${previous}` : text));
+      setAttachedImages((previous) => [...images, ...previous]);
+    } finally {
+      sending.current = false;
+      setDispatching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const next = queued[0];
+    if (!next || queueHeld || queueEdit || dispatching || sending.current) return;
+    if (
+      snapshot?.status === "error" ||
+      snapshot?.status === "stopped" ||
+      snapshot?.lastTurnCompleted === false
+    ) {
+      setQueueHeld(true);
+      return;
+    }
+    if (snapshot?.status !== "ready" || !sessionIdRef.current) return;
+    setQueued((items) => items.filter((item) => item.id !== next.id));
+    void sendPrompt(next.text, next.images);
+  }, [
+    dispatching,
+    queueEdit,
+    queueHeld,
+    queued,
+    sendPrompt,
+    snapshot?.lastTurnCompleted,
+    snapshot?.status,
+  ]);
+
   const submitPrompt = async () => {
     const text = draft.trim();
     const sid = sessionIdRef.current;
-    if ((!text && attachedImages.length === 0) || !sid || isRunning) return;
+    if ((!text && attachedImages.length === 0) || !sid) return;
     if (text === "/model" && attachedImages.length === 0) {
       setDraft("");
       setPopoverOpen(true);
@@ -1756,6 +1821,7 @@ export function AcpPanel({
     }
     if (text === "/clear" && attachedImages.length === 0) {
       setDraft("");
+      setQueueHeld(true);
       void window.desktop?.resetAcpSession(sid).then(setSnapshot);
       return;
     }
@@ -1769,11 +1835,12 @@ export function AcpPanel({
     setAttachedImages([]);
     setCaretPos(0);
     setAtBottom(true);
-    await window.desktop?.sendAcpPrompt(
-      sid,
-      text,
-      imagesToSend.length > 0 ? imagesToSend : undefined,
-    );
+    if (isRunning || sending.current || (queued.length > 0 && !queueHeld)) {
+      setQueued((items) => [...items, { id: crypto.randomUUID(), text, images: imagesToSend }]);
+      return;
+    }
+    if (queued.length === 0) setQueueHeld(false);
+    await sendPrompt(text, imagesToSend);
   };
 
   const handleSelectConfig = async (patch: {
@@ -1786,6 +1853,8 @@ export function AcpPanel({
   }) => {
     const sid = sessionIdRef.current;
     if (!sid || !window.desktop?.configureAcpSession) return;
+    if (patch.profileId && patch.profileId !== snapshot?.profileId && queued.length)
+      setQueueHeld(true);
     const updated = await window.desktop.configureAcpSession(sid, patch);
     setSnapshot(updated);
   };
@@ -1906,7 +1975,10 @@ export function AcpPanel({
             disabled={!sessionIdRef.current}
             onClick={() => {
               const sid = sessionIdRef.current;
-              if (sid) void window.desktop?.resetAcpSession(sid).then(setSnapshot);
+              if (sid) {
+                setQueueHeld(true);
+                void window.desktop?.resetAcpSession(sid).then(setSnapshot);
+              }
             }}
             className="grid size-6 place-items-center rounded-md text-foreground-subtle hover:bg-hover hover:text-foreground"
           >
@@ -2134,6 +2206,95 @@ export function AcpPanel({
             </div>
           )}
 
+          {sendError && (
+            <p role="alert" className="px-1 text-ui-xs text-destructive">
+              {sendError}
+            </p>
+          )}
+          {queued.length > 0 && (
+            <div className="max-h-40 space-y-1 overflow-auto border-b border-border px-1 py-2">
+              {queued.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-2 rounded border border-dashed border-border px-2 py-1 text-ui-xs"
+                >
+                  {queueEdit?.id === item.id ? (
+                    <>
+                      <textarea
+                        aria-label="Edit queued prompt"
+                        value={queueEdit.text}
+                        rows={2}
+                        className="min-w-0 flex-1 resize-y rounded border border-border bg-background p-1"
+                        onChange={(event) =>
+                          setQueueEdit({ id: item.id, text: event.target.value })
+                        }
+                      />
+                      <Button
+                        size="compact"
+                        variant="ghost"
+                        disabled={!queueEdit.text.trim() && !item.images.length}
+                        onClick={() => {
+                          const text = queueEdit.text.trim();
+                          setQueued((items) =>
+                            items.map((entry) =>
+                              entry.id === item.id ? { ...entry, text } : entry,
+                            ),
+                          );
+                          setQueueEdit(null);
+                        }}
+                      >
+                        Save
+                      </Button>
+                      <Button size="compact" variant="ghost" onClick={() => setQueueEdit(null)}>
+                        Cancel edit
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="shrink-0 text-foreground-subtle">
+                        {queueHeld ? "Held" : "Queued"}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate" title={item.text}>
+                        {item.text || "Image prompt"}
+                      </span>
+                      <Button
+                        size="compact"
+                        variant="ghost"
+                        disabled={queueEdit !== null}
+                        onClick={() => setQueueEdit({ id: item.id, text: item.text })}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="compact"
+                        variant="ghost"
+                        onClick={() =>
+                          setQueued((items) => items.filter((entry) => entry.id !== item.id))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </>
+                  )}
+                </div>
+              ))}
+              {queueHeld && !isRunning && !dispatching && !queueEdit && (
+                <Button
+                  size="compact"
+                  variant="outline"
+                  onClick={() => {
+                    const next = queued[0];
+                    if (!next) return;
+                    setQueueHeld(false);
+                    setQueued((items) => items.filter((item) => item.id !== next.id));
+                    void sendPrompt(next.text, next.images);
+                  }}
+                >
+                  Resume queue
+                </Button>
+              )}
+            </div>
+          )}
           <textarea
             ref={textareaRef}
             aria-label="Ask ACP agent"
@@ -2245,30 +2406,32 @@ export function AcpPanel({
                 <ChevronDown className="size-3 text-foreground-subtle" />
               </button>
 
-              {isRunning ? (
+              {isRunning && (
                 <button
                   type="button"
                   aria-label="Cancel ACP turn"
                   title="Stop generation"
                   onClick={() => {
                     const sid = sessionIdRef.current;
-                    if (sid) void window.desktop?.cancelAcpPrompt(sid);
+                    if (sid) {
+                      setQueueHeld(true);
+                      void window.desktop?.cancelAcpPrompt(sid);
+                    }
                   }}
                   className="grid size-7 place-items-center rounded-full bg-destructive text-destructive-foreground transition-opacity hover:opacity-90"
                 >
                   <Square className="size-3 fill-current" />
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  aria-label="Send prompt"
-                  disabled={!draft.trim() && attachedImages.length === 0}
-                  onClick={() => void submitPrompt()}
-                  className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <ArrowUp className="size-4" />
-                </button>
               )}
+              <button
+                type="button"
+                aria-label={isRunning || dispatching ? "Queue prompt" : "Send prompt"}
+                disabled={!draft.trim() && attachedImages.length === 0}
+                onClick={() => void submitPrompt()}
+                className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ArrowUp className="size-4" />
+              </button>
             </div>
           </div>
         </div>

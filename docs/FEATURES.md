@@ -49,6 +49,8 @@ Open a native **ACP** chat pane beside your terminals from **New ACP** (directly
   - **Z.ai (`ZA`)** runs via OpenCode `zai-coding-plan/*` (or `zai/*`) models.
   - Add custom ACP executables and verify connections via **Settings → ACP Agents → Test ACP Handshake**.
 - **Mixed-provider conversations & cached runtimes**: Switch providers, models, and reasoning levels anytime from the 3-column selector in the composer. Each assistant message preserves the provider badge and model name that generated it, and active provider processes stay warm per pane so switching back does not re-run the ACP handshake.
+  When you send a message after switching providers, VINTAGE automatically supplies earlier messages from the same pane. Returning to a connected provider sends the messages it has missed. The history budget is 16 KiB of serialized messages and prioritizes the first request and recent messages when starting a provider session. The handoff includes chat text, roles, and the status and available exit codes of finished commands. A dialog identifies the destination and lets you approve the command text and an output excerpt for each result. Internal reasoning, tool state, and past attachments stay in the source pane.
+- **Queued prompts**: Send while a turn runs to queue the next prompt. Entries run in order after successful turns and can be edited or removed. After a stop or failure, use **Resume queue**. The queue is kept while the pane is open.
 - **Composer productivity**:
   - Type **`$`** for local/project Agent Skills (`SKILL.md`), **`/`** for built-in (`/model`, `/clear`, `/settings`) and agent slash commands, and **`@`** for workspace file mentions.
   - Paste (`Ctrl+V`) or drop images to send them as ACP `image` blocks alongside text.
@@ -157,6 +159,8 @@ _Markdown in Edit view, showing unsaved changes and the Save and Reload controls
 
 **Review** is a read-only view of the selected workspace's Git changes. Use **Review scope** to switch between **Branch Diff** and **Local Changes**. Branch Diff compares the current branch's committed changes from its merge base with the selected **Base branch**, alongside separate **Staged** and **Unstaged** sections. Local Changes shows staged and unstaged changes, including untracked files. Review does not stage, unstage, commit, or modify files.
 
+With an ACP pane selected, click a Review line number and Shift-click another to select a range. Add a comment and choose **Add to ACP** to append the diff excerpt to the draft.
+
 Select a file to inspect added and removed lines. Large sections use Previous / Next with up to 100 files per page; large diffs use pages of up to 200 rows. Oversized diffs offer a file-preview fallback. Hunk preview controls open the file at the changed line. Automatic refresh preserves the selected file and expanded context where possible; if the comparison changes, Review shows a context notice rather than silently carrying over incompatible context. The refresh control also reloads Git status manually.
 
 ![A TypeScript Git diff expanded in VINTAGE’s Review tab](../assets/readme/vintage-git-review.png)
@@ -251,6 +255,8 @@ Downloads, extensions, and saved login credentials are not supported.
 ## Sessions
 
 **Sessions** is a library of saved Codex, Claude Code, OpenCode (opencode2), Grok, and Antigravity conversations, separate from the running processes shown in Monitor. It is enabled by default. Toggle the tab in **Settings → Panels**, with **Ctrl+Alt+Y** (**⌘+Option+Y** on macOS), or with **Toggle Sessions tab** in the command palette. Reassign the shortcut in **Settings → Shortcuts → Side pane**.
+
+With an ACP pane selected, open a saved conversation and choose **Add to ACP draft**. The transcript excerpt can be reviewed and edited before sending.
 
 - **Find a conversation:** Start with **Current project**, switch to **All projects**, filter by agent, or search saved titles and request previews. Sessions are grouped by last-updated date; pinned sessions appear first. Pins are saved locally.
 - **Read:** Select a session to see its summary card and chat. User messages appear in right-aligned bubbles; agent replies support Markdown, code blocks, lists, and tables. Copy individual messages with the copy action. Remote images and embedded HTML are not loaded. HTTP/HTTPS links open in the system browser when clicked.

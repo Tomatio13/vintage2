@@ -52,14 +52,45 @@ function loadPins(): string[] {
     return [];
   }
 }
+function sessionDraftReference(detail: SessionHistoryDetail): string {
+  const historyLimit = 8192;
+  const excerpts: string[] = [];
+  let remaining = historyLimit;
+  for (const message of detail.messages.toReversed()) {
+    const label = message.role === "user" ? "User" : "Assistant";
+    const excerpt = `${label}: ${message.text}`;
+    if (excerpt.length + 2 > remaining) {
+      if (excerpts.length === 0) {
+        excerpts.push(`${label}: [excerpt] ${message.text.slice(-historyLimit + 64)}`);
+      }
+      break;
+    }
+    excerpts.push(excerpt);
+    remaining -= excerpt.length + 2;
+  }
+  const truncated =
+    detail.truncated ||
+    excerpts.length < detail.messages.length ||
+    excerpts.some((excerpt) => excerpt.includes(": [excerpt] "));
+  return [
+    `Session reference: ${detail.session.title} (${historyAgentStyle[detail.session.agent].name})`,
+    "Use this quoted conversation as background for the current request.",
+    ...(truncated ? ["[Session excerpt]"] : []),
+    ...excerpts.reverse(),
+    "End of session reference.",
+  ].join("\n\n");
+}
+
 export function SessionsPanel({
   active,
   workspacePath,
   onResume,
   onResumeInAcp,
+  onAddToAcp,
   onOpenTerminal,
 }: {
   active: boolean;
+  onAddToAcp?: ((text: string) => void) | undefined;
   workspacePath?: string | undefined;
   onResume?: ((session: HistorySession) => void) | undefined;
   onResumeInAcp?: ((session: HistorySession) => void) | undefined;
@@ -579,6 +610,22 @@ export function SessionsPanel({
                         <Play className="size-3.5" />
                         {liveSession ? "Open" : "Resume"}
                       </Button>
+                      {onAddToAcp &&
+                        detail?.session.key === selected.key &&
+                        detail.messages.length > 0 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="compact"
+                            title="Add a conversation excerpt to the active ACP draft"
+                            onClick={() => {
+                              onAddToAcp(sessionDraftReference(detail));
+                              setExpanded(false);
+                            }}
+                          >
+                            Add to ACP draft
+                          </Button>
+                        )}
                       {!liveSession &&
                         onResumeInAcp &&
                         (selected.agent === "codex" ||

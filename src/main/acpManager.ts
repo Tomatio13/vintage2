@@ -15,6 +15,7 @@ import {
 } from "electron";
 
 import {
+  type AcpConversationMessage,
   type AcpCreateOptions,
   type AcpEvent,
   type AcpModeOption,
@@ -37,6 +38,7 @@ import {
   type TerminalAttentionState,
   type TerminalAttentionStatus,
 } from "../shared/desktop.js";
+import { buildAcpHandoff } from "./acpHandoff.js";
 import {
   AcpSettingsManager,
   filterOpenCodeGoModels,
@@ -85,6 +87,8 @@ interface PendingPermissionHandle {
 
 interface ProfileRuntime {
   profileId: string;
+  historyCovered: number;
+  loadedResumeHistory: boolean;
   process: ChildProcess | null;
   connection: acp.ClientConnection | null;
   acpSessionId: string | null;
@@ -121,6 +125,9 @@ interface OwnedAcpSession {
   pendingPermissions: Map<string, PendingPermissionHandle>;
   subTerminals: Map<string, ManagedSubTerminal>;
   currentAssistantMessageId: string | null;
+  activePrompt: { cancelled: boolean } | null;
+  importedHistoryLength: number;
+  diagnostics: WeakSet<AcpConversationMessage>;
   turnStartedAt: number | null;
   attentionState: TerminalAttentionState;
 }
@@ -130,6 +137,8 @@ function getOrCreateProfileRuntime(session: OwnedAcpSession, profileId: string):
   if (!runtime) {
     runtime = {
       profileId,
+      historyCovered: 0,
+      loadedResumeHistory: false,
       process: null,
       connection: null,
       acpSessionId: null,
@@ -226,14 +235,14 @@ export function registerAcpIpc(
   ipcMain.handle(
     DesktopChannels.acpPrompt,
     async (event, rawId: unknown, rawText: unknown, rawImages?: unknown) => {
-      assertTrustedSender(event);
+      const window = assertTrustedSender(event);
       const session = requireOwnedSession(event, rawId);
       const text = typeof rawText === "string" ? rawText.trim() : "";
       const images = parsePromptImages(rawImages);
       if ((!text && images.length === 0) || text.length > 512 * 1024) {
         throw new TypeError("Prompt must include text (<= 512 KiB) or at least one image");
       }
-      await submitPrompt(session, text, images, acpSettings);
+      await submitPrompt(session, text, images, acpSettings, window);
     },
   );
 
@@ -529,6 +538,9 @@ async function createOrReattachAcpSession(
     pendingPermissions: new Map(),
     subTerminals: new Map(),
     currentAssistantMessageId: null,
+    activePrompt: null,
+    importedHistoryLength: 0,
+    diagnostics: new WeakSet(),
     turnStartedAt: null,
     attentionState: {
       sessionId,
@@ -548,10 +560,16 @@ async function createOrReattachAcpSession(
     initialRuntime.resumeSessionId = options.resumeSessionId;
   }
   if (options.resumeSessionKey) {
+    const initialMessages = session.snapshot.messages;
     void sessionHistory
       .detail(options.resumeSessionKey)
       .then((detail) => {
-        if (!sessions.has(session.id) || session.snapshot.messages.length > 0) return;
+        if (
+          !sessions.has(session.id) ||
+          session.snapshot.messages !== initialMessages ||
+          initialMessages.length > 0
+        )
+          return;
         session.snapshot.messages = detail.messages.map((item, idx) => ({
           id: `resumed-${idx}-${randomUUID()}`,
           role: item.role,
@@ -568,6 +586,9 @@ async function createOrReattachAcpSession(
               }
             : {}),
         }));
+        session.importedHistoryLength = session.snapshot.messages.length;
+        const runtime = session.runtimes.get(profile.id);
+        if (runtime?.loadedResumeHistory) runtime.historyCovered = session.importedHistoryLength;
         emitSessionSnapshot(session);
       })
       .catch(() => {});
@@ -846,9 +867,9 @@ async function ensureAgentConnected(
 
     let sessionIdResult: string;
     let configOptionsResult: acp.SessionConfigOption[] = [];
+    let resumed = false;
     if (runtime.resumeSessionId) {
       const targetResumeId = runtime.resumeSessionId;
-      let resumed = false;
       try {
         const resumeRes = await connection.agent.request(acp.methods.agent.session.resume, {
           sessionId: targetResumeId,
@@ -889,6 +910,16 @@ async function ensureAgentConnected(
       configOptionsResult = newSessionResult.configOptions ?? [];
     }
 
+    if (session.runtimes.get(targetProfileId) !== runtime || runtime.process !== child) {
+      throw new Error("ACP connection was closed");
+    }
+    runtime.historyCovered = resumed
+      ? Math.max(
+          runtime.loadedResumeHistory ? runtime.historyCovered : 0,
+          session.importedHistoryLength,
+        )
+      : 0;
+    runtime.loadedResumeHistory = resumed;
     runtime.acpSessionId = sessionIdResult!;
     applyAgentConfigOptions(session, runtime, configOptionsResult, acpSettings);
 
@@ -1756,6 +1787,22 @@ async function handleTerminalKill(
   return {};
 }
 
+function captureTerminalResult(
+  messages: readonly AcpConversationMessage[],
+  terminal: ManagedSubTerminal,
+): void {
+  for (const message of messages) {
+    for (const tool of message.toolCalls) {
+      for (const content of tool.content) {
+        if (content.type !== "terminal" || content.terminalId !== terminal.id) continue;
+        content.command = terminal.command;
+        content.output = terminal.output;
+        content.exitCode = terminal.exitCode;
+      }
+    }
+  }
+}
+
 async function handleTerminalRelease(
   session: OwnedAcpSession,
   params: acp.ReleaseTerminalRequest,
@@ -1769,6 +1816,7 @@ async function handleTerminalRelease(
         /* ignore */
       }
     }
+    captureTerminalResult(session.snapshot.messages, subTerminal);
     session.subTerminals.delete(params.terminalId);
   }
   return {};
@@ -1779,7 +1827,11 @@ async function submitPrompt(
   text: string,
   images: AcpPromptImage[],
   acpSettings: AcpSettingsManager,
+  window: BrowserWindow,
 ): Promise<void> {
+  if (session.activePrompt !== null) throw new Error("An ACP prompt is already running");
+  const runtime = getOrCreateProfileRuntime(session, session.snapshot.profileId);
+  const historyEnd = session.snapshot.messages.length;
   const userMessage = {
     id: randomUUID(),
     role: "user" as const,
@@ -1807,9 +1859,12 @@ async function submitPrompt(
   };
   session.snapshot.messages.push(assistantMessage);
   session.currentAssistantMessageId = assistantMessage.id;
+  const prompt = { cancelled: false };
+  session.activePrompt = prompt;
   const startedAt = Date.now();
   session.turnStartedAt = startedAt;
   session.snapshot.turnStartedAt = startedAt;
+  delete session.snapshot.lastTurnCompleted;
   session.snapshot.status = "running";
   delete session.snapshot.errorMessage;
   emitSessionSnapshot(session);
@@ -1817,12 +1872,39 @@ async function submitPrompt(
 
   try {
     const { connection, acpSessionId } = await ensureAgentConnected(session, acpSettings);
+    if (session.activePrompt !== prompt) return;
     assistantMessage.modelId = session.snapshot.modelId;
     assistantMessage.modelName = resolveSnapshotModelName(session.snapshot);
     session.snapshot.status = "running";
     emitSessionSnapshot(session);
 
+    for (const terminal of session.subTerminals.values()) {
+      if (terminal.exited) captureTerminalResult(session.snapshot.messages, terminal);
+    }
+    const handoff = await buildAcpHandoff(
+      session.snapshot.messages,
+      runtime.historyCovered,
+      historyEnd,
+      session.diagnostics,
+      async (details) => {
+        if (prompt.cancelled || session.activePrompt !== prompt) return "skip-rest";
+        const { response } = await dialog.showMessageBox(window, {
+          type: "question",
+          title: "ACP command result handoff",
+          message: `Share these command details with ${session.snapshot.profileName} (${runtime.profileId})?`,
+          detail: details,
+          buttons: ["Skip", "Include", "Skip remaining"],
+          defaultId: 0,
+          cancelId: 2,
+          noLink: true,
+        });
+        if (response === 1) return "include";
+        return response === 0 ? "skip" : "skip-rest";
+      },
+    );
+    if (session.activePrompt !== prompt) return;
     const promptBlocks: acp.ContentBlock[] = [
+      ...(handoff ? [{ type: "text" as const, text: `${handoff}\n\nCurrent request:\n` }] : []),
       ...images.map((img) => ({
         type: "image" as const,
         data: img.dataBase64,
@@ -1831,11 +1913,16 @@ async function submitPrompt(
       ...(text ? [{ type: "text" as const, text }] : []),
     ];
 
-    await connection.agent.request(acp.methods.agent.session.prompt, {
-      sessionId: acpSessionId,
-      prompt: promptBlocks,
-    });
-
+    if (!prompt.cancelled) {
+      const response = await connection.agent.request(acp.methods.agent.session.prompt, {
+        sessionId: acpSessionId,
+        prompt: promptBlocks,
+      });
+      if (session.activePrompt !== prompt) return;
+      runtime.historyCovered = historyEnd + 2;
+      session.snapshot.lastTurnCompleted = response.stopReason === "end_turn";
+    }
+    if (prompt.cancelled) session.snapshot.lastTurnCompleted = false;
     assistantMessage.streaming = false;
     session.currentAssistantMessageId = null;
     session.snapshot.status = "ready";
@@ -1845,6 +1932,10 @@ async function submitPrompt(
     session.snapshot.turnStartedAt = null;
     session.snapshot.lastTurnDurationMs = durationMs ?? null;
     emitSessionSnapshot(session);
+    if (prompt.cancelled) {
+      publishAttention(session, "idle", 0, false);
+      return;
+    }
     const longRunning = durationMs !== undefined && durationMs >= 30_000;
     publishAttention(
       session,
@@ -1855,6 +1946,7 @@ async function submitPrompt(
       durationMs,
     );
   } catch (error) {
+    if (session.activePrompt !== prompt) return;
     assistantMessage.streaming = false;
     session.currentAssistantMessageId = null;
     session.turnStartedAt = null;
@@ -1864,14 +1956,18 @@ async function submitPrompt(
     session.snapshot.errorMessage = message;
     if (!assistantMessage.text && assistantMessage.toolCalls.length === 0) {
       assistantMessage.text = `⚠️ ${message}`;
+      session.diagnostics.add(assistantMessage);
     }
     emitEvent(session, { type: "session.error", sessionId: session.id, message });
     emitSessionSnapshot(session);
     publishAttention(session, "failed", 3, true, "command_failed");
+  } finally {
+    if (session.activePrompt === prompt) session.activePrompt = null;
   }
 }
 
 async function cancelPrompt(session: OwnedAcpSession): Promise<void> {
+  if (session.activePrompt) session.activePrompt.cancelled = true;
   for (const [, pending] of session.pendingPermissions) {
     pending.resolve({ outcome: { outcome: "cancelled" } });
   }
@@ -1888,15 +1984,6 @@ async function cancelPrompt(session: OwnedAcpSession): Promise<void> {
       /* ignore */
     }
   }
-
-  if (session.currentAssistantMessageId) {
-    const msg = session.snapshot.messages.find((m) => m.id === session.currentAssistantMessageId);
-    if (msg) msg.streaming = false;
-    session.currentAssistantMessageId = null;
-  }
-  session.snapshot.status = "ready";
-  emitSessionSnapshot(session);
-  publishAttention(session, "idle", 0, false);
 }
 
 async function configureSession(
@@ -1915,6 +2002,7 @@ async function configureSession(
   };
 
   if (typeof patch.profileId === "string" && patch.profileId !== session.snapshot.profileId) {
+    if (session.activePrompt !== null) return structuredClone(session.snapshot);
     const nextProfile = acpSettings.getProfile(patch.profileId);
     const nextRuntime = getOrCreateProfileRuntime(session, nextProfile.id);
     session.snapshot.profileId = nextProfile.id;
@@ -2008,6 +2096,7 @@ async function resetSessionConversation(
   void acpSettings;
   terminateSessionProcess(session);
   session.snapshot.messages = [];
+  session.importedHistoryLength = 0;
   session.snapshot.plan = [];
   session.snapshot.pendingPermission = null;
   session.snapshot.status = "ready";
@@ -2165,6 +2254,10 @@ function terminateSessionProcess(session: OwnedAcpSession): void {
     terminateProfileRuntime(runtime);
   }
   session.runtimes.clear();
+  session.activePrompt = null;
+  session.currentAssistantMessageId = null;
+  session.turnStartedAt = null;
+  session.snapshot.turnStartedAt = null;
   session.snapshot.acpSessionId = null;
 }
 

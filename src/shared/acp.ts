@@ -185,6 +185,7 @@ export interface AcpSessionSnapshot {
   workspaceFiles?: string[];
   turnStartedAt?: number | null;
   lastTurnDurationMs?: number | null;
+  lastTurnCompleted?: boolean;
   usage?: AcpUsageInfo | null;
   pendingPermission: AcpPermissionRequest | null;
   reattached?: boolean;

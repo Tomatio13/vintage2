@@ -8,7 +8,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function setup(patch: string, count = 1) {
+function setup(patch: string, count = 1, onAddToAcp?: (text: string) => void) {
   const getWorkspaceGitReviewView = vi.fn().mockResolvedValue({
     status: "ready",
     currentBranch: "main",
@@ -38,6 +38,7 @@ function setup(patch: string, count = 1) {
       refreshVersion={0}
       onRefresh={() => {}}
       onOpenFile={onOpenFile}
+      onAddToAcp={onAddToAcp}
     />,
   );
   return { ...view, getWorkspaceGitReviewView, getWorkspaceGitReviewDiff, onOpenFile };
@@ -228,4 +229,20 @@ it("restores the complete short diff after collapsing a boundary fold", async ()
   fireEvent.click(screen.getByRole("button", { name: "494 unmodified lines" }));
   expect(screen.getByText("new_0")).toBeInTheDocument();
   expect(screen.queryByRole("navigation", { name: "Diff pages" })).not.toBeInTheDocument();
+});
+
+it("adds selected diff lines and a comment to the ACP draft", async () => {
+  const add = vi.fn();
+  setup("@@ -9 +9,2 @@\n-before\n+after\n+more", 1, add);
+  fireEvent.click(await screen.findByRole("button", { name: /file-0.ts/ }));
+  const lines = await screen.findAllByRole("button", { name: "Select diff line 9" });
+  fireEvent.click(lines[0]!);
+  fireEvent.click(screen.getByRole("button", { name: "Select diff line 10" }), { shiftKey: true });
+  fireEvent.change(screen.getByRole("textbox", { name: "Review comment" }), {
+    target: { value: "Keep the retry" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Add to ACP" }));
+  expect(add).toHaveBeenCalledWith(
+    expect.stringMatching(/file-0\.ts[\s\S]*Keep the retry[\s\S]*-before[\s\S]*\+more/),
+  );
 });

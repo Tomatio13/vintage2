@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -252,6 +252,8 @@ describe("ACP settings and workspace state persistence", () => {
       ...patch,
     }));
 
+    const sendAcpPrompt = vi.fn().mockResolvedValue(undefined);
+    const onAcpEvent = vi.fn<DesktopBridge["onAcpEvent"]>().mockReturnValue(() => {});
     window.desktop = {
       getAcpSettings: vi.fn().mockResolvedValue(DEFAULT_ACP_SETTINGS),
       createAcpSession: vi.fn().mockResolvedValue(initialSnapshot),
@@ -259,7 +261,8 @@ describe("ACP settings and workspace state persistence", () => {
       setAcpActive: vi.fn().mockResolvedValue(undefined),
       closeAcpSession: vi.fn().mockResolvedValue(undefined),
       configureAcpSession,
-      onAcpEvent: vi.fn().mockReturnValue(() => {}),
+      onAcpEvent,
+      sendAcpPrompt,
       onTerminalAttention: vi.fn().mockReturnValue(() => {}),
     } as unknown as DesktopBridge;
 
@@ -291,6 +294,73 @@ describe("ACP settings and workspace state persistence", () => {
         modelId: "claude-opus-4-5",
       });
     });
+    const emit = onAcpEvent.mock.calls[0]?.[0];
+    if (!emit) throw new Error("ACP event subscription missing");
+    act(() =>
+      emit({
+        type: "session.snapshot",
+        sessionId: initialSnapshot.id,
+        snapshot: { ...initialSnapshot, status: "running" },
+      }),
+    );
+    const composer = screen.getByPlaceholderText(/何でも聞いてください/);
+    fireEvent.change(composer, { target: { value: "Existing draft" } });
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent("vintage:acp-draft", {
+          detail: { paneId: initialSnapshot.paneId, text: "Selected diff" },
+        }),
+      );
+    });
+    expect(composer).toHaveValue("Existing draft\n\nSelected diff");
+    fireEvent.click(screen.getByRole("button", { name: "Queue prompt" }));
+    expect(sendAcpPrompt).not.toHaveBeenCalled();
+    act(() =>
+      emit({
+        type: "session.snapshot",
+        sessionId: initialSnapshot.id,
+        snapshot: { ...initialSnapshot, lastTurnCompleted: false },
+      }),
+    );
+    const resume = await screen.findByRole("button", { name: "Resume queue" });
+    expect(sendAcpPrompt).not.toHaveBeenCalled();
+    fireEvent.click(resume);
+    await waitFor(() =>
+      expect(sendAcpPrompt).toHaveBeenCalledWith(
+        initialSnapshot.id,
+        "Existing draft\n\nSelected diff",
+        undefined,
+      ),
+    );
+    act(() =>
+      emit({
+        type: "session.snapshot",
+        sessionId: initialSnapshot.id,
+        snapshot: { ...initialSnapshot, status: "running" },
+      }),
+    );
+    fireEvent.change(composer, { target: { value: "Run after success" } });
+    fireEvent.click(screen.getByRole("button", { name: "Queue prompt" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Edit queued prompt" }), {
+      target: { value: "Updated follow-up" },
+    });
+    act(() =>
+      emit({
+        type: "session.snapshot",
+        sessionId: initialSnapshot.id,
+        snapshot: { ...initialSnapshot, lastTurnCompleted: true },
+      }),
+    );
+    expect(sendAcpPrompt).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(sendAcpPrompt).toHaveBeenLastCalledWith(
+        initialSnapshot.id,
+        "Updated follow-up",
+        undefined,
+      ),
+    );
   });
 
   it("preserves per-message agent identity across provider switches in mixed conversations", async () => {

@@ -41,8 +41,10 @@ export function SidePane({
   onResumeSessionInAcp,
   visible = true,
   onOpenFile,
+  onAddToAcp,
 }: {
   visible?: boolean;
+  onAddToAcp?: ((text: string) => void) | undefined;
   workspacePath?: string | undefined;
   onResumeSession?: ((session: HistorySession) => void) | undefined;
   onResumeSessionInAcp?: ((session: HistorySession) => void) | undefined;
@@ -404,6 +406,7 @@ export function SidePane({
               refreshVersion={reviewRefreshVersion}
               workspaceId={workspaceId}
               onOpenFile={onOpenFile}
+              onAddToAcp={onAddToAcp}
               onRefresh={() => setReviewRefreshVersion((version) => version + 1)}
             />
           </div>
@@ -426,6 +429,7 @@ export function SidePane({
                 workspacePath={workspacePath}
                 onResume={onResumeSession}
                 onResumeInAcp={onResumeSessionInAcp}
+                onAddToAcp={onAddToAcp}
                 onOpenTerminal={onOpenTerminal}
               />
             </div>

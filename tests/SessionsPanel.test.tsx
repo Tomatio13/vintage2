@@ -34,9 +34,12 @@ it("filters projects and agents, pins a session and resumes the selected convers
     })),
   } as unknown as DesktopBridge;
   const resume = vi.fn();
-  render(<SessionsPanel active workspacePath="/project" onResume={resume} />);
+  const add = vi.fn();
+  render(<SessionsPanel active workspacePath="/project" onResume={resume} onAddToAcp={add} />);
   fireEvent.click(await screen.findByRole("button", { name: /Fix tabs/ }));
   await screen.findByText("Completed the layout");
+  fireEvent.click(screen.getByRole("button", { name: "Add to ACP draft" }));
+  expect(add).toHaveBeenCalledWith(expect.stringContaining("Assistant: Completed the layout"));
   fireEvent.click(screen.getByRole("button", { name: "Pin session" }));
   expect(localStorage.getItem("vintage-session-pins")).toContain(a.key);
   fireEvent.click(screen.getByRole("button", { name: "Resume in new Space" }));

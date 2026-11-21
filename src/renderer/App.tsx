@@ -592,6 +592,17 @@ export function App() {
   const homeWorkspaceRequestRef = useRef<Promise<RegisteredWorkspace> | null>(null);
   const userSelectedWorkspaceRef = useRef(false);
   const active = workspaces.find((workspace) => workspace.id === activeId) ?? null;
+  const draftTab = active?.tabs.find((tab) => tab.id === active.activeTabId);
+  const draftPane = draftTab?.panes.find((pane) => pane.id === draftTab.activePaneId);
+  const addToAcpDraft =
+    draftPane?.kind === "acp"
+      ? (text: string) =>
+          window.dispatchEvent(
+            new CustomEvent("vintage:acp-draft", {
+              detail: { paneId: draftPane.id, text },
+            }),
+          )
+      : undefined;
   const attentionItems = collectAttentionItems(workspaces, attentionByPane);
   const { snapshot: monitorSnapshot } = useMonitorSnapshot(true, true);
   const { notices: monitorNotices, closeNotice: closeMonitorNotice } =
@@ -1943,6 +1954,7 @@ export function App() {
                 workspaceName={active?.name ?? null}
                 onOpenFile={openFile}
                 workspacePath={active?.path}
+                onAddToAcp={addToAcpDraft}
                 onResumeSession={(session) => {
                   const workspace = workspaces.find(
                     (item) =>
