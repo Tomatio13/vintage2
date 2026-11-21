@@ -1,7 +1,8 @@
+import type { AcpForkSource } from "../shared/acp.js";
 import type { MonitorAgent } from "../shared/monitor.js";
 import { agentStatesForPanes, agentsForPanes, monitorAgentsByPane } from "./lib/agentIdentity.js";
 import { sessionPathsEqual } from "../shared/sessionHistory.js";
-import { sessionLaunch } from "./lib/sessionLaunch.js";
+import { acpForkRequests, sessionLaunch } from "./lib/sessionLaunch.js";
 import { applyTheme } from "./lib/themes.js";
 import { browserShortcut } from "../shared/browserShortcuts.js";
 import { Check, CircleAlert, FolderOpen, OctagonAlert, Plus, TriangleAlert, X } from "lucide-react";
@@ -380,6 +381,7 @@ function PaneView({
   onRenamePane,
   onAttentionChange,
   onOpenFile,
+  onForkAcp,
 }: {
   workspaceId: string;
   tab: Tab;
@@ -391,6 +393,7 @@ function PaneView({
   onActivatePane(paneId: string): void;
   onRenamePane(paneId: string, title: string): void;
   onAttentionChange(paneId: string, state: TerminalAttentionState | null): void;
+  onForkAcp(source: AcpForkSource): void;
   onOpenFile(path: string, line?: number): void;
 }) {
   const active = pane.id === tab.activePaneId;
@@ -423,6 +426,7 @@ function PaneView({
           profileId={pane.profileId}
           resumeSessionId={pane.resumeSessionId}
           resumeSessionKey={pane.resumeSessionKey}
+          onFork={onForkAcp}
           onAttentionChange={onAttentionChange}
           onRename={(title) => onRenamePane(pane.id, title)}
           onOpenFile={onOpenFile}
@@ -464,6 +468,7 @@ function TabSurface({
   onAttentionChange,
   onResizeSplit,
   onOpenFile,
+  onForkAcp,
 }: {
   workspaceId: string;
   tab: Tab;
@@ -473,6 +478,7 @@ function TabSurface({
   onRenamePane(paneId: string, title: string): void;
   onAttentionChange(paneId: string, state: TerminalAttentionState | null): void;
   onResizeSplit(tabId: string, splitId: string, ratio: number): void;
+  onForkAcp(source: AcpForkSource): void;
   onOpenFile(path: string, line?: number): void;
 }) {
   const positions = positionedLayout(tab.layout);
@@ -506,6 +512,7 @@ function TabSurface({
               onRenamePane={onRenamePane}
               onAttentionChange={onAttentionChange}
               onOpenFile={onOpenFile}
+              onForkAcp={onForkAcp}
             />
           );
         })}
@@ -1918,6 +1925,35 @@ export function App() {
                         onResizeSplit={(tabId, splitId, ratio) =>
                           resizeSplit(tabId, splitId, ratio)
                         }
+                        onForkAcp={(source) => {
+                          if (workspace.tabs.length >= WORKSPACE_LIMITS.spacesPerWorkspace) {
+                            setWorkspaceActionError(
+                              "Close a Space before relaying an ACP conversation.",
+                            );
+                            return;
+                          }
+                          const title = `Relay from ${tab.title}`.slice(0, 80);
+                          const pane: AcpPane = {
+                            id: id(),
+                            kind: "acp",
+                            title: title.slice(0, 40),
+                          };
+                          const next: Tab = {
+                            id: id(),
+                            title,
+                            panes: [pane],
+                            layout: { type: "pane", paneId: pane.id },
+                            activePaneId: pane.id,
+                          };
+                          acpForkRequests.set(pane.id, source);
+                          setWorkspaces((items) =>
+                            items.map((item) =>
+                              item.id === workspace.id
+                                ? { ...item, tabs: [...item.tabs, next], activeTabId: next.id }
+                                : item,
+                            ),
+                          );
+                        }}
                         onOpenFile={openFile}
                       />
                     )),

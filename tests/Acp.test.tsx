@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -459,12 +459,27 @@ describe("ACP settings and workspace state persistence", () => {
       onTerminalAttention: vi.fn().mockReturnValue(() => {}),
     } as unknown as DesktopBridge;
 
+    const fork = vi.fn();
     render(
-      <AcpPanel workspaceId="vintage:home" paneId="pane-acp-mixed" title="ACP 1" active={true} />,
+      <AcpPanel
+        workspaceId="vintage:home"
+        paneId="pane-acp-mixed"
+        title="ACP 1"
+        active
+        onFork={fork}
+      />,
     );
 
     const codexMsg = await screen.findByLabelText("Codex message");
     const claudeMsg = await screen.findByLabelText("Claude Code message");
+    expect(within(codexMsg).queryByRole("button", { name: "Fork in new Space" })).toBeNull();
+    const composer = screen.getByRole("textbox", { name: "Ask ACP agent" });
+    fireEvent.change(composer, { target: { value: "/relay", selectionStart: 6 } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    expect(fork).toHaveBeenCalledWith({
+      sessionId: mixedSnapshot.id,
+      messageId: mixedSnapshot.messages.at(-1)?.id,
+    });
     expect(codexMsg).toHaveTextContent("CD");
     expect(codexMsg).toHaveTextContent("Hello from Codex");
     expect(claudeMsg).toHaveTextContent("CC");

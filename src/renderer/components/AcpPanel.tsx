@@ -1,3 +1,5 @@
+import { acpForkRequests } from "../lib/sessionLaunch.js";
+import type { AcpForkSource } from "../../shared/acp.js";
 import {
   ArrowDown,
   ArrowUp,
@@ -117,7 +119,7 @@ interface ComposerMenuItem {
   badge?: string;
   kind: "client-command" | "agent-command" | "skill";
   insertText?: string;
-  action?: "model" | "clear" | "settings";
+  action?: "model" | "clear" | "settings" | "relay";
 }
 
 const BUILTIN_SLASH_COMMANDS: readonly ComposerMenuItem[] = [
@@ -134,6 +136,13 @@ const BUILTIN_SLASH_COMMANDS: readonly ComposerMenuItem[] = [
     description: "新しいセッションを開始します",
     kind: "client-command",
     action: "clear",
+  },
+  {
+    id: "builtin:relay",
+    label: "/relay",
+    description: "会話を別Spaceに引き継ぐ",
+    kind: "client-command",
+    action: "relay",
   },
   {
     id: "builtin:settings",
@@ -1414,7 +1423,9 @@ export function AcpPanel({
   onRename,
   onAttentionChange,
   onOpenFile,
+  onFork,
 }: {
+  onFork?: ((source: AcpForkSource) => void) | undefined;
   workspaceId: string;
   paneId: string;
   title: string;
@@ -1593,11 +1604,13 @@ export function AcpPanel({
       }
     });
 
+    const forkFrom = acpForkRequests.get(paneId);
     void bridge
       .createAcpSession({
         workspaceId,
         paneId,
         ...(profileId ? { profileId } : {}),
+        ...(forkFrom ? { forkFrom } : {}),
         ...(resumeSessionId ? { resumeSessionId } : {}),
         ...(resumeSessionKey ? { resumeSessionKey } : {}),
         tabTitle,
@@ -1608,12 +1621,17 @@ export function AcpPanel({
           await bridge.closeAcpSession(initialSnapshot.id);
           return;
         }
+        acpForkRequests.delete(paneId);
         sessionIdRef.current = initialSnapshot.id;
         setSnapshot(initialSnapshot);
         await bridge.setAcpActive(initialSnapshot.id, active);
         await bridge.readyAcpSession(initialSnapshot.id);
       })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        if (disposed) return;
+        acpForkRequests.delete(paneId);
+        setSendError(error instanceof Error ? error.message : String(error));
+      });
 
     return () => {
       disposed = true;
@@ -1729,6 +1747,21 @@ export function AcpPanel({
     setMenuSelectedIndex(0);
   }, [composerTrigger?.mode, composerTrigger?.query]);
 
+  const relayConversation = useCallback(() => {
+    if (!onFork) return;
+    const last = snapshot?.messages.at(-1);
+    if (!snapshot || !last) {
+      setSendError("There is no ACP conversation to relay yet.");
+      return;
+    }
+    if (isRunning || sending.current || last.streaming) {
+      setSendError("Wait for the current ACP turn to finish before using /relay.");
+      return;
+    }
+    setSendError(null);
+    onFork({ sessionId: snapshot.id, messageId: last.id });
+  }, [isRunning, onFork, snapshot]);
+
   const applyComposerMenuItem = useCallback(
     (item: ComposerMenuItem) => {
       if (!composerTrigger) return;
@@ -1744,6 +1777,8 @@ export function AcpPanel({
             setQueueHeld(true);
             void window.desktop?.resetAcpSession(sid).then(setSnapshot);
           }
+        } else if (item.action === "relay") {
+          relayConversation();
         } else if (item.action === "settings") {
           setSettingsOpen(true);
         }
@@ -1764,7 +1799,7 @@ export function AcpPanel({
         }
       });
     },
-    [composerTrigger, draft, setSettingsOpen],
+    [composerTrigger, draft, relayConversation, setSettingsOpen],
   );
 
   const sendPrompt = useCallback(async (text: string, images: AcpPromptImage[]) => {
@@ -1823,6 +1858,12 @@ export function AcpPanel({
       setDraft("");
       setQueueHeld(true);
       void window.desktop?.resetAcpSession(sid).then(setSnapshot);
+      return;
+    }
+    if (text === "/relay" && attachedImages.length === 0) {
+      setDraft("");
+      setCaretPos(0);
+      relayConversation();
       return;
     }
     if (text === "/settings" && attachedImages.length === 0) {

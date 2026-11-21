@@ -49,16 +49,26 @@ Open a native **ACP** chat pane beside your terminals from **New ACP** (directly
   - **Z.ai (`ZA`)** runs via OpenCode `zai-coding-plan/*` (or `zai/*`) models.
   - Add custom ACP executables and verify connections via **Settings → ACP Agents → Test ACP Handshake**.
 - **Mixed-provider conversations & cached runtimes**: Switch providers, models, and reasoning levels anytime from the 3-column selector in the composer. Each assistant message preserves the provider badge and model name that generated it, and active provider processes stay warm per pane so switching back does not re-run the ACP handshake.
-  When you send a message after switching providers, VINTAGE automatically supplies earlier messages from the same pane. Returning to a connected provider sends the messages it has missed. The history budget is 16 KiB of serialized messages and prioritizes the first request and recent messages when starting a provider session. The handoff includes chat text, roles, and the status and available exit codes of finished commands. A dialog identifies the destination and lets you approve the command text and an output excerpt for each result. Internal reasoning, tool state, and past attachments stay in the source pane.
+  When you send a message after switching providers, VINTAGE automatically supplies earlier messages from the same pane. Returning to a connected provider sends the messages it has missed. The history budget is 16 KiB of serialized messages and prioritizes the first request and recent messages when starting a provider session. The handoff includes chat text, roles, and the status and available exit codes of finished commands. The handoff runs without confirmation. Command text and output can be reviewed in the conversation. Internal reasoning, tool state, and past attachments stay in the source pane.
+- **Relay to a new Space**: Enter `/relay` in the ACP composer after a turn finishes to open a new Space in the same workspace with the current conversation. Both panes can continue independently. The first prompt in the fork uses the same bounded history as a provider switch. The copied transcript is held with the ACP pane during the current app run.
 - **Queued prompts**: Send while a turn runs to queue the next prompt. Entries run in order after successful turns and can be edited or removed. After a stop or failure, use **Resume queue**. The queue is kept while the pane is open.
 - **Composer productivity**:
-  - Type **`$`** for local/project Agent Skills (`SKILL.md`), **`/`** for built-in (`/model`, `/clear`, `/settings`) and agent slash commands, and **`@`** for workspace file mentions.
+  - Type **`$`** for local/project Agent Skills (`SKILL.md`), **`/`** for built-in (`/model`, `/clear`, `/relay`, `/settings`) and agent slash commands, and **`@`** for workspace file mentions.
   - Paste (`Ctrl+V`) or drop images to send them as ACP `image` blocks alongside text.
   - Switch agent modes (`Build` / `Plan` / `Auto`, etc.) from the mode pill or `Shift+Tab`.
 - **Compact activity & rich output**:
   - Tool calls collapse into a compact WorkLog summary line (expanding on click or failure), and agent Plans appear in a collapsible Plan card above the composer.
   - The header shows live turn elapsed time and context usage (`used / size`) when reported by the agent.
   - Local/agent-generated Markdown images and ACP image blocks render inline with a click-to-zoom lightbox; fenced `html` and `svg` blocks render with a **Preview / Code** toggle inside a sandboxed `<iframe>`.
+
+### Command permissions in Codex and Claude Code
+
+Set **Settings → ACP Agents → Permission policy** to **Ask** to review approval requests from agents in VINTAGE. Each agent's runtime mode and sandbox govern command execution.
+
+- **Codex**. If a Skill command starts and reports `Temporary failure in name resolution`, check the turn's effective network permissions. To share settings between the Codex CLI and ACP, select a custom profile with `default_permissions` in `~/.codex/config.toml`. Use `extends = ":workspace"` to inherit workspace file permissions and set `enabled = true` in `[permissions.<name>.network]` to grant command network access. To restrict destinations with `domains`, also set `network_proxy = true` in `[features]`. With a named profile selected, changing the legacy `[sandbox_workspace_write]` setting alone may have no effect. Open a fresh ACP pane and check that the configured profile appears as its mode. [Codex network policy](https://github.com/openai/codex/blob/main/codex-rs/core/src/config/mcp_network_policy_tests.rs)
+- **Claude Code**. New ACP sessions use `permissions.defaultMode` from Claude Code settings when configured. A gateway such as Z.ai may fail to return the safety verdict required by **Auto** mode, which can block Bash before it starts. With the ACP composer focused, press `Shift+Tab` to select **Manual** (`default`) and review any approval request. Set `permissions.defaultMode` to `"default"` in the shared Claude settings to start new CLI and ACP sessions in Manual. Resumed sessions may retain their saved mode. [Claude Code server-side review](https://code.claude.com/docs/en/permission-modes#server-side-classifier-review)
+
+The [1Password ACP wrapper](../scripts/acp-with-1password.sh) supplies environment variables when launching the standard adapters. Configure permissions and execution modes in the respective agent settings.
 
 ## Agent status at a glance
 

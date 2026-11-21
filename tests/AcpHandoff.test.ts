@@ -15,8 +15,8 @@ function message(role: AcpConversationMessage["role"], text: string): AcpConvers
   };
 }
 
-describe("ACP conversation handoff", async () => {
-  it("preserves prior roles and text while excluding diagnostics, attachments and the new request", async () => {
+describe("ACP conversation handoff", () => {
+  it("preserves prior roles and text while excluding diagnostics, attachments and the new request", () => {
     const design = message("assistant", "設計案\nsecond line");
     design.images = [
       { id: "image", name: "image", mimeType: "image/png", dataBase64: "past-image" },
@@ -28,7 +28,7 @@ describe("ACP conversation handoff", async () => {
       diagnostic,
       message("user", "Implement the design"),
     ];
-    const handoff = await buildAcpHandoff(messages, 0, 3, new WeakSet([diagnostic]));
+    const handoff = buildAcpHandoff(messages, 0, 3, new WeakSet([diagnostic]));
     expect(handoff).toContain(
       JSON.stringify({ message: 1, role: "user", text: "Plan the change" }),
     );
@@ -36,28 +36,28 @@ describe("ACP conversation handoff", async () => {
     expect(handoff).not.toMatch(/private|past-image|Implement the design/);
   });
 
-  it("sends only the missed range on return and skips an empty range", async () => {
+  it("sends only the missed range on return and skips an empty range", () => {
     const messages = [message("user", "first request"), message("assistant", "later design")];
     const diagnostics = new WeakSet<AcpConversationMessage>();
-    expect(await buildAcpHandoff(messages, 1, 2, diagnostics)).toContain("later design");
-    expect(await buildAcpHandoff(messages, 1, 2, diagnostics)).not.toContain("first request");
-    expect(await buildAcpHandoff(messages, 2, 2, diagnostics)).toBeUndefined();
+    expect(buildAcpHandoff(messages, 1, 2, diagnostics)).toContain("later design");
+    expect(buildAcpHandoff(messages, 1, 2, diagnostics)).not.toContain("first request");
+    expect(buildAcpHandoff(messages, 2, 2, diagnostics)).toBeUndefined();
   });
 
-  it("limits multilingual history while retaining complete recent messages and the original request", async () => {
+  it("limits multilingual history while retaining complete recent messages and the original request", () => {
     const messages = [
       message("user", "original"),
       message("assistant", "古".repeat(4000)),
       message("assistant", "新".repeat(4000)),
     ];
-    const handoff = await buildAcpHandoff(messages, 0, 3, new WeakSet())!;
+    const handoff = buildAcpHandoff(messages, 0, 3, new WeakSet())!;
     expect(handoff).toContain("original");
     expect(handoff).toContain("新".repeat(4000));
     expect(handoff).not.toContain("古");
     expect(handoff).toContain("1 history item(s) omitted");
     expect(Buffer.byteLength(handoff ?? "")).toBeLessThan(17 * 1024);
   });
-  it("automatically transfers a known exit code without exposing command details", async () => {
+  it("automatically transfers a known exit code without exposing command details", () => {
     const result = message("assistant", "");
     result.toolCalls.push({
       toolCallId: "run",
@@ -67,7 +67,7 @@ describe("ACP conversation handoff", async () => {
       locations: [],
       content: [{ type: "terminal", terminalId: "term", exitCode: 7, output: "private output" }],
     });
-    const handoff = await buildAcpHandoff([result], 0, 1, new WeakSet());
+    const handoff = buildAcpHandoff([result], 0, 1, new WeakSet());
     expect(handoff).toContain('"exitCodes":[7]');
     expect(handoff).not.toContain("private");
   });

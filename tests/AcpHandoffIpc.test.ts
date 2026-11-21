@@ -76,10 +76,8 @@ it("passes history over ACP on provider switches and clears it with the conversa
     return listener({ sender } as unknown as Parameters<typeof listener>[0], ...args);
   };
 
-  vi.mocked(dialog.showMessageBox)
-    .mockResolvedValueOnce({ response: 0, checkboxChecked: false })
-    .mockResolvedValueOnce({ response: 1, checkboxChecked: false });
   let id: string | undefined;
+  let forkId: string | undefined;
   try {
     ({ id } = await invoke(DesktopChannels.acpCreate, {
       workspaceId: "workspace",
@@ -92,8 +90,29 @@ it("passes history over ACP on provider switches and clears it with the conversa
     await invoke(DesktopChannels.acpConfigure, id, { profileId: "planner" });
     await invoke(DesktopChannels.acpPrompt, id, "Review it");
     await invoke(DesktopChannels.acpPrompt, id, "One more thing");
+    const source = await invoke(DesktopChannels.acpConfigure, id, {});
+    const forkFrom = { sessionId: id, messageId: source.messages[1].id };
+    await expect(
+      invoke(DesktopChannels.acpCreate, {
+        workspaceId: "other",
+        paneId: "foreign-fork",
+        forkFrom,
+      }),
+    ).rejects.toThrow("unavailable in this workspace");
+    const fork = await invoke(DesktopChannels.acpCreate, {
+      workspaceId: "workspace",
+      paneId: "fork",
+      forkFrom,
+    });
+    forkId = fork.id;
+    expect(fork.id).not.toBe(id);
+    expect(fork.acpSessionId).toBeNull();
+    expect(fork.messages).toEqual(source.messages.slice(0, 2));
+    expect(source.messages).toHaveLength(8);
     await invoke(DesktopChannels.acpReset, id);
     await invoke(DesktopChannels.acpPrompt, id, "New topic");
+    await invoke(DesktopChannels.acpConfigure, forkId, { profileId: "builder" });
+    await invoke(DesktopChannels.acpPrompt, forkId, "Explore an alternative");
 
     const turns = readFileSync(log, "utf8")
       .trim()
@@ -105,26 +124,24 @@ it("passes history over ACP on provider switches and clears it with the conversa
       "planner",
       "planner",
       "planner",
+      "builder",
     ]);
     expect(turns[1].prompt[0].text).toContain("planner answer to Design a feature");
     expect(turns[1].prompt[0].text).toContain('"status":"failed"');
     expect(turns[1].prompt[0].text).not.toMatch(/planner test command|planner private output/);
-    expect(turns[2].prompt[0].text).toContain("builder private output");
-    expect(dialog.showMessageBox).toHaveBeenCalledTimes(2);
-    expect(dialog.showMessageBox).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        message: expect.stringContaining("builder"),
-        detail: expect.stringContaining("planner private output"),
-        defaultId: 0,
-      }),
-    );
+    expect(turns[2].prompt[0].text).toContain('"status":"failed"');
+    expect(turns[2].prompt[0].text).not.toMatch(/builder test command|builder private output/);
+    expect(dialog.showMessageBox).not.toHaveBeenCalled();
     expect(turns[1].prompt[1]).toEqual({ type: "text", text: "Implement it" });
     expect(turns[2].prompt[0].text).toContain("builder answer to Implement it");
     expect(turns[2].prompt[0].text).not.toContain("Design a feature");
     expect(turns[3].prompt).toEqual([{ type: "text", text: "One more thing" }]);
     expect(turns[4].prompt).toEqual([{ type: "text", text: "New topic" }]);
+    expect(turns[5].prompt[0].text).toContain("planner answer to Design a feature");
+    expect(turns[5].prompt[0].text).not.toMatch(/Implement it|New topic|planner private output/);
+    expect(turns[5].prompt[1]).toEqual({ type: "text", text: "Explore an alternative" });
   } finally {
+    if (forkId) await invoke(DesktopChannels.acpClose, forkId);
     if (id) await invoke(DesktopChannels.acpClose, id);
     rmSync(directory, { recursive: true, force: true });
   }

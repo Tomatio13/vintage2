@@ -41,7 +41,13 @@ export interface AcpProbeResult {
   message: string;
 }
 
+export interface AcpForkSource {
+  sessionId: string;
+  messageId: string;
+}
+
 export interface AcpCreateOptions {
+  forkFrom?: AcpForkSource;
   workspaceId: string;
   paneId: string;
   profileId?: string;

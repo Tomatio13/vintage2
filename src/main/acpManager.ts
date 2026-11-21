@@ -235,14 +235,14 @@ export function registerAcpIpc(
   ipcMain.handle(
     DesktopChannels.acpPrompt,
     async (event, rawId: unknown, rawText: unknown, rawImages?: unknown) => {
-      const window = assertTrustedSender(event);
+      assertTrustedSender(event);
       const session = requireOwnedSession(event, rawId);
       const text = typeof rawText === "string" ? rawText.trim() : "";
       const images = parsePromptImages(rawImages);
       if ((!text && images.length === 0) || text.length > 512 * 1024) {
         throw new TypeError("Prompt must include text (<= 512 KiB) or at least one image");
       }
-      await submitPrompt(session, text, images, acpSettings, window);
+      await submitPrompt(session, text, images, acpSettings);
     },
   );
 
@@ -479,15 +479,36 @@ async function createOrReattachAcpSession(
     return structuredClone(detached.snapshot);
   }
 
-  const profile = acpSettings.getProfile(options.profileId);
+  const forkSource = options.forkFrom ? sessions.get(options.forkFrom.sessionId) : undefined;
+  let forkMessages: AcpConversationMessage[] = [];
+  if (options.forkFrom) {
+    if (
+      !forkSource ||
+      forkSource.ownerId !== sender.id ||
+      forkSource.workspaceId !== options.workspaceId ||
+      forkSource.cwd !== cwd ||
+      forkSource.paneId === options.paneId
+    ) {
+      throw new Error("The source ACP conversation is unavailable in this workspace.");
+    }
+    const index = forkSource.snapshot.messages.findIndex(
+      (message) => message.id === options.forkFrom?.messageId,
+    );
+    if (index < 0 || forkSource.snapshot.messages[index]?.streaming) {
+      throw new Error("Choose a completed ACP message to fork.");
+    }
+    forkMessages = forkSource.snapshot.messages.slice(0, index + 1);
+  }
+  const forkSnapshot = forkSource?.snapshot;
+  const profile = acpSettings.getProfile(forkSnapshot?.profileId ?? options.profileId);
   const profileKey = createHash("sha256")
     .update(JSON.stringify(["acp", cwd, options.tabTitle ?? "", options.paneTitle ?? ""]))
     .digest("hex");
   const monitorMode =
     attentionSettings.getTerminalMode(profileKey) ?? DEFAULT_TERMINAL_MONITOR_MODE;
   const sessionId = randomUUID();
-  const modelId = options.modelId ?? profile.defaultModel;
-  const reasoningId = options.reasoningId ?? profile.defaultReasoning;
+  const modelId = forkSnapshot?.modelId ?? options.modelId ?? profile.defaultModel;
+  const reasoningId = forkSnapshot?.reasoningId ?? options.reasoningId ?? profile.defaultReasoning;
   const permissionPolicy = options.permissionPolicy ?? profile.permissionPolicy;
 
   const snapshot: AcpSessionSnapshot = {
@@ -509,7 +530,7 @@ async function createOrReattachAcpSession(
     availableReasoning: profile.reasoningLevels.map((item) => ({ ...item })),
     status: "ready",
     monitorMode,
-    messages: [],
+    messages: structuredClone(forkMessages),
     plan: [],
     availableCommands: [],
     availableSkills: [],
@@ -554,6 +575,15 @@ async function createOrReattachAcpSession(
     },
   };
 
+  if (forkSource) {
+    const runtime = getOrCreateProfileRuntime(session, profile.id);
+    runtime.desiredModelId = modelId || null;
+    runtime.desiredReasoningId = reasoningId || null;
+    for (const [index, message] of snapshot.messages.entries()) {
+      const source = forkMessages[index];
+      if (source && forkSource.diagnostics.has(source)) session.diagnostics.add(message);
+    }
+  }
   sessions.set(session.id, session);
   if (options.resumeSessionId) {
     const initialRuntime = getOrCreateProfileRuntime(session, profile.id);
@@ -603,7 +633,7 @@ async function createOrReattachAcpSession(
     session.snapshot.workspaceFiles = files;
     emitSessionSnapshot(session);
   });
-  void warmupAgentSession(session, acpSettings);
+  if (!forkSource) void warmupAgentSession(session, acpSettings);
   return structuredClone(session.snapshot);
 }
 
@@ -1827,7 +1857,6 @@ async function submitPrompt(
   text: string,
   images: AcpPromptImage[],
   acpSettings: AcpSettingsManager,
-  window: BrowserWindow,
 ): Promise<void> {
   if (session.activePrompt !== null) throw new Error("An ACP prompt is already running");
   const runtime = getOrCreateProfileRuntime(session, session.snapshot.profileId);
@@ -1881,28 +1910,12 @@ async function submitPrompt(
     for (const terminal of session.subTerminals.values()) {
       if (terminal.exited) captureTerminalResult(session.snapshot.messages, terminal);
     }
-    const handoff = await buildAcpHandoff(
+    const handoff = buildAcpHandoff(
       session.snapshot.messages,
       runtime.historyCovered,
       historyEnd,
       session.diagnostics,
-      async (details) => {
-        if (prompt.cancelled || session.activePrompt !== prompt) return "skip-rest";
-        const { response } = await dialog.showMessageBox(window, {
-          type: "question",
-          title: "ACP command result handoff",
-          message: `Share these command details with ${session.snapshot.profileName} (${runtime.profileId})?`,
-          detail: details,
-          buttons: ["Skip", "Include", "Skip remaining"],
-          defaultId: 0,
-          cancelId: 2,
-          noLink: true,
-        });
-        if (response === 1) return "include";
-        return response === 0 ? "skip" : "skip-rest";
-      },
     );
-    if (session.activePrompt !== prompt) return;
     const promptBlocks: acp.ContentBlock[] = [
       ...(handoff ? [{ type: "text" as const, text: `${handoff}\n\nCurrent request:\n` }] : []),
       ...images.map((img) => ({
@@ -2279,6 +2292,7 @@ function parseCreateOptions(raw: unknown): AcpCreateOptions {
     paneTitle,
     resumeSessionId,
     resumeSessionKey,
+    forkFrom,
   } = raw as Partial<AcpCreateOptions>;
   if (typeof workspaceId !== "string" || !workspaceId) {
     throw new TypeError("A registered workspace is required");
@@ -2286,9 +2300,27 @@ function parseCreateOptions(raw: unknown): AcpCreateOptions {
   if (typeof paneId !== "string" || !paneId || paneId.length > 200) {
     throw new TypeError("An ACP pane id no longer than 200 characters is required");
   }
+  if (
+    forkFrom !== undefined &&
+    (!forkFrom ||
+      typeof forkFrom !== "object" ||
+      typeof forkFrom.sessionId !== "string" ||
+      !forkFrom.sessionId ||
+      forkFrom.sessionId.length > 200 ||
+      typeof forkFrom.messageId !== "string" ||
+      !forkFrom.messageId ||
+      forkFrom.messageId.length > 200 ||
+      resumeSessionId !== undefined ||
+      resumeSessionKey !== undefined)
+  ) {
+    throw new TypeError("A fork requires a source ACP session and message.");
+  }
   return {
     workspaceId,
     paneId,
+    ...(forkFrom
+      ? { forkFrom: { sessionId: forkFrom.sessionId, messageId: forkFrom.messageId } }
+      : {}),
     ...(typeof profileId === "string" && profileId ? { profileId } : {}),
     ...(typeof modelId === "string" && modelId ? { modelId } : {}),
     ...(typeof reasoningId === "string" && reasoningId ? { reasoningId } : {}),

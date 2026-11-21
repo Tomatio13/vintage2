@@ -1,3 +1,5 @@
+import type { AcpForkSource } from "../../shared/acp.js";
+
 const requests = new Map<string, string>();
 export const sessionLaunch = {
   set(paneId: string, key: string) {
@@ -10,3 +12,5 @@ export const sessionLaunch = {
     requests.delete(paneId);
   },
 };
+
+export const acpForkRequests = new Map<string, AcpForkSource>();
