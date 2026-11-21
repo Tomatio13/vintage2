@@ -1,5 +1,20 @@
 # VINTAGE Changelog
 
+## [0.2.51] - 2026-11-22
+
+### Added
+
+- Carry conversation history and completed command statuses when switching ACP providers. Use `/relay` to continue the same conversation independently in a new Space.
+- Queue ACP prompts while a turn runs. Edit or remove queued prompts, and resume the queue manually after a stop or failure.
+- Add selected Review diff lines and comments, or excerpts from saved Sessions, to an ACP draft.
+- Add an optional 1Password launcher for ACP agents and document Codex and Claude Code permission settings.
+
+### Documentation
+
+- Show provider handoff and `/relay` in both READMEs with a desktop capture of a sample workspace.
+
+**Full Changelog:** [v0.2.50...v0.2.51](https://github.com/Tomatio13/vintage2/compare/v0.2.50...v0.2.51)
+
 ## [0.2.50] - 2026-11-21
 
 ### Added

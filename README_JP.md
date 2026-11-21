@@ -90,6 +90,14 @@ CPU・メモリに加えて、マシン上のAIセッションをリアルタイ
 | 04  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/theme-dark.svg"><img src="assets/brand/icons/theme.svg" height="20" alt=""></picture> **テーマ**               | Vintage · Graphite · Ocean · Grove · Iris · Ember。ライト・ダークの配色を個別に選択でき、JSONでの入出力にも対応します。                                                                                                                                     |
 | 05  | **ACP Agents**                                                                                                                                                                                  | ターミナルの隣に並べられるネイティブ ACP チャットペイン。Codex・Claude Code 公式アダプターを同梱し、Antigravity / Gemini・OpenCode Go・Z.ai にも対応。`$` スキル、`/` コマンド、`@` ファイル補完、画像貼付・表示、HTML/SVG インラインプレビューが使えます。 |
 
+### Agentを切り替えて会話を続ける
+
+**New ACP** でチャットを開き、入力欄の右下でプロバイダーを切り替えます。次の依頼に過去の発言が引き継がれるので、同じペインでCodexの設計案をClaude Codeにレビューしてもらえます。`/relay` なら、新しいSpaceで元の会話と並行して続きを進められます。Reviewで選んだ差分やSessionsの会話の抜粋も、下書きに追加できます。
+
+![サンプルのWorkspaceでCodexとClaude Codeの会話を新しいSpaceに引き継いだVINTAGEのACP画面](assets/readme/vintage-acp-relay.png)
+
+_サンプルのWorkspaceと撮影用のACP応答を使ったVINTAGEの実画面です。_ [ACPの設定と引き継ぎの詳細](docs/FEATURES_JP.md#acp-agentsagent-client-protocol)
+
 <details>
 <summary><b>サイドバーとステータス表示の詳細</b></summary>
 

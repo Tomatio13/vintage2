@@ -90,6 +90,14 @@ Drop tasks in. Agents update cards, add subtasks, and close tickets alongside yo
 | 04  | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/brand/icons/theme-dark.svg"><img src="assets/brand/icons/theme.svg" height="20" alt=""></picture> **Themes**              | Vintage · Graphite · Ocean · Grove · Iris · Ember — independent light/dark palettes, full JSON import/export.                                                                                                                                                          |
 | 05  | **ACP Agents**                                                                                                                                                                                 | Native Agent Client Protocol chat panes right beside your terminals — bundled Codex & Claude Code adapters, Antigravity / Gemini, OpenCode Go, and Z.ai, with `$` skills, `/` slash commands, `@` file mentions, image paste/preview, and sandboxed HTML/SVG previews. |
 
+### Continue a conversation with another agent
+
+Open **New ACP** and switch providers from the model picker. Your next message carries relevant earlier turns, so Claude Code can review a plan drafted by Codex in the same pane. Run `/relay` to continue the conversation independently in a new Space. You can also add selected Review lines or a saved Sessions excerpt to your draft.
+
+![VINTAGE ACP chat in a sample workspace with Codex and Claude Code messages inherited in a new Space](assets/readme/vintage-acp-relay.png)
+
+_VINTAGE desktop captured with a sample workspace and scripted ACP responses._ [ACP setup and handoff details](docs/FEATURES.md#acp-agents-agent-client-protocol)
+
 <details>
 <summary><b>Sidebar and status display details</b></summary>
 
