@@ -1,5 +1,6 @@
 import type { MonitorAgent } from "../../shared/monitor.js";
 import {
+  Bot,
   Check,
   CircleAlert,
   Folder,
@@ -130,7 +131,9 @@ export function Sidebar({
   activeWorkspaceId,
   onOpenWorkspace,
   onNewSpace,
+  onNewAcp = () => {},
   canCreateSpace = true,
+  canCreateAcp = canCreateSpace,
   onLocateWorkspace = () => {},
   onRemoveWorkspace = () => {},
   onSelectWorkspace,
@@ -148,7 +151,9 @@ export function Sidebar({
   activeWorkspaceId: string | null;
   onOpenWorkspace(): void;
   onNewSpace(): void;
+  onNewAcp?(): void;
   canCreateSpace?: boolean;
+  canCreateAcp?: boolean;
   onLocateWorkspace?(workspaceId: string): void;
   onRemoveWorkspace?(workspaceId: string): void;
   onSelectWorkspace(workspaceId: string): void;
@@ -423,6 +428,15 @@ export function Sidebar({
         >
           <Plus aria-hidden="true" className="size-4 text-foreground" />
           New space
+        </Button>
+        <Button
+          className="w-full justify-start"
+          variant="ghost"
+          disabled={!canCreateAcp}
+          onClick={onNewAcp}
+        >
+          <Bot aria-hidden="true" className="size-4 text-foreground" />
+          New ACP
         </Button>
         <Button className="w-full justify-start" variant="ghost" onClick={onOpenWorkspace}>
           <FolderOpen aria-hidden="true" className="size-4 text-foreground" />

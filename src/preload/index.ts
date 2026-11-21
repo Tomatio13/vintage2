@@ -1,3 +1,4 @@
+import type { AcpEvent } from "../shared/acp.js";
 import type { BrowserCommand } from "../shared/browserShortcuts.js";
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 
@@ -206,6 +207,33 @@ const bridge: DesktopBridge = {
       listener(state);
     ipcRenderer.on(DesktopChannels.terminalAttention, wrapped);
     return () => ipcRenderer.removeListener(DesktopChannels.terminalAttention, wrapped);
+  },
+  getAcpSettings: () => ipcRenderer.invoke(DesktopChannels.acpSettingsGet),
+  setAcpSettings: (settings) => ipcRenderer.invoke(DesktopChannels.acpSettingsSet, settings),
+  probeAcpProfile: (profileId, executable, args) =>
+    ipcRenderer.invoke(DesktopChannels.acpProbe, profileId, executable, args),
+  chooseAcpExecutable: () => ipcRenderer.invoke(DesktopChannels.acpPathChoose),
+  createAcpSession: (options) => ipcRenderer.invoke(DesktopChannels.acpCreate, options),
+  readyAcpSession: (sessionId) => ipcRenderer.invoke(DesktopChannels.acpReady, sessionId),
+  sendAcpPrompt: (sessionId, text, images) =>
+    ipcRenderer.invoke(DesktopChannels.acpPrompt, sessionId, text, images),
+  cancelAcpPrompt: (sessionId) => ipcRenderer.invoke(DesktopChannels.acpCancel, sessionId),
+  respondAcpPermission: (sessionId, requestId, optionId) =>
+    ipcRenderer.invoke(DesktopChannels.acpPermission, sessionId, requestId, optionId),
+  configureAcpSession: (sessionId, patch) =>
+    ipcRenderer.invoke(DesktopChannels.acpConfigure, sessionId, patch),
+  resetAcpSession: (sessionId) => ipcRenderer.invoke(DesktopChannels.acpReset, sessionId),
+  setAcpActive: (sessionId, active) =>
+    ipcRenderer.invoke(DesktopChannels.acpSetActive, sessionId, active),
+  setAcpMonitorMode: (sessionId, mode) =>
+    ipcRenderer.invoke(DesktopChannels.acpSetMonitorMode, sessionId, mode),
+  closeAcpSession: (sessionId) => ipcRenderer.invoke(DesktopChannels.acpClose, sessionId),
+  readAcpImage: (workspaceId, rawPath) =>
+    ipcRenderer.invoke(DesktopChannels.acpReadImage, workspaceId, rawPath),
+  onAcpEvent(listener) {
+    const wrapped = (_event: Electron.IpcRendererEvent, payload: AcpEvent) => listener(payload);
+    ipcRenderer.on(DesktopChannels.acpEvent, wrapped);
+    return () => ipcRenderer.removeListener(DesktopChannels.acpEvent, wrapped);
   },
 };
 

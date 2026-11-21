@@ -38,12 +38,14 @@ export function SidePane({
   onOpenTerminal,
   workspacePath,
   onResumeSession,
+  onResumeSessionInAcp,
   visible = true,
   onOpenFile,
 }: {
   visible?: boolean;
   workspacePath?: string | undefined;
   onResumeSession?: ((session: HistorySession) => void) | undefined;
+  onResumeSessionInAcp?: ((session: HistorySession) => void) | undefined;
   workspaceId: string | null;
   workspaceName?: string | null;
   onOpenTerminal?: ((paneId: string) => void) | undefined;
@@ -423,6 +425,7 @@ export function SidePane({
                 active={visible && activeTabId === "sessions"}
                 workspacePath={workspacePath}
                 onResume={onResumeSession}
+                onResumeInAcp={onResumeSessionInAcp}
                 onOpenTerminal={onOpenTerminal}
               />
             </div>

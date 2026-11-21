@@ -38,6 +38,26 @@ _The Checks terminal after selecting Open terminal in the Attention notification
 - Terminal output draws on the GPU (WebGL) when available and falls back to the DOM renderer otherwise. URLs in terminal output open in the system browser (`http`, `https`, and `mailto` only), and sixel/iTerm2 inline images render in place.
 - Terminal sessions survive a window reload or renderer crash: the pane reconnects to the still-running session with its recent output restored, and the terminal header notes `reconnected`. Sessions are not restored after the app itself closes. Workspace and pane layout information is saved separately.
 
+## ACP Agents (Agent Client Protocol)
+
+Open a native **ACP** chat pane beside your terminals from **New ACP** (directly below **New space** in the sidebar), the command palette, or **Sessions → ACP** to resume a past conversation in an ACP pane.
+
+- **Built-in providers and bundled adapters**:
+  - **Codex (`CD`)** and **Claude Code (`CC`)** bundle the official `@agentclientprotocol/codex-acp` and `@agentclientprotocol/claude-agent-acp` adapters so they work out of the box without separate global installs. Claude Code automatically reflects custom provider/model settings from `~/.claude/settings.json` as well as live adapter `configOptions`.
+  - **Antigravity / Gemini (`AG`)** auto-detects `agy` / `gemini` (`acp`).
+  - **OpenCode (`OC`)** runs via `opencode2` / `opencode` (`acp`) and filters its model catalog to **OpenCode Go** (`https://opencode.ai/zen/go/v1/models` with local cache fallback).
+  - **Z.ai (`ZA`)** runs via OpenCode `zai-coding-plan/*` (or `zai/*`) models.
+  - Add custom ACP executables and verify connections via **Settings → ACP Agents → Test ACP Handshake**.
+- **Mixed-provider conversations & cached runtimes**: Switch providers, models, and reasoning levels anytime from the 3-column selector in the composer. Each assistant message preserves the provider badge and model name that generated it, and active provider processes stay warm per pane so switching back does not re-run the ACP handshake.
+- **Composer productivity**:
+  - Type **`$`** for local/project Agent Skills (`SKILL.md`), **`/`** for built-in (`/model`, `/clear`, `/settings`) and agent slash commands, and **`@`** for workspace file mentions.
+  - Paste (`Ctrl+V`) or drop images to send them as ACP `image` blocks alongside text.
+  - Switch agent modes (`Build` / `Plan` / `Auto`, etc.) from the mode pill or `Shift+Tab`.
+- **Compact activity & rich output**:
+  - Tool calls collapse into a compact WorkLog summary line (expanding on click or failure), and agent Plans appear in a collapsible Plan card above the composer.
+  - The header shows live turn elapsed time and context usage (`used / size`) when reported by the agent.
+  - Local/agent-generated Markdown images and ACP image blocks render inline with a click-to-zoom lightbox; fenced `html` and `svg` blocks render with a **Preview / Code** toggle inside a sandboxed `<iframe>`.
+
 ## Agent status at a glance
 
 Space tabs and sidebar Workspace/Tab rows show a dot for the most urgent recognized terminal state across their panes. When a Space contains multiple panes, the dot summarizes the highest-priority state. Teal marks `Thinking` or `Running`, green marks `Completed`, yellow marks `Waiting` or `Input needed`, and red-orange marks `Warning` or `Failed`. Hollow dots indicate `Waiting` and `Warning`; pulsing dots indicate `Thinking`, `Running`, and `Input needed`. `Idle` and unclassified `Unknown` states have no dot.

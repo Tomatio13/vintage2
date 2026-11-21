@@ -19,6 +19,7 @@ import type {
   WorkspaceSpaceSnapshot,
 } from "../shared/desktop.js";
 import { Button } from "./components/Button.js";
+import { AcpPanel } from "./components/AcpPanel.js";
 import { AgentStatusIcon } from "./components/AgentStatusIcon.js";
 import { AttentionToast } from "./components/AttentionToast.js";
 import { CommandPalette, type CommandPaletteItem } from "./components/CommandPalette.js";
@@ -48,6 +49,7 @@ import { type ShortcutAction, type ShortcutBinding, useUiStore } from "./store/u
 
 type TerminalPane = Extract<WorkspacePaneSnapshot, { kind: "terminal" }>;
 type FilePane = Extract<WorkspacePaneSnapshot, { kind: "file" }>;
+type AcpPane = Extract<WorkspacePaneSnapshot, { kind: "acp" }>;
 type Pane = WorkspacePaneSnapshot;
 type PaneLayout = WorkspacePaneLayoutSnapshot;
 type Tab = WorkspaceSpaceSnapshot;
@@ -411,6 +413,20 @@ function PaneView({
           onAttentionChange={onAttentionChange}
           onRename={(title) => onRenamePane(pane.id, title)}
         />
+      ) : pane.kind === "acp" ? (
+        <AcpPanel
+          active={visible && active}
+          paneId={pane.id}
+          tabTitle={tab.title}
+          workspaceId={workspaceId}
+          title={pane.title}
+          profileId={pane.profileId}
+          resumeSessionId={pane.resumeSessionId}
+          resumeSessionKey={pane.resumeSessionKey}
+          onAttentionChange={onAttentionChange}
+          onRename={(title) => onRenamePane(pane.id, title)}
+          onOpenFile={onOpenFile}
+        />
       ) : (
         <FileViewer
           visible={visible}
@@ -423,7 +439,7 @@ function PaneView({
       <button
         aria-label={`Close ${pane.title}`}
         className={`absolute right-2 z-20 grid size-7 place-items-center rounded-md text-foreground transition-colors hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${
-          pane.kind === "terminal" ? "top-0.5" : "top-2.5"
+          pane.kind === "terminal" || pane.kind === "acp" ? "top-0.5" : "top-2.5"
         }`}
         title={`Close ${pane.title}`}
         onMouseDown={(event) => event.stopPropagation()}
@@ -761,6 +777,66 @@ export function App() {
       );
       const next = createSpace(title);
       return { ...workspace, tabs: [...workspace.tabs, next], activeTabId: next.id };
+    });
+  const addAcp = () =>
+    update((workspace) => {
+      if (!workspace.available) return workspace;
+      const tab = workspace.tabs.find((item) => item.id === workspace.activeTabId);
+      if (!tab) {
+        if (workspace.tabs.length >= WORKSPACE_LIMITS.spacesPerWorkspace) {
+          setWorkspaceActionError(
+            `A workspace can contain up to ${WORKSPACE_LIMITS.spacesPerWorkspace} Spaces. Close a Space before adding another.`,
+          );
+          return workspace;
+        }
+        const pane: AcpPane = { id: id(), title: "ACP 1", kind: "acp" };
+        const next: Tab = {
+          id: id(),
+          title: nextNumberedTitle(
+            "Space",
+            workspace.tabs.map((item) => item.title),
+          ),
+          panes: [pane],
+          layout: { type: "pane", paneId: pane.id },
+          activePaneId: pane.id,
+        };
+        return { ...workspace, tabs: [...workspace.tabs, next], activeTabId: next.id };
+      }
+      if (tab.panes.length >= MAX_PANES || layoutDepth(tab.layout) >= MAX_LAYOUT_DEPTH) {
+        setWorkspaceActionError(
+          "This Space has reached its pane or layout depth limit. Close a pane or open ACP in another Space.",
+        );
+        return workspace;
+      }
+      const pane: AcpPane = {
+        id: id(),
+        title: nextNumberedTitle(
+          "ACP",
+          tab.panes.map((item) => item.title),
+        ),
+        kind: "acp",
+      };
+      const layout: PaneLayout = splitPaneLayout(
+        tab.layout,
+        tab.activePaneId,
+        pane.id,
+        "horizontal",
+      ) ?? {
+        type: "split",
+        splitId: id(),
+        axis: "horizontal",
+        ratio: 0.5,
+        first: tab.layout,
+        second: { type: "pane", paneId: pane.id },
+      };
+      return {
+        ...workspace,
+        tabs: workspace.tabs.map((item) =>
+          item.id === tab.id
+            ? { ...item, panes: [...item.panes, pane], layout, activePaneId: pane.id }
+            : item,
+        ),
+      };
     });
   const removeWorkspace = (workspaceId: string) => {
     const workspace = workspaces.find((item) => item.id === workspaceId);
@@ -1284,6 +1360,17 @@ export function App() {
           onSelect: addSpace,
         },
         {
+          id: "action:new-acp",
+          kind: "action",
+          section: "suggested",
+          title: "New ACP",
+          ...(active ? { description: `${active.name} · Split ACP agent next to terminal` } : {}),
+          keywords: ["new", "acp", "agent", "protocol", "chat", "claude", "codex", "gemini"],
+          icon: "new",
+          disabled: !active?.available,
+          onSelect: addAcp,
+        },
+        {
           id: "action:open-workspace",
           kind: "action",
           section: "suggested",
@@ -1622,7 +1709,7 @@ export function App() {
           );
           const paneItems = workspace.tabs.flatMap((tab) =>
             tab.panes
-              .filter((pane) => pane.kind === "terminal")
+              .filter((pane) => pane.kind === "terminal" || pane.kind === "acp")
               .map(
                 (pane): CommandPaletteItem => ({
                   id: `terminal:${workspace.id}:${tab.id}:${pane.id}`,
@@ -1630,7 +1717,7 @@ export function App() {
                   section: "terminals",
                   title: pane.title,
                   description: `${workspace.name} · ${tab.title}`,
-                  keywords: [workspace.name, workspace.path, tab.title, pane.title],
+                  keywords: [workspace.name, workspace.path, tab.title, pane.title, pane.kind],
                   icon: "terminal",
                   onSelect: () => selectLocation(workspace.id, tab.id, pane.id),
                 }),
@@ -1688,7 +1775,9 @@ export function App() {
       activeWorkspaceId={activeId}
       onOpenWorkspace={() => void openWorkspace()}
       onNewSpace={addSpace}
+      onNewAcp={addAcp}
       canCreateSpace={Boolean(active?.available)}
+      canCreateAcp={Boolean(active?.available)}
       onLocateWorkspace={(workspaceId) => void locateWorkspace(workspaceId)}
       onRemoveWorkspace={removeWorkspace}
       onSelectWorkspace={(workspaceId) => {
@@ -1872,6 +1961,46 @@ export function App() {
                     throw new Error("Close a Space before resuming another session.");
                   const next = createSpace(session.title.slice(0, 80));
                   sessionLaunch.set(next.activePaneId, session.key);
+                  setWorkspaces((items) =>
+                    items.map((item) =>
+                      item.id === workspace.id
+                        ? { ...item, tabs: [...item.tabs, next], activeTabId: next.id }
+                        : item,
+                    ),
+                  );
+                  setActiveId(workspace.id);
+                }}
+                onResumeSessionInAcp={(session) => {
+                  const workspace = workspaces.find(
+                    (item) =>
+                      item.available &&
+                      sessionPathsEqual(
+                        item.path,
+                        session.cwd,
+                        window.desktop?.platform === "win32",
+                      ),
+                  );
+                  if (!workspace)
+                    throw new Error(
+                      "Open this session's project folder in VINTAGE before resuming.",
+                    );
+                  if (workspace.tabs.length >= WORKSPACE_LIMITS.spacesPerWorkspace)
+                    throw new Error("Close a Space before resuming another session.");
+                  const pane: AcpPane = {
+                    id: id(),
+                    title: session.title.slice(0, 40) || "ACP 1",
+                    kind: "acp",
+                    profileId: session.agent,
+                    resumeSessionId: session.sessionId,
+                    resumeSessionKey: session.key,
+                  };
+                  const next: Tab = {
+                    id: id(),
+                    title: session.title.slice(0, 80) || "ACP",
+                    panes: [pane],
+                    layout: { type: "pane", paneId: pane.id },
+                    activePaneId: pane.id,
+                  };
                   setWorkspaces((items) =>
                     items.map((item) =>
                       item.id === workspace.id

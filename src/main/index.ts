@@ -47,6 +47,8 @@ import { JevCredentialStore, JevSettingsManager } from "./jevSettings.js";
 import { JevEvaluationQueue } from "./jevEvaluationQueue.js";
 import { UpdateManager } from "./updateManager.js";
 import { restartApp } from "./restartApp.js";
+import { registerAcpIpc } from "./acpManager.js";
+import { AcpSettingsManager } from "./acpSettings.js";
 import { monitorTerminalsForOwner, registerTerminalIpc } from "./terminalManager.js";
 import { createRendererNavigationGuard, resolveDevServerUrl } from "./windowNavigation.js";
 import {
@@ -1019,10 +1021,12 @@ app.whenReady().then(async () => {
   registerWorkspacePreviewProtocol();
   const jevSettings = new JevSettingsManager(new JevCredentialStore(app.getPath("userData")));
   const attentionSettings = new AttentionSettingsManager(app.getPath("userData"));
+  const acpSettings = new AcpSettingsManager(app.getPath("userData"));
   const workspaceState = new WorkspaceStateManager(app.getPath("userData"));
   const evaluationQueue = new JevEvaluationQueue(jevSettings.evaluator);
   jevSettings.initialize();
   attentionSettings.initialize();
+  acpSettings.initialize();
   workspaceState.initialize();
   await restoreWorkspaceState(workspaceState);
   const updates = new UpdateManager();
@@ -1034,6 +1038,12 @@ app.whenReady().then(async () => {
     (event) => {
       resolveSenderWindow(event);
     },
+  );
+  registerAcpIpc(
+    (id) => registeredWorkspace(id).path,
+    acpSettings,
+    attentionSettings,
+    (event) => resolveSenderWindow(event),
   );
   app.on("before-quit", () => workspaceState.flush());
   configureBrowserSession();

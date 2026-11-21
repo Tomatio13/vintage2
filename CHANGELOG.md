@@ -1,5 +1,22 @@
 # VINTAGE Changelog
 
+## [0.2.50] - 2026-11-21
+
+### Added
+
+- Add native ACP (Agent Client Protocol) chat panes (`New ACP` in the sidebar, command palette, and `Sessions → ACP` resume) powered by `@agentclientprotocol/sdk`, with bundled `@agentclientprotocol/codex-acp` and `@agentclientprotocol/claude-agent-acp` adapters unpacked for packaged builds.
+- Support five built-in ACP providers (`Codex`, `Claude Code` with `~/.claude/settings.json` custom provider/model reflection, `Antigravity / Gemini`, `OpenCode` scoped to OpenCode Go via `https://opencode.ai/zen/go/v1/models`, and `Z.ai` via `zai-coding-plan/*`) plus custom ACP profiles and handshake probing in **Settings → ACP Agents**.
+- Keep per-provider ACP processes cached within a pane for instant mixed-provider switching, and preserve per-message provider badge and model name attribution.
+- Add `$` Agent Skills autocomplete, `/` slash commands (`/model`, `/clear`, `/settings`, agent commands, `/skill:*`), `@` workspace file mentions, `Shift+Tab` / Mode selector, image paste/drop attachment, inline local/artifact image rendering with zoom lightbox, sandboxed `html`/`svg` Preview/Code blocks, collapsible Plan cards, compact WorkLog tool grouping, elapsed turn timers, and context usage badges.
+
+### Validation and limitations
+
+- Boundary checks, TypeScript, lint, formatting, ACP unit tests (10/10), production builds, and `package:dir` unpacked adapter handshake checks (`codex-acp` and `claude-agent-acp`) passed on Linux.
+- The user confirmed Codex, Claude Code (custom `glm-5.3-flash[1m]`), Antigravity, OpenCode Go, Z.ai, mixed-provider chat, inline images, and composer controls on Linux.
+- Windows Monitor remains an experimental pre-release; Windows/macOS Sessions, ACP packaged runtime, and installed-app updates remain unverified on physical devices.
+
+**Full Changelog:** [v0.2.49...v0.2.50](https://github.com/Tomatio13/vintage2/compare/v0.2.49...v0.2.50)
+
 ## [0.2.49] - 2026-11-13
 
 ### Fixed

@@ -51,6 +51,13 @@ function parsePane(value: unknown): WorkspacePaneSnapshot {
   const id = requiredString(value.id, "Pane id", 120);
   const title = requiredString(value.title, "Pane title", 255);
   if (value.kind === "terminal") return { id, title, kind: "terminal" };
+  if (value.kind === "acp") {
+    const profileId =
+      value.profileId === undefined
+        ? undefined
+        : requiredString(value.profileId, "ACP profile id", 120);
+    return { id, title, kind: "acp", ...(profileId ? { profileId } : {}) };
+  }
   if (value.kind === "file") {
     const path = requiredString(value.path, "File pane path", 4_096);
     if (

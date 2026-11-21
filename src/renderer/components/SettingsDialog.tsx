@@ -1,3 +1,4 @@
+import { AcpSettingsSection } from "./AcpSettingsSection.js";
 import { SessionAnalysisSettings } from "./SessionAnalysisSettings.js";
 import { SettingsSelect } from "./SettingsSelect.js";
 import { restoreThemePreferences } from "../lib/themes.js";
@@ -1588,6 +1589,7 @@ export function SettingsDialog() {
             Sidebar and pane badges remain available regardless of this setting. Agent-specific
             hooks are not used.
           </p>
+          <AcpSettingsSection />
         </>
       );
     if (section === "notes")

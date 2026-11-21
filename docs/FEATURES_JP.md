@@ -38,6 +38,26 @@ _Attention通知のOpen terminalからChecksのターミナルへ移動した画
 - ターミナルの出力は、利用可能な場合はGPU(WebGL)で描画され、利用できない場合はDOMレンダラーへフォールバックします。出力中のURLはシステムのブラウザーで開け(`http`、`https`、`mailto` のみ)、Sixel/iTerm2のインライン画像も表示されます。
 - ターミナルのセッションはウィンドウの再読み込みやレンダラーのクラッシュ後も引き継がれます。ペインは動作中のセッションに再接続して直近の出力を復元し、ターミナルヘッダーに `reconnected` と表示します。アプリ自体を終了した場合はセッションは復元されず、ワークスペースやペインの配置情報だけが保存されます。
 
+## ACP Agents（Agent Client Protocol）
+
+左サイドバーの **New ACP**（`New space` の直下）、コマンドパレット、または右ペイン **Sessions** の **ACP** ボタンから、ターミナルの隣にネイティブの ACP チャットペインを開けます。
+
+- **組み込みプロバイダーと公式アダプター同梱**:
+  - **Codex (`CD`)**・**Claude Code (`CC`)** は公式の `@agentclientprotocol/codex-acp` / `@agentclientprotocol/claude-agent-acp` をアプリに同梱しており、別途グローバルインストールせずにそのまま利用できます。Claude Code は `~/.claude/settings.json` のカスタムプロバイダー／モデル設定やアダプターから返る `configOptions` をそのまま反映します。
+  - **Antigravity / Gemini (`AG`)** は `agy` / `gemini` (`acp`) を自動検出します。
+  - **OpenCode (`OC`)** は `opencode2` / `opencode` (`acp`) 経由で動作し、モデル一覧を **OpenCode Go**（`https://opencode.ai/zen/go/v1/models` およびローカルキャッシュ）に絞り込みます。
+  - **Z.ai (`ZA`)** は OpenCode 経由の `zai-coding-plan/*`（または `zai/*`）モデルを専用プロバイダーとして扱います。
+  - **Settings → ACP Agents** から任意のカスタム ACP エージェントを追加でき、**Test ACP Handshake** で疎通確認できます。
+- **混在会話とプロバイダー別常駐**: Composer 右下の 3 カラムピッカーから会話の途中でプロバイダー・モデル・Reasoning 強度を切り替えられます。各応答メッセージには生成時のプロバイダーバッジとモデル名が保持され、一度接続したプロバイダープロセスはペイン内で常駐するため、切り替え直しても再ハンドシェイクを待ちません。
+- **Composer の入力支援**:
+  - **`$`** でローカル／プロジェクトの Agent Skills（`SKILL.md`）、**`/`** で組み込みコマンド（`/model`, `/clear`, `/settings`）とエージェント由来コマンド、**`@`** でワークスペース内ファイルを補完できます。
+  - 画像の貼り付け（`Ctrl+V`）・ドロップで ACP の `image` ブロックとして送信できます。
+  - エージェントが Mode（`Build` / `Plan` / `Auto` 等）を提供している場合、下部ボタンまたは `Shift+Tab` で切り替えられます。
+- **見やすいアクティビティとリッチ表示**:
+  - ツール実行は 1 行の折りたたみサマリー（WorkLog）に集約され、必要なときだけ展開できます。実行計画（Plan）は Composer 上部に折りたたみカードで表示されます。
+  - ヘッダーに応答中の経過時間タイマーとコンテキスト使用量（`used / size`）を表示します。
+  - エージェントが生成したローカル画像や ACP 画像ブロックはチャット内にインライン表示（クリックで拡大ライトボックス）され、`html` / `svg` コードブロックはサンドボックス付き `<iframe>` で **Preview / Code** を切り替えて確認できます。
+
 ## エージェント状態をひと目で確認
 
 SpaceタブとサイドバーのWorkspace/Tab行には、配下ペインの認識済み状態のうち、最も緊急度の高いものをドットで表示します。複数ペインがあるSpaceでは、優先度が最も高い状態を集約して表示します。青緑は `Thinking` または `Running`、緑は `Completed`、黄は `Waiting` または `Input needed`、赤橙は `Warning` または `Failed` です。中空のドットは `Waiting` と `Warning`、点滅するドットは `Thinking`、`Running`、`Input needed` を表します。`Idle` と分類できない `Unknown` にはドットを表示しません。

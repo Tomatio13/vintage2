@@ -30,9 +30,12 @@ Rendererは表示とユーザー操作を担当し、OSへのアクセスはPrel
 | :------------------------------------------------------------------ | :-------------------------------------------------------------------------------------- |
 | [`src/main/index.ts`](../src/main/index.ts)                         | アプリ起動、ウィンドウ、Workspace登録、Desktop IPC、プレビュープロトコル、通知          |
 | [`src/main/terminalManager.ts`](../src/main/terminalManager.ts)     | PTY作成、入力・出力・サイズ、所有者検証、再接続、終了処理                               |
+| [`src/main/acpManager.ts`](../src/main/acpManager.ts)               | ACPセッション管理、プロバイダー別常駐ランタイム、`fs/*`/`terminal/*`/画像読込ブリッジ   |
+| [`src/main/acpSettings.ts`](../src/main/acpSettings.ts)             | ACPプロファイル保存、同梱アダプター解決、Claude/OpenCode Go/Z.aiモデルカタログ管理      |
 | [`src/main/attentionRouter.ts`](../src/main/attentionRouter.ts)     | シェル・出力・プロセス・Jevの結果を統合した端末状態の判定                               |
 | [`src/preload/index.ts`](../src/preload/index.ts)                   | 許可した操作とイベントだけをRendererへ公開                                              |
 | [`src/shared/desktop.ts`](../src/shared/desktop.ts)                 | IPCチャンネル、DesktopBridge、イベント・保存データの型、共通上限                        |
+| [`src/shared/acp.ts`](../src/shared/acp.ts)                         | ACPプロファイル、セッションスナップショット、イベント、画像・コマンド・スキルの共有型   |
 | [`src/shared/kanban.ts`](../src/shared/kanban.ts)                   | Boardの型とドキュメント検証                                                             |
 | [`src/renderer/App.tsx`](../src/renderer/App.tsx)                   | Workspace・Space・Pane、配置、画面遷移、Attention一覧、ショートカット、コマンドパレット |
 | [`src/renderer/store/uiStore.ts`](../src/renderer/store/uiStore.ts) | UI設定、ペイン表示、Notes・BoardのON/OFF、Browserタブ、キー割り当て                     |

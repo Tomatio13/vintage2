@@ -56,11 +56,13 @@ export function SessionsPanel({
   active,
   workspacePath,
   onResume,
+  onResumeInAcp,
   onOpenTerminal,
 }: {
   active: boolean;
   workspacePath?: string | undefined;
   onResume?: ((session: HistorySession) => void) | undefined;
+  onResumeInAcp?: ((session: HistorySession) => void) | undefined;
   onOpenTerminal?: ((paneId: string) => void) | undefined;
 }) {
   const { snapshot } = useMonitorSnapshot(active);
@@ -577,6 +579,34 @@ export function SessionsPanel({
                         <Play className="size-3.5" />
                         {liveSession ? "Open" : "Resume"}
                       </Button>
+                      {!liveSession &&
+                        onResumeInAcp &&
+                        (selected.agent === "codex" ||
+                          selected.agent === "claude" ||
+                          selected.agent === "opencode" ||
+                          selected.agent === "antigravity") && (
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              try {
+                                onResumeInAcp(selected);
+                                setExpanded(false);
+                              } catch (reason) {
+                                setDetailError(
+                                  reason instanceof Error
+                                    ? reason.message
+                                    : "Unable to resume session in ACP.",
+                                );
+                              }
+                            }}
+                            variant="ghost"
+                            size="compact"
+                            aria-label="Resume in ACP"
+                            title="Resume this session in an ACP pane"
+                          >
+                            ACP
+                          </Button>
+                        )}
                     </div>
                   </div>
                 </section>

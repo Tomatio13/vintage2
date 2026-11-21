@@ -1,3 +1,12 @@
+import type {
+  AcpCreateOptions,
+  AcpEvent,
+  AcpPermissionPolicy,
+  AcpProbeResult,
+  AcpPromptImage,
+  AcpSessionSnapshot,
+  AcpSettings,
+} from "./acp.js";
 import type { BrowserCommand } from "./browserShortcuts.js";
 import type { KanbanDocument, KanbanSnapshot } from "./kanban.js";
 export const WORKSPACE_LIMITS = {
@@ -76,6 +85,22 @@ export const DesktopChannels = {
   terminalData: "terminal:data",
   terminalExit: "terminal:exit",
   terminalAttention: "terminal:attention",
+  acpSettingsGet: "acp:settings-get",
+  acpSettingsSet: "acp:settings-set",
+  acpProbe: "acp:probe",
+  acpPathChoose: "acp:path-choose",
+  acpCreate: "acp:create",
+  acpReady: "acp:ready",
+  acpPrompt: "acp:prompt",
+  acpCancel: "acp:cancel",
+  acpPermission: "acp:permission",
+  acpConfigure: "acp:configure",
+  acpReset: "acp:reset",
+  acpSetActive: "acp:set-active",
+  acpSetMonitorMode: "acp:set-monitor-mode",
+  acpClose: "acp:close",
+  acpReadImage: "acp:read-image",
+  acpEvent: "acp:event",
   updateGetStatus: "update:get-status",
   updateStatusChanged: "update:status-changed",
   updateCheck: "update:check",
@@ -93,7 +118,15 @@ export interface RegisteredWorkspace {
 
 export type WorkspacePaneSnapshot =
   | { id: string; title: string; kind: "terminal" }
-  | { id: string; title: string; kind: "file"; path: string; targetLine?: number | undefined };
+  | { id: string; title: string; kind: "file"; path: string; targetLine?: number | undefined }
+  | {
+      id: string;
+      title: string;
+      kind: "acp";
+      profileId?: string | undefined;
+      resumeSessionId?: string | undefined;
+      resumeSessionKey?: string | undefined;
+    };
 
 export type WorkspacePaneLayoutSnapshot =
   | { type: "pane"; paneId: string }
@@ -578,4 +611,30 @@ export interface DesktopBridge {
   onTerminalData(listener: (event: TerminalDataEvent) => void): () => void;
   onTerminalExit(listener: (event: TerminalExitEvent) => void): () => void;
   onTerminalAttention(listener: (state: TerminalAttentionState) => void): () => void;
+  getAcpSettings(): Promise<AcpSettings>;
+  setAcpSettings(settings: AcpSettings): Promise<AcpSettings>;
+  probeAcpProfile(profileId: string, executable?: string, args?: string[]): Promise<AcpProbeResult>;
+  chooseAcpExecutable(): Promise<string | null>;
+  createAcpSession(options: AcpCreateOptions): Promise<AcpSessionSnapshot>;
+  readyAcpSession(sessionId: string): Promise<void>;
+  sendAcpPrompt(sessionId: string, text: string, images?: AcpPromptImage[]): Promise<void>;
+  cancelAcpPrompt(sessionId: string): Promise<void>;
+  respondAcpPermission(sessionId: string, requestId: string, optionId: string): Promise<void>;
+  configureAcpSession(
+    sessionId: string,
+    patch: {
+      profileId?: string;
+      modelId?: string;
+      reasoningId?: string;
+      modeId?: string;
+      fastMode?: boolean;
+      permissionPolicy?: AcpPermissionPolicy;
+    },
+  ): Promise<AcpSessionSnapshot>;
+  resetAcpSession(sessionId: string): Promise<AcpSessionSnapshot>;
+  setAcpActive(sessionId: string, active: boolean): Promise<void>;
+  setAcpMonitorMode(sessionId: string, mode: TerminalMonitorMode): Promise<void>;
+  closeAcpSession(sessionId: string): Promise<void>;
+  readAcpImage(workspaceId: string, rawPath: string): Promise<string | null>;
+  onAcpEvent(listener: (event: AcpEvent) => void): () => void;
 }

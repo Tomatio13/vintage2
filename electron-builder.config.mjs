@@ -20,7 +20,17 @@ export default {
   files: ["dist/**/*", "build/icon.png", "package.json"],
   asar: true,
   npmRebuild: true,
-  asarUnpack: ["node_modules/node-pty/**"],
+  asarUnpack: [
+    "node_modules/node-pty/**",
+    "node_modules/@agentclientprotocol/**",
+    "node_modules/@openai/**",
+    "node_modules/@anthropic-ai/**",
+    "node_modules/diff/**",
+    "node_modules/zod/**",
+    "node_modules/cross-spawn/**",
+    "node_modules/open/**",
+    "node_modules/vscode-jsonrpc/**",
+  ],
   electronFuses: {
     runAsNode: false,
     enableCookieEncryption: true,
