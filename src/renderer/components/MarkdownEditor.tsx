@@ -131,9 +131,9 @@ export function MarkdownEditor({
       try {
         const nextVersion = await window.desktop!.getWorkspaceFileVersion?.(workspaceId, path);
         if (nextVersion === undefined || nextVersion === version) return;
-        version = nextVersion;
         const file = await window.desktop!.readWorkspaceFile(workspaceId, path);
         if (!cancelled && current.current?.content === current.current?.original) {
+          version = nextVersion;
           setTruncated(file.truncated);
           setDraft({ content: file.content, original: file.content });
         }
@@ -153,6 +153,7 @@ export function MarkdownEditor({
   const edit = (content: string) => {
     if (!draft) return;
     const next = { ...draft, content };
+    current.current = next;
     setDraft(next);
     setStatus("");
     try {
@@ -188,8 +189,10 @@ export function MarkdownEditor({
   const reload = async () => {
     if (!path || !window.desktop || saving) return;
     if (dirty && !window.confirm("Discard your draft and reload the file from disk?")) return;
+    const requestedDraft = current.current;
     try {
       const file = await window.desktop.readWorkspaceFile(workspaceId, path);
+      if (current.current !== requestedDraft) return;
       setDraft({ content: file.content, original: file.content });
       setTruncated(file.truncated);
       localStorage.removeItem(key);

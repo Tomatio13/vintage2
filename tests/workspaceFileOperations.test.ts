@@ -43,6 +43,19 @@ describe("workspace file operations", () => {
     await expect(renameEntry(root, "note.md", "folder")).rejects.toThrow("already exists");
     expect(await readFile(join(root, "folder/note.md"), "utf8")).toBe("existing");
   });
+  it("keeps both files when concurrent renames target the same name", async () => {
+    await writeFile(join(root, "other.md"), "other");
+    const sources = ["note.md", "other.md"];
+    const results = await Promise.allSettled(
+      sources.map((source) => renameEntry(root, source, "new.md")),
+    );
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const remaining = sources[results.findIndex((result) => result.status === "rejected")]!;
+    const contents = await Promise.all(
+      [remaining, "new.md"].map((name) => readFile(join(root, name), "utf8")),
+    );
+    expect(contents.sort()).toEqual(["hello", "other"]);
+  });
   it("renames files and folders and supplies clipboard formats", async () => {
     await renameEntry(root, "note.md", "new.md");
     await renameEntry(root, "folder", "renamed");

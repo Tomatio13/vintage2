@@ -1,3 +1,5 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { cp, lstat, mkdir, readdir, realpath, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 
@@ -76,13 +78,37 @@ function validateName(name: unknown): asserts name is string {
     throw new Error("Enter a name without path separators");
 }
 
+const move = promisify(execFile);
+const renameTargets = new Set<string>();
+
 export async function renameEntry(root: string, rawPath: unknown, name: unknown): Promise<void> {
   validateName(name);
   const source = await entry(root, rawPath);
   const target = join(dirname(source), name);
   if (source === target) return;
-  await absent(target);
-  await rename(source, target);
+  const key = process.platform === "linux" ? target : target.toLowerCase();
+  if (renameTargets.has(key)) throw new Error("An entry with that name already exists");
+  renameTargets.add(key);
+  try {
+    await absent(target);
+    if (process.platform === "linux") {
+      // -T treats the destination as the exact target even if a folder appears there.
+      await move("/usr/bin/mv", ["-nT", "--", source, target]);
+      // GNU mv can report success when --no-clobber skipped the move.
+      if (
+        await lstat(source).catch((error: NodeJS.ErrnoException) => {
+          if (error.code !== "ENOENT") throw error;
+          return undefined;
+        })
+      ) {
+        throw new Error("An entry with that name already exists");
+      }
+    } else {
+      await rename(source, target);
+    }
+  } finally {
+    renameTargets.delete(key);
+  }
 }
 
 export async function entryText(root: string, rawPath: unknown, kind: unknown): Promise<string> {
