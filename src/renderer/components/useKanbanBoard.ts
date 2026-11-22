@@ -48,7 +48,6 @@ function readBoard(key: string): { cards: Card[]; error: string | null } {
 
 export function useKanbanBoard(workspaceId: string, active: boolean) {
   const key = `vintage:kanban:${workspaceId}`;
-  const [initial] = useState(() => readBoard(key));
   const [cards, setCards] = useState<Card[]>([]);
   const [snapshot, setSnapshot] = useState<KanbanSnapshot | null>(null);
   const [saving, setSaving] = useState(false);
@@ -59,7 +58,7 @@ export function useKanbanBoard(workspaceId: string, active: boolean) {
   const initialized = useRef(false);
   const busy = useRef(false);
   const generation = useRef(0);
-  const [error, setError] = useState(initial.error);
+  const [error, setError] = useState<string | null>(null);
   const [editor, setEditor] = useState<EditorDraft | null>(null);
   const [deleted, setDeleted] = useState<{ card: Card; index: number } | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -69,7 +68,7 @@ export function useKanbanBoard(workspaceId: string, active: boolean) {
   editorRef.current = editor;
   const draggingRef = useRef(draggingId);
   draggingRef.current = draggingId;
-  const blocked = saving || !snapshot || Boolean(initial.error) || unreadable;
+  const blocked = saving || !snapshot || changed || unreadable;
   const applySnapshot = useCallback((next: KanbanSnapshot) => {
     snapshotRef.current = next;
     setSnapshot(next);
@@ -80,7 +79,7 @@ export function useKanbanBoard(workspaceId: string, active: boolean) {
     setError(null);
   }, []);
   useEffect(() => {
-    if (!active || initial.error) return;
+    if (!active) return;
     const read = window.desktop?.readWorkspaceKanban;
     if (!read) {
       setError("Board access is available in the desktop app.");
@@ -91,10 +90,11 @@ export function useKanbanBoard(workspaceId: string, active: boolean) {
     const check = async () => {
       if (!busy.current && !draggingRef.current) {
         const token = generation.current;
+        const initial = initialized.current ? null : readBoard(key);
         try {
           const next = await read(
             workspaceId,
-            initialized.current ? undefined : { version: 1, cards: initial.cards },
+            initial && !initial.error ? { version: 1, cards: initial.cards } : undefined,
           );
           if (!cancelled && token === generation.current && !draggingRef.current) {
             initialized.current = true;
@@ -118,6 +118,8 @@ export function useKanbanBoard(workspaceId: string, active: boolean) {
                 applySnapshot(next);
                 setDeleted(null);
               } else {
+                setChanged(false);
+                setMissingCard(false);
                 setError(null);
                 setUnreadable(false);
               }
@@ -131,7 +133,8 @@ export function useKanbanBoard(workspaceId: string, active: boolean) {
         } catch (cause) {
           if (!cancelled && token === generation.current) {
             setUnreadable(true);
-            setError(cause instanceof Error ? cause.message : String(cause));
+            const message = cause instanceof Error ? cause.message : String(cause);
+            setError(initial?.error ? [initial.error, message].join(" ") : message);
           }
         }
       }
@@ -142,7 +145,7 @@ export function useKanbanBoard(workspaceId: string, active: boolean) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [active, workspaceId, initial, applySnapshot, reloadVersion, Boolean(editor)]);
+  }, [active, workspaceId, key, applySnapshot, reloadVersion, Boolean(editor)]);
   const copyInstructions = async (cardId?: string) => {
     try {
       if (!window.desktop) throw new Error("Use the desktop app to copy AI instructions.");
@@ -166,7 +169,7 @@ export function useKanbanBoard(workspaceId: string, active: boolean) {
   };
   const persist = async (next: Card[]) => {
     const baseline = snapshotRef.current;
-    if (!baseline || busy.current || initial.error || unreadable || missingCard || !window.desktop)
+    if (!baseline || busy.current || changed || unreadable || missingCard || !window.desktop)
       return false;
     busy.current = true;
     setSaving(true);

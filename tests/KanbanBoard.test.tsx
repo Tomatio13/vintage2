@@ -13,6 +13,7 @@ beforeEach(() => {
   revision = 0;
   window.desktop = {
     readWorkspaceKanban: vi.fn(async (id, initial) => {
+      if (!boards.has(id) && !initial) throw new Error("Board file is missing.");
       if (!boards.has(id))
         boards.set(id, {
           board: initial ?? { version: 1, cards: [] },
@@ -167,9 +168,18 @@ it("keeps a draft open on storage failure and never overwrites an unreadable boa
   view.unmount();
   localStorage.setItem("vintage:kanban:two", "invalid JSON");
   render(<KanbanBoard workspaceId="two" request={null} />);
-  expect(screen.getByRole("alert")).toHaveTextContent("Saved board could not be loaded");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Saved board could not be loaded");
   expect(screen.getByRole("button", { name: "Add card" })).toBeDisabled();
   expect(localStorage.getItem("vintage:kanban:two")).toBe("invalid JSON");
+});
+
+it("uses an existing disk board even when legacy storage is corrupt", async () => {
+  seedCards();
+  localStorage.setItem("vintage:kanban:one", "invalid JSON");
+  render(<KanbanBoard workspaceId="one" request={null} />);
+  await screen.findByRole("article", { name: "First" });
+  expect(screen.getByRole("button", { name: "Add card" })).toBeEnabled();
+  expect(localStorage.getItem("vintage:kanban:one")).toBe("invalid JSON");
 });
 
 it("copies board-wide and selected-card instructions", async () => {
@@ -232,7 +242,9 @@ it("refreshes only visible boards, keeps drafts on external edits and rejects st
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: "Save card" }));
   });
-  expect(screen.getByRole("alert")).toHaveTextContent("Board changed on disk");
+  expect(screen.getByRole("button", { name: "Save card" })).toBeDisabled();
+  expect(window.desktop!.saveWorkspaceKanban).not.toHaveBeenCalled();
+  expect(screen.getByText(/Board changed on disk/)).toBeInTheDocument();
   expect(boards.get("one")!.board.cards[0]!.notes).toBe("AI result");
   const readCount = vi.mocked(window.desktop!.readWorkspaceKanban).mock.calls.length;
   view.rerender(<KanbanBoard workspaceId="one" request={null} active={false} />);
