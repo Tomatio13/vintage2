@@ -119,7 +119,6 @@ export function DocumentSearch({
         setCount(selectionMatches.current.length);
       } else if (root.current) {
         const sourceLines = root.current.querySelectorAll("[data-file-search-text]");
-        const walker = document.createTreeWalker(root.current, NodeFilter.SHOW_TEXT);
 
         const nodes: { node: Text; start: number; end: number }[] = [];
         let text = "";
@@ -137,8 +136,32 @@ export function DocumentSearch({
             while ((node = lineWalker.nextNode())) append(node);
           });
         } else {
+          const walker = document.createTreeWalker(
+            root.current,
+            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+            {
+              acceptNode: (node) =>
+                node instanceof Element &&
+                node.matches("[data-document-search-ignore], style, script")
+                  ? NodeFilter.FILTER_REJECT
+                  : NodeFilter.FILTER_ACCEPT,
+            },
+          );
+          let previousBlock: Element | null = null;
           let node;
-          while ((node = walker.nextNode())) append(node);
+          while ((node = walker.nextNode())) {
+            if (node instanceof Text) {
+              const block =
+                node.parentElement?.closest(
+                  "p, div, h1, h2, h3, h4, h5, h6, li, blockquote, pre, td, th, dt, dd, figcaption, section, article",
+                ) ?? null;
+              if (text && block !== previousBlock) text += "\n";
+              previousBlock = block;
+              append(node);
+            } else if (node.nodeName === "BR" || node.nodeName === "HR") {
+              text += "\n";
+            }
+          }
         }
         const found = findMatches(text, query);
         if (canReplace) matches.current = found;
@@ -213,7 +236,11 @@ export function DocumentSearch({
           event.preventDefault();
           onClose();
         }
-        if (event.key === "Enter") {
+        if (
+          event.key === "Enter" &&
+          event.target === searchInput.current &&
+          !event.nativeEvent.isComposing
+        ) {
           event.stopPropagation();
           event.preventDefault();
           setIndex((current) => (count ? (current + (event.shiftKey ? count - 1 : 1)) % count : 0));

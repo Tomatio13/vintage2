@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createRef } from "react";
+import { DocumentSearch } from "../src/renderer/components/DocumentTools.js";
 import { FileViewer } from "../src/renderer/components/FileViewer.js";
 import type { DesktopBridge } from "../src/shared/desktop.js";
 
@@ -56,6 +58,51 @@ describe("Document tools", () => {
     expect(screen.queryByRole("textbox", { name: "Replace with" })).not.toBeInTheDocument();
   });
 
+  it("separates preview blocks and line breaks but joins inline text", () => {
+    const root = createRef<HTMLDivElement>();
+    render(
+      <>
+        <div ref={root}>
+          <p>foo</p>
+          <p>
+            bar<strong>baz</strong>
+            <br />
+            end
+          </p>
+        </div>
+        <DocumentSearch root={root} open onClose={() => {}} />
+      </>,
+    );
+    const input = screen.getByRole("textbox", { name: "Find in file" });
+    for (const [query, count] of [
+      ["foobar", "0 / 0"],
+      ["bazend", "0 / 0"],
+      ["barbaz", "1 / 1"],
+    ]) {
+      fireEvent.change(input, { target: { value: query } });
+      expect(screen.getByText(count!)).toBeInTheDocument();
+    }
+  });
+
+  it("handles Enter in the search field and preserves native button activation", () => {
+    const root = createRef<HTMLDivElement>();
+    render(
+      <>
+        <div ref={root}>one one</div>
+        <DocumentSearch root={root} open canReplace onClose={() => {}} />
+      </>,
+    );
+    const input = screen.getByRole("textbox", { name: "Find in file" });
+    fireEvent.change(input, { target: { value: "one" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    for (const name of ["Replace all", "Close search"]) {
+      expect(fireEvent.keyDown(screen.getByRole("button", { name }), { key: "Enter" })).toBe(true);
+    }
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+  });
   it("zooms Markdown preview and editor and resets to 100%", async () => {
     bridge("# Zoom");
     render(<FileViewer workspaceId="tools" path="zoom.md" />);
