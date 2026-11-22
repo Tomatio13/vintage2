@@ -176,7 +176,6 @@ export interface AcpSessionSnapshot {
   modelId: string;
   reasoningId: string;
   modeId?: string;
-  fastMode: boolean;
   permissionPolicy: AcpPermissionPolicy;
   availableModels: AcpModelOption[];
   availableReasoning: AcpReasoningOption[];

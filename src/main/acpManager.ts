@@ -121,7 +121,6 @@ interface OwnedAcpSession {
   active: boolean;
   snapshot: AcpSessionSnapshot;
   runtimes: Map<string, ProfileRuntime>;
-  pendingEvents: AcpEvent[];
   pendingPermissions: Map<string, PendingPermissionHandle>;
   subTerminals: Map<string, ManagedSubTerminal>;
   currentAssistantMessageId: string | null;
@@ -229,7 +228,7 @@ export function registerAcpIpc(
     assertTrustedSender(event);
     const session = requireOwnedSession(event, rawId);
     session.ready = true;
-    flushPendingEvents(session);
+    sendCurrentSessionState(session);
   });
 
   ipcMain.handle(
@@ -524,7 +523,6 @@ async function createOrReattachAcpSession(
       `${profile.executable || profile.defaultCandidates[0] || profile.id} ${profile.args.join(" ")}`.trim(),
     modelId,
     reasoningId,
-    fastMode: false,
     permissionPolicy,
     availableModels: profile.models.map((item) => ({ ...item })),
     availableReasoning: profile.reasoningLevels.map((item) => ({ ...item })),
@@ -555,7 +553,6 @@ async function createOrReattachAcpSession(
     active: false,
     snapshot,
     runtimes: new Map(),
-    pendingEvents: [],
     pendingPermissions: new Map(),
     subTerminals: new Map(),
     currentAssistantMessageId: null,
@@ -1596,6 +1593,18 @@ async function handlePermissionRequest(
     options,
   };
 
+  return new Promise<acp.RequestPermissionResponse>((resolvePromise) => {
+    session.pendingPermissions.set(requestId, {
+      request: permissionRequest,
+      resolve: resolvePromise,
+    });
+    if (session.pendingPermissions.size === 1) showPermissionRequest(session, permissionRequest);
+  });
+}
+function showPermissionRequest(
+  session: OwnedAcpSession,
+  permissionRequest: AcpPermissionRequest,
+): void {
   session.snapshot.status = "waiting_permission";
   session.snapshot.pendingPermission = permissionRequest;
   emitEvent(session, {
@@ -1605,13 +1614,6 @@ async function handlePermissionRequest(
   });
   emitSessionSnapshot(session);
   publishAttention(session, "waiting_input", 3, true, "input_request");
-
-  return new Promise<acp.RequestPermissionResponse>((resolvePromise) => {
-    session.pendingPermissions.set(requestId, {
-      request: permissionRequest,
-      resolve: resolvePromise,
-    });
-  });
 }
 
 function resolvePermissionRequest(
@@ -1620,14 +1622,10 @@ function resolvePermissionRequest(
   optionId: string,
 ): void {
   const pending = session.pendingPermissions.get(requestId);
-  if (!pending) return;
+  if (!pending || session.snapshot.pendingPermission?.requestId !== requestId) return;
   session.pendingPermissions.delete(requestId);
   session.snapshot.pendingPermission = null;
   session.snapshot.status = "running";
-  const selectedOption = pending.request.options.find((opt) => opt.optionId === optionId);
-  if (selectedOption?.kind === "allow_always") {
-    session.snapshot.permissionPolicy = "auto_all";
-  }
   pending.resolve({
     outcome: {
       outcome: "selected",
@@ -1635,6 +1633,11 @@ function resolvePermissionRequest(
     },
   });
   emitEvent(session, { type: "permission.resolved", sessionId: session.id, requestId });
+  const next = session.pendingPermissions.values().next().value;
+  if (next) {
+    showPermissionRequest(session, next.request);
+    return;
+  }
   emitSessionSnapshot(session);
   publishAttention(session, "thinking", 0, false, "agent_activity");
 }
@@ -1985,17 +1988,18 @@ async function cancelPrompt(session: OwnedAcpSession): Promise<void> {
     pending.resolve({ outcome: { outcome: "cancelled" } });
   }
   session.pendingPermissions.clear();
-  session.snapshot.pendingPermission = null;
+  if (session.snapshot.pendingPermission) {
+    session.snapshot.pendingPermission = null;
+    session.snapshot.status = "running";
+    emitSessionSnapshot(session);
+    publishAttention(session, "thinking", 0, false, "agent_activity");
+  }
 
   const activeRuntime = session.runtimes.get(session.snapshot.profileId);
   if (activeRuntime?.connection && activeRuntime.acpSessionId) {
-    try {
-      await activeRuntime.connection.agent.notify(acp.methods.agent.session.cancel, {
-        sessionId: activeRuntime.acpSessionId,
-      });
-    } catch {
-      /* ignore */
-    }
+    await activeRuntime.connection.agent.notify(acp.methods.agent.session.cancel, {
+      sessionId: activeRuntime.acpSessionId,
+    });
   }
 }
 
@@ -2010,7 +2014,6 @@ async function configureSession(
     modelId?: string;
     reasoningId?: string;
     modeId?: string;
-    fastMode?: boolean;
     permissionPolicy?: AcpPermissionPolicy;
   };
 
@@ -2086,10 +2089,6 @@ async function configureSession(
     });
   }
 
-  if (typeof patch.fastMode === "boolean") {
-    session.snapshot.fastMode = patch.fastMode;
-  }
-
   if (
     patch.permissionPolicy === "ask" ||
     patch.permissionPolicy === "auto_edit" ||
@@ -2113,6 +2112,8 @@ async function resetSessionConversation(
   session.snapshot.plan = [];
   session.snapshot.pendingPermission = null;
   session.snapshot.status = "ready";
+  session.snapshot.lastTurnDurationMs = null;
+  delete session.snapshot.lastTurnCompleted;
   delete session.snapshot.errorMessage;
   emitSessionSnapshot(session);
   publishAttention(session, "idle", 0, false);
@@ -2157,6 +2158,7 @@ function publishAttention(
 }
 
 function emitSessionSnapshot(session: OwnedAcpSession): void {
+  if (!session.ready || !session.attached) return;
   emitEvent(session, {
     type: "session.snapshot",
     sessionId: session.id,
@@ -2167,10 +2169,6 @@ function emitSessionSnapshot(session: OwnedAcpSession): void {
 function emitEvent(session: OwnedAcpSession, event: AcpEvent): void {
   if (!sessions.has(session.id)) return;
   if (!session.ready || !session.attached) {
-    session.pendingEvents.push(event);
-    if (session.pendingEvents.length > 200) {
-      session.pendingEvents.splice(0, session.pendingEvents.length - 200);
-    }
     return;
   }
   if (!session.owner.isDestroyed()) {
@@ -2178,14 +2176,13 @@ function emitEvent(session: OwnedAcpSession, event: AcpEvent): void {
   }
 }
 
-function flushPendingEvents(session: OwnedAcpSession): void {
+function sendCurrentSessionState(session: OwnedAcpSession): void {
   if (session.owner.isDestroyed()) return;
   session.owner.send(DesktopChannels.acpEvent, {
     type: "session.snapshot",
     sessionId: session.id,
     snapshot: structuredClone(session.snapshot),
   });
-  session.pendingEvents = [];
   session.owner.send(DesktopChannels.terminalAttention, session.attentionState);
 }
 

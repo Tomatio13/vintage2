@@ -29,7 +29,6 @@ import {
   TerminalSquare,
   Wrench,
   X,
-  Zap,
 } from "lucide-react";
 import {
   isValidElement,
@@ -1027,7 +1026,6 @@ function AcpModelPopover({
   currentProfileId,
   currentModelId,
   currentReasoningId,
-  fastMode,
   permissionPolicy,
   availableModels,
   availableReasoning,
@@ -1040,7 +1038,6 @@ function AcpModelPopover({
   currentProfileId: string;
   currentModelId: string;
   currentReasoningId: string;
-  fastMode: boolean;
   permissionPolicy: AcpPermissionPolicy;
   availableModels: AcpModelOption[];
   availableReasoning: { id: string; name: string }[];
@@ -1048,7 +1045,6 @@ function AcpModelPopover({
     profileId?: string;
     modelId?: string;
     reasoningId?: string;
-    fastMode?: boolean;
     permissionPolicy?: AcpPermissionPolicy;
   }) => void;
   onOpenSettings: () => void;
@@ -1363,36 +1359,7 @@ function AcpModelPopover({
         </div>
       </div>
 
-      {/* Bottom footer bar: Standard / Fast toggle + Full access toggle */}
-      <div className="flex items-center justify-between border-t border-border bg-surface/60 px-3 py-2">
-        <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
-          <button
-            type="button"
-            aria-pressed={!fastMode}
-            onClick={() => onSelectConfig({ fastMode: false })}
-            className={`rounded-md px-2.5 py-1 text-ui-xs font-medium transition-colors ${
-              !fastMode
-                ? "bg-selected text-foreground"
-                : "text-foreground-subtle hover:text-foreground"
-            }`}
-          >
-            Standard
-          </button>
-          <button
-            type="button"
-            aria-pressed={fastMode}
-            onClick={() => onSelectConfig({ fastMode: true })}
-            className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-ui-xs font-medium transition-colors ${
-              fastMode
-                ? "bg-selected text-foreground"
-                : "text-foreground-subtle hover:text-foreground"
-            }`}
-          >
-            <Zap className="size-3" />
-            Fast
-          </button>
-        </div>
-
+      <div className="flex items-center justify-end border-t border-border bg-surface/60 px-3 py-2">
         <button
           type="button"
           onClick={() => onSelectConfig({ permissionPolicy: nextPermissionPolicy() })}
@@ -1889,7 +1856,6 @@ export function AcpPanel({
     modelId?: string;
     reasoningId?: string;
     modeId?: string;
-    fastMode?: boolean;
     permissionPolicy?: AcpPermissionPolicy;
   }) => {
     const sid = sessionIdRef.current;
@@ -2156,7 +2122,6 @@ export function AcpPanel({
             currentProfileId={snapshot?.profileId ?? acpSettings.defaultProfileId}
             currentModelId={snapshot?.modelId ?? "default"}
             currentReasoningId={snapshot?.reasoningId ?? "medium"}
-            fastMode={snapshot?.fastMode ?? false}
             permissionPolicy={snapshot?.permissionPolicy ?? "ask"}
             availableModels={snapshot?.availableModels ?? []}
             availableReasoning={snapshot?.availableReasoning ?? []}
@@ -2443,7 +2408,6 @@ export function AcpPanel({
                 {currentReasoningName && (
                   <span className="text-foreground-subtle">{currentReasoningName}</span>
                 )}
-                {snapshot?.fastMode && <Zap className="size-3 text-brand" />}
                 <ChevronDown className="size-3 text-foreground-subtle" />
               </button>
 
@@ -2456,7 +2420,14 @@ export function AcpPanel({
                     const sid = sessionIdRef.current;
                     if (sid) {
                       setQueueHeld(true);
-                      void window.desktop?.cancelAcpPrompt(sid);
+                      setSendError(null);
+                      void window.desktop?.cancelAcpPrompt(sid).catch((error: unknown) => {
+                        if (sessionIdRef.current === sid) {
+                          setSendError(
+                            `Could not stop generation: ${error instanceof Error ? error.message : String(error)}`,
+                          );
+                        }
+                      });
                     }
                   }}
                   className="grid size-7 place-items-center rounded-full bg-destructive text-destructive-foreground transition-opacity hover:opacity-90"

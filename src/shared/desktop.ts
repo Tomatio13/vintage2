@@ -627,7 +627,6 @@ export interface DesktopBridge {
       modelId?: string;
       reasoningId?: string;
       modeId?: string;
-      fastMode?: boolean;
       permissionPolicy?: AcpPermissionPolicy;
     },
   ): Promise<AcpSessionSnapshot>;
