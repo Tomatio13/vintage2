@@ -1,5 +1,21 @@
 # VINTAGE Changelog
 
+## [0.2.52] - 2026-11-22
+
+### Added
+
+- Add a CodexBar usage skill and an optional 1Password launcher.
+
+### Fixed
+
+- Queue overlapping ACP permission prompts and preserve the session permission policy when approving an individual request. Surface cancellation errors, clear turn timing on reset, and avoid buffering snapshots for detached panes. Remove the inactive Fast toggle.
+- Protect concurrent file renames and preserve Markdown edits made during reload. Retry preview reads after temporary failures.
+- Open existing disk boards even when legacy storage is corrupt, and prevent stale card saves after an external update.
+- Preserve keyboard activation of document search buttons and respect paragraph boundaries in preview searches.
+- Keep the latest Browser navigation when local file preparation overlaps, and respect IME composition in the command palette.
+
+**Full Changelog:** [v0.2.51...v0.2.52](https://github.com/Tomatio13/vintage2/compare/v0.2.51...v0.2.52)
+
 ## [0.2.51] - 2026-11-22
 
 ### Added
