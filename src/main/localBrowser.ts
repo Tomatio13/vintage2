@@ -17,6 +17,7 @@ interface LocalCapability {
 }
 
 const capabilities = new Map<string, LocalCapability>();
+const pendingPreparations = new Map<string, symbol>();
 const capabilityByTab = new Map<string, string>();
 
 /** @internal Exposed only so stress tests can detect retained capability entries. */
@@ -101,19 +102,26 @@ export async function prepareLocalBrowserUrl(
   if (parsed.protocol !== "file:" || parsed.hostname) {
     throw new Error("Only local file URLs can be prepared");
   }
-  const file = await realpath(fileURLToPath(parsed));
-  if (!(await lstat(file)).isFile()) throw new Error("Local browser URL must reference a file");
-  const root = await realpath(dirname(file));
   const key = tabKey(ownerId, rawTabId);
-  releaseLocalBrowserUrl(ownerId, rawTabId);
-  const token = randomUUID();
-  capabilities.set(token, { ownerId, tabId: rawTabId, root });
-  capabilityByTab.set(key, token);
-  const name = relative(root, file).split(/[\\/]/u).map(encodeURIComponent).join("/");
-  return {
-    url: `${LOCAL_BROWSER_SCHEME}://${token}/${name}${parsed.search}${parsed.hash}`,
-    displayUrl: `${pathToFileURL(file).toString()}${parsed.search}${parsed.hash}`,
-  };
+  const request = Symbol();
+  pendingPreparations.set(key, request);
+  try {
+    const file = await realpath(fileURLToPath(parsed));
+    if (!(await lstat(file)).isFile()) throw new Error("Local browser URL must reference a file");
+    const root = await realpath(dirname(file));
+    if (pendingPreparations.get(key) !== request) throw new Error("Navigation superseded");
+    releaseLocalBrowserUrl(ownerId, rawTabId);
+    const token = randomUUID();
+    capabilities.set(token, { ownerId, tabId: rawTabId, root });
+    capabilityByTab.set(key, token);
+    const name = relative(root, file).split(/[\\/]/u).map(encodeURIComponent).join("/");
+    return {
+      url: `${LOCAL_BROWSER_SCHEME}://${token}/${name}${parsed.search}${parsed.hash}`,
+      displayUrl: `${pathToFileURL(file).toString()}${parsed.search}${parsed.hash}`,
+    };
+  } finally {
+    if (pendingPreparations.get(key) === request) pendingPreparations.delete(key);
+  }
 }
 
 export function resolveLocalBrowserUrl(ownerId: number, rawUrl: unknown): string | null {
@@ -129,6 +137,7 @@ export function resolveLocalBrowserUrl(ownerId: number, rawUrl: unknown): string
 export function releaseLocalBrowserUrl(ownerId: number, rawTabId: unknown): void {
   if (typeof rawTabId !== "string") return;
   const key = tabKey(ownerId, rawTabId);
+  pendingPreparations.delete(key);
   const token = capabilityByTab.get(key);
   if (!token) return;
   capabilityByTab.delete(key);

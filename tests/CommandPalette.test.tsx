@@ -37,6 +37,17 @@ function renderPalette(items: CommandPaletteItem[]) {
 }
 
 describe("CommandPalette keyboard navigation", () => {
+  it("leaves composing keys to the IME", () => {
+    const item = actionItem("a", "First");
+    const { input, onOpenChange } = renderPalette([item, actionItem("b", "Second")]);
+    for (const key of ["ArrowDown", "ArrowUp", "Enter", "Escape"])
+      expect(fireEvent.keyDown(input, { key, isComposing: true })).toBe(true);
+    expect(fireEvent.keyDown(input, { key: "Enter", keyCode: 229 })).toBe(true);
+    expect(item.onSelect).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(item.onSelect).toHaveBeenCalledOnce();
+  });
   it("reaches the truncated section row with ArrowDown and expands it with Enter", () => {
     const items = Array.from({ length: 6 }, (_, index) =>
       actionItem(`action:${index + 1}`, `Action ${index + 1}`),

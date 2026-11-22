@@ -237,29 +237,40 @@ export const BrowserPane = memo(function BrowserPane({
       : { url: initialUrlRef.current, partition: "persist:starter-browser" },
   );
 
-  const prepareGuestTarget = async (url: string): Promise<BrowserGuestTarget> => {
-    if (new URL(url).protocol === "file:") {
-      const prepare = window.desktop?.prepareLocalBrowserUrl;
-      if (!prepare) return { url, partition: "persist:starter-browser" };
-      const prepared = await prepare(tabId, url);
-      if (!addressDirtyRef.current) setAddress(prepared.displayUrl);
-      return { url: prepared.url, partition: "vintage-local-browser" };
-    }
-    await window.desktop?.releaseLocalBrowserUrl?.(tabId);
-    return { url, partition: "persist:starter-browser" };
-  };
-
+  const navigationGeneration = useRef(0);
   const loadLogicalUrl = async (url: string) => {
-    const target = await prepareGuestTarget(url);
-    setGuestTarget(target);
+    const generation = ++navigationGeneration.current;
+    try {
+      const prepare = window.desktop?.prepareLocalBrowserUrl;
+      if (new URL(url).protocol === "file:" && prepare) {
+        const prepared = await prepare(tabId, url);
+        if (generation !== navigationGeneration.current) return;
+        if (!addressDirtyRef.current) setAddress(prepared.displayUrl);
+        setGuestTarget({ url: prepared.url, partition: "vintage-local-browser" });
+      } else {
+        await window.desktop?.releaseLocalBrowserUrl?.(tabId);
+        if (generation === navigationGeneration.current)
+          setGuestTarget({ url, partition: "persist:starter-browser" });
+      }
+    } catch (error) {
+      if (generation === navigationGeneration.current)
+        setStatus(error instanceof Error ? error.message : String(error));
+    }
   };
 
   const syncNavigationState = async () => {
     const guest = guestRef.current;
     if (!guest) return;
+    const generation = navigationGeneration.current;
     const current = guest.getURL();
     if (current) {
       const logical = (await window.desktop?.resolveLocalBrowserUrl?.(current)) ?? current;
+      if (
+        generation !== navigationGeneration.current ||
+        guest !== guestRef.current ||
+        guest.getURL() !== current
+      )
+        return;
       if (!addressDirtyRef.current) setAddress(logical);
       setCurrentUrl(logical);
       const title = guest.getTitle();
@@ -272,11 +283,10 @@ export const BrowserPane = memo(function BrowserPane({
   useEffect(() => {
     if (!window.desktop) return;
     if (new URL(initialUrlRef.current).protocol === "file:") {
-      void loadLogicalUrl(initialUrlRef.current).catch((error: unknown) => {
-        setStatus(error instanceof Error ? error.message : String(error));
-      });
+      void loadLogicalUrl(initialUrlRef.current);
     }
     return () => {
+      navigationGeneration.current++;
       void window.desktop?.releaseLocalBrowserUrl?.(tabId);
     };
   }, [tabId]);
@@ -364,7 +374,9 @@ export const BrowserPane = memo(function BrowserPane({
     const guest = guestRef.current;
     if (!guest || !guestTarget || loadedTargetUrlRef.current === guestTarget.url) return;
     loadedTargetUrlRef.current = guestTarget.url;
+    const generation = navigationGeneration.current;
     void guest.loadURL(guestTarget.url).catch((error: unknown) => {
+      if (generation !== navigationGeneration.current || guest !== guestRef.current) return;
       setStatus(error instanceof Error ? error.message : String(error));
     });
   }, [guestTarget]);
@@ -515,14 +527,10 @@ export const BrowserPane = memo(function BrowserPane({
   const navigateRequestNonce = navigateRequest?.nonce;
   useEffect(() => {
     if (navigateRequestNonce === undefined || !navigateRequestUrl) return;
-    const guest = guestRef.current;
-    if (!guest) return;
     try {
       const url = normalizeBrowserUrl(navigateRequestUrl);
       setStatus("Loading…");
-      void loadLogicalUrl(url).catch((error: unknown) => {
-        setStatus(error instanceof Error ? error.message : String(error));
-      });
+      void loadLogicalUrl(url);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
     }
@@ -610,16 +618,12 @@ export const BrowserPane = memo(function BrowserPane({
 
   const navigate = (event: FormEvent) => {
     event.preventDefault();
-    const guest = guestRef.current;
-    if (!guest) return;
     try {
       const url = normalizeBrowserUrl(address);
       addressDirtyRef.current = false;
       setAddress(url);
       setStatus("Loading…");
-      void loadLogicalUrl(url).catch((error: unknown) => {
-        setStatus(error instanceof Error ? error.message : String(error));
-      });
+      void loadLogicalUrl(url);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
     }

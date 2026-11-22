@@ -30,6 +30,19 @@ describe("local browser capabilities", () => {
     expect(resolveLocalBrowserUrl(42, prepared.url)).toBeNull();
   });
 
+  it("does not publish a pending local URL after release or a newer request", async () => {
+    const url = pathToFileURL(await realpath("package.json")).href;
+    const superseded = prepareLocalBrowserUrl(42, "tab", url);
+    const latest = prepareLocalBrowserUrl(42, "tab", url);
+    await expect(superseded).rejects.toThrow("superseded");
+    const prepared = await latest;
+    expect(resolveLocalBrowserUrl(42, prepared.url)).toBe(url);
+    const pending = prepareLocalBrowserUrl(42, "tab", url);
+    releaseLocalBrowserUrl(42, "tab");
+    await expect(pending).rejects.toThrow("superseded");
+    expect(resolveLocalBrowserUrl(42, prepared.url)).toBeNull();
+  });
+
   it("rejects remote file hosts and directories", async () => {
     const root = await mkdtemp(join(tmpdir(), "vintage-local-browser-"));
     await expect(

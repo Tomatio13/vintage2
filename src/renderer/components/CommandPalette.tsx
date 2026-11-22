@@ -254,6 +254,7 @@ export function CommandPalette({ open, items, onOpenChange }: CommandPaletteProp
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
     if (event.key === "Escape") {
       event.preventDefault();
       closeDialog();
