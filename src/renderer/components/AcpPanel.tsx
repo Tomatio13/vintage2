@@ -459,13 +459,19 @@ function buildMarkdownComponents({
         );
       }
       return (
-        <pre className="my-2.5 overflow-x-auto rounded-lg border border-border bg-panel p-3 font-mono text-ui-sm leading-relaxed [&>code]:whitespace-pre [&>code]:border-0 [&>code]:bg-transparent [&>code]:p-0">
+        <pre
+          data-theme-chat-code
+          className="my-2.5 overflow-x-auto rounded-lg border border-border bg-panel p-3 font-mono text-ui-sm leading-relaxed [&>code]:whitespace-pre [&>code]:border-0 [&>code]:bg-transparent [&>code]:p-0"
+        >
           {children}
         </pre>
       );
     },
     code: ({ children }) => (
-      <code className="rounded border border-border bg-panel px-1 py-0.5 font-mono text-ui-sm">
+      <code
+        data-theme-chat-code
+        className="rounded border border-border bg-panel px-1 py-0.5 font-mono text-ui-sm"
+      >
         {children}
       </code>
     ),
@@ -831,6 +837,7 @@ const AcpMessageRow = memo(function AcpMessageRow({
           isUser ||
           (message.streaming && message.toolCalls.length === 0)) && (
           <div
+            data-theme-user-message={isUser ? "" : undefined}
             className={`min-w-0 break-words text-ui-base leading-relaxed [overflow-wrap:anywhere] ${
               isUser
                 ? "rounded-2xl rounded-tr-sm border border-border bg-selected px-4 py-2.5 text-foreground"
@@ -1914,6 +1921,7 @@ export function AcpPanel({
   return (
     <section
       aria-label={`${title} ACP agent`}
+      data-wallpaper-acp
       className="flex h-full min-h-0 flex-col bg-panel text-foreground"
     >
       {/* Top Header matching TerminalPanel */}
@@ -2113,6 +2121,7 @@ export function AcpPanel({
               textareaRef.current?.focus();
             }
           }}
+          data-theme-composer
           className="relative mx-auto flex max-w-3xl flex-col rounded-2xl border border-input-border bg-input p-2.5 focus-within:border-input-border-focused"
         >
           <AcpModelPopover
@@ -2440,6 +2449,7 @@ export function AcpPanel({
                 aria-label={isRunning || dispatching ? "Queue prompt" : "Send prompt"}
                 disabled={!draft.trim() && attachedImages.length === 0}
                 onClick={() => void submitPrompt()}
+                data-theme-message-action
                 className="grid size-7 place-items-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ArrowUp className="size-4" />

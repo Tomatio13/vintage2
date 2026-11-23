@@ -3,7 +3,8 @@ import type { MonitorAgent } from "../shared/monitor.js";
 import { agentStatesForPanes, agentsForPanes, monitorAgentsByPane } from "./lib/agentIdentity.js";
 import { sessionPathsEqual } from "../shared/sessionHistory.js";
 import { acpForkRequests, sessionLaunch } from "./lib/sessionLaunch.js";
-import { applyTheme } from "./lib/themes.js";
+import { useWorkspaceWallpaper } from "./lib/workspaceWallpaper.js";
+import { applyTheme, wallpaperDefaults } from "./lib/themes.js";
 import { browserShortcut } from "../shared/browserShortcuts.js";
 import { Check, CircleAlert, FolderOpen, OctagonAlert, Plus, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
@@ -488,7 +489,10 @@ function TabSurface({
       aria-hidden={!visible}
       className={`absolute inset-0 p-1 ${visible ? "" : "invisible pointer-events-none"}`}
     >
-      <div className="relative h-full min-h-0 min-w-0 overflow-hidden rounded-xl bg-panel-divider">
+      <div
+        data-wallpaper-layout
+        className="relative h-full min-h-0 min-w-0 overflow-hidden rounded-xl bg-panel-divider"
+      >
         {tab.panes.map((pane, paneIndex) => {
           const bounds = boundsByPane.get(pane.id);
           if (!bounds) return null;
@@ -563,6 +567,15 @@ function TabSurface({
 
 export function App() {
   const ui = useUiStore();
+  const wallpaper = useWorkspaceWallpaper();
+  const [wallpaperUrl, setWallpaperUrl] = useState<string>();
+  useEffect(() => {
+    const url = wallpaper ? URL.createObjectURL(wallpaper) : undefined;
+    setWallpaperUrl(url);
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [wallpaper]);
   const layoutRef = useRef<HTMLDivElement>(null);
   const [layoutWidth, setLayoutWidth] = useState(window.innerWidth);
   useEffect(() => {
@@ -1830,7 +1843,25 @@ export function App() {
           data-workspace-content
           className="relative flex h-full min-h-0 bg-background"
         >
-          <main className="relative min-w-0 flex-1 overflow-hidden bg-background">
+          <main
+            className="relative isolate min-w-0 flex-1 overflow-hidden bg-background"
+            data-theme-workspace
+            data-workspace-wallpaper={wallpaperUrl ? "" : undefined}
+            style={
+              {
+                "--wallpaper-panel-opacity": `${ui.themePreferences?.wallpaperOpacity ?? wallpaperDefaults.opacity}%`,
+                "--wallpaper-panel-blur": `${ui.themePreferences?.wallpaperBlur ?? wallpaperDefaults.blur}px`,
+              } as React.CSSProperties
+            }
+          >
+            {wallpaperUrl && (
+              <img
+                aria-hidden="true"
+                alt=""
+                src={wallpaperUrl}
+                className="pointer-events-none absolute inset-0 -z-10 h-full w-full select-none object-cover"
+              />
+            )}
             {workspaceActionError && active?.available && (
               <div
                 role="alert"

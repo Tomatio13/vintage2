@@ -395,6 +395,10 @@ Custom cards provide **Edit**, **Export**, and **Delete**. Edit the name, light 
 
 **Export** downloads `vintage-theme.json`. Import accepts VINTAGE JSON with a non-empty `name` (up to 60 characters) and six-digit hex `light`, `dark`, and `accent` colors, as in the example below. Up to 100 custom themes can be saved; import files must be at most 64 KiB. Themes and appearance preferences are stored locally with the interface settings and restored on restart. Existing Graphite settings retain their dark palette.
 
+Import also accepts T3 Code v1 theme JSON, including files from T3 Skins. Supported colors include the background, text, sidebar, and terminal. HEX and OKLCH colors are supported, and translucent colors are composited over the theme background. Supported colors include chat bubbles, code, the send button, and the toolbar. Supported background gradients from T3 CSS appear in the workspace and chat with their layer positions, sizes, and repeat settings. Images, animations, and other CSS rules are excluded.
+
+Use **Workspace background** to set a PNG, JPEG, or WebP image up to 16 MiB and adjust panel opacity and background blur. The image is stored on this device and shared across workspaces. Opacity and blur affect chat and terminal panes, including the terminal text viewport. The file viewer uses its regular background.
+
 ```json
 {
   "name": "Nightfall",

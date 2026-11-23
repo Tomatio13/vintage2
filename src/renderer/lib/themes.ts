@@ -1,14 +1,78 @@
+import {
+  gradientProperties,
+  gradientTargets,
+  importThemeGradients,
+  readThemeGradient,
+  type ThemeGradients,
+} from "./themeGradients.js";
+
+type Appearance = "light" | "dark";
+
+const t3ColorRoles = {
+  text: "foreground",
+  mutedForeground: "foreground-subtle",
+  secondaryLabel: "foreground-subtlest",
+  surface: "panel",
+  sidebar: "sidebar",
+  surfaceRaised: "card",
+  chrome: "header",
+  surfaceOverlay: "popover",
+  input: "input",
+  border: "border",
+  sidebarBorder: "panel-divider",
+  sidebarRowHover: "hover",
+  sidebarRowSelected: "selected",
+  focus: "input-border-focused",
+  accentForeground: "primary-foreground",
+  terminalBackground: "terminal",
+  terminalForeground: "terminal-foreground",
+  terminalCursor: "terminal-cursor",
+  terminalSelection: "terminal-selection",
+  terminalScrollbar: "terminal-scrollbar",
+  terminalScrollbarHover: "terminal-scrollbar-hover",
+  toolbar: "toolbar",
+  toolbarForeground: "toolbar-foreground",
+  toolbarBorder: "toolbar-border",
+  sidebarForeground: "sidebar-foreground",
+  sidebarMutedForeground: "sidebar-muted-foreground",
+  placeholder: "placeholder",
+  messageSurface: "message-surface",
+  messageForeground: "message-foreground",
+  messageAction: "message-action",
+  messageActionForeground: "message-action-foreground",
+  messageActionHover: "message-action-hover",
+  codeBackground: "chat-code-background",
+  codeForeground: "chat-code-foreground",
+  error: "destructive",
+  warning: "warning",
+} as const;
+
+const importedTokenNames = Object.values(t3ColorRoles);
+const isHexColor = (value: unknown): value is string =>
+  typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
+
+function record(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
 export interface Palette {
   id: string;
   name: string;
   light: string;
   dark: string;
   accent: string;
+  gradients?: Partial<Record<Appearance, ThemeGradients>>;
+  accents?: Partial<Record<Appearance, string>>;
+  colors?: Partial<Record<Appearance, Record<string, string>>>;
 }
 export interface ThemePreferences {
   light: string;
   dark: string;
   custom: Palette[];
+  wallpaperOpacity?: number;
+  wallpaperBlur?: number;
 }
 export const palettes: Palette[] = [
   { id: "vintage", name: "Vintage", light: "#faf8f4", dark: "#191816", accent: "#ba8b48" },
@@ -30,13 +94,35 @@ export function parsePalette(value: unknown): Palette {
     typeof p.name !== "string" ||
     !p.name.trim() ||
     p.name.length > 60 ||
-    ![p.light, p.dark, p.accent].every((c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c))
+    ![p.light, p.dark, p.accent].every(isHexColor)
   ) {
     throw new Error(
       "Use a theme with a name and six-digit hex colors for light, dark, and accent.",
     );
   }
+  const accents: NonNullable<Palette["accents"]> = {};
+  const gradients: NonNullable<Palette["gradients"]> = {};
+  const colors: NonNullable<Palette["colors"]> = {};
+  for (const mode of ["light", "dark"] as const) {
+    const accent = p.accents?.[mode];
+    if (isHexColor(accent)) accents[mode] = accent;
+    const paint = record(p.gradients?.[mode]);
+    const layers = gradientTargets.flatMap((target) => {
+      const value = readThemeGradient(paint?.[target]);
+      return value ? [[target, value] as const] : [];
+    });
+    if (layers.length) gradients[mode] = Object.fromEntries(layers);
+    const tokens = record(p.colors?.[mode]);
+    const entries = importedTokenNames.flatMap((token) => {
+      const value = tokens?.[token];
+      return isHexColor(value) ? [[token, value] as const] : [];
+    });
+    if (entries.length) colors[mode] = Object.fromEntries(entries);
+  }
   return {
+    ...(Object.keys(gradients).length ? { gradients } : {}),
+    ...(Object.keys(accents).length ? { accents } : {}),
+    ...(Object.keys(colors).length ? { colors } : {}),
     id: typeof p.id === "string" ? p.id : "",
     name: p.name.trim(),
     light: p.light!,
@@ -44,6 +130,126 @@ export function parsePalette(value: unknown): Palette {
     accent: p.accent!,
   };
 }
+function importColor(value: unknown, background: string): string | undefined {
+  if (isHexColor(value)) return value;
+  if (typeof value !== "string") return undefined;
+  const hex = /^#([0-9a-f]{3,4}|[0-9a-f]{8})$/i.exec(value);
+  if (hex) {
+    const raw = hex[1]!;
+    const expanded = raw.length < 5 ? [...raw].map((digit) => digit + digit).join("") : raw;
+    const rgb = "#" + expanded.slice(0, 6);
+    return expanded.length === 8
+      ? mix(background, rgb, parseInt(expanded.slice(6), 16) / 255)
+      : rgb;
+  }
+
+  const oklch =
+    /^oklch\(\s*([.\d]+)(%?)\s+([.\d]+)\s+(-?[.\d]+)(?:deg)?(?:\s*\/\s*([.\d]+)(%?))?\s*\)$/i.exec(
+      value,
+    );
+  if (!oklch) return undefined;
+  const lightness = Number(oklch[1]) / (oklch[2] ? 100 : 1);
+  const chroma = Number(oklch[3]);
+  const hue = ((Number(oklch[4]) % 360) * Math.PI) / 180;
+  const alpha = oklch[5] === undefined ? 1 : Number(oklch[5]) / (oklch[6] ? 100 : 1);
+  if (
+    ![lightness, chroma, hue, alpha].every(Number.isFinite) ||
+    lightness > 1 ||
+    chroma > 1 ||
+    alpha > 1
+  )
+    return undefined;
+
+  const a = chroma * Math.cos(hue);
+  const b = chroma * Math.sin(hue);
+  const l = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (lightness - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  // Convert OKLab to linear sRGB, then encode and clip each channel for the palette.
+  const channels = [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+  ];
+  const rgb =
+    "#" +
+    channels
+      .map((channel) => {
+        const linear = Math.max(0, Math.min(1, channel));
+        const encoded = linear <= 0.0031308 ? linear * 12.92 : 1.055 * linear ** (1 / 2.4) - 0.055;
+        return Math.round(encoded * 255)
+          .toString(16)
+          .padStart(2, "0");
+      })
+      .join("");
+  return mix(background, rgb, alpha);
+}
+
+export function parseThemeImport(value: unknown): Palette {
+  const theme = record(value);
+  if (!theme || !("appearance" in theme)) return parsePalette(value);
+  const mode = theme.appearance;
+  if (theme.version !== 1 || (mode !== "light" && mode !== "dark")) {
+    throw new Error("Use a T3 Code version 1 theme with a light or dark appearance.");
+  }
+
+  const baseColors = record(theme.colors);
+  if (!baseColors) throw new Error("The T3 Code theme needs a colors object.");
+  const otherMode = mode === "light" ? "dark" : "light";
+  const otherColors = record(record(theme.variants)?.[otherMode]);
+  const defaults = palettes[0]!;
+  const mapColors = (source: Record<string, unknown>, background: string) =>
+    Object.fromEntries(
+      Object.entries(t3ColorRoles).flatMap(([role, token]) => {
+        const color = importColor(source[role], background);
+        return color ? [[token, color]] : [];
+      }),
+    );
+  const canvas =
+    importColor(baseColors.canvas, defaults[mode]) ?? importColor(theme.canvas, defaults[mode]);
+  const accent =
+    importColor(baseColors.accent, canvas ?? defaults[mode]) ??
+    importColor(theme.accent, canvas ?? defaults[mode]);
+  const base = mapColors(baseColors, canvas ?? defaults[mode]);
+  const variantCanvas = importColor(otherColors?.canvas, defaults[otherMode]);
+  const variantAccent = importColor(otherColors?.accent, variantCanvas ?? defaults[otherMode]);
+  const variant = otherColors ? mapColors(otherColors, variantCanvas ?? defaults[otherMode]) : {};
+  if (
+    !canvas &&
+    !accent &&
+    !variantCanvas &&
+    !variantAccent &&
+    !Object.keys(base).length &&
+    !Object.keys(variant).length
+  ) {
+    throw new Error("The T3 Code theme needs at least one supported hex or OKLCH color.");
+  }
+  return parsePalette({
+    name: theme.name,
+    gradients: {
+      [mode]: importThemeGradients(theme.css, mode === "dark"),
+      ...(otherColors
+        ? { [otherMode]: importThemeGradients(theme.css, otherMode === "dark") }
+        : {}),
+    },
+    light: defaults.light,
+    dark: defaults.dark,
+    [mode]: canvas ?? defaults[mode],
+    [otherMode]: variantCanvas ?? defaults[otherMode],
+    accent: accent ?? defaults.accent,
+    accents: { [mode]: accent, [otherMode]: variantAccent ?? defaults.accent },
+    colors: { [mode]: base, [otherMode]: variant },
+  });
+}
+
+export const wallpaperDefaults = { opacity: 85, blur: 8 };
+
+function boundedInteger(value: unknown, max: number, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, Math.min(max, Math.round(value)))
+    : fallback;
+}
+
 export function restoreThemePreferences(value: unknown): ThemePreferences {
   const p = value as Partial<ThemePreferences> | null;
   const custom: Palette[] = [];
@@ -62,6 +268,12 @@ export function restoreThemePreferences(value: unknown): ThemePreferences {
     light: all.some((c) => c.id === p?.light) ? p!.light! : "vintage",
     dark: all.some((c) => c.id === p?.dark) ? p!.dark! : "vintage",
     custom,
+    ...(p?.wallpaperOpacity !== undefined
+      ? { wallpaperOpacity: boundedInteger(p.wallpaperOpacity, 100, wallpaperDefaults.opacity) }
+      : {}),
+    ...(p?.wallpaperBlur !== undefined
+      ? { wallpaperBlur: boundedInteger(p.wallpaperBlur, 24, wallpaperDefaults.blur) }
+      : {}),
   };
 }
 export function mix(a: string, b: string, amount: number): string {
@@ -90,7 +302,9 @@ export function contrastText(background: string) {
 export function paletteTokens(p: Palette, dark: boolean): Record<string, string> {
   const base = dark ? p.dark : p.light;
   const fg = contrastText(base);
-  let accent = p.accent;
+  const mode = dark ? "dark" : "light";
+  const sourceAccent = p.accents?.[mode] ?? p.accent;
+  let accent = sourceAccent;
   for (
     let i = 0;
     i < 16 &&
@@ -105,7 +319,7 @@ export function paletteTokens(p: Palette, dark: boolean): Record<string, string>
   for (const key of ["panel", "sidebar", "card", "header", "terminal-surface"])
     tokens[key] = mix(base, fg, 0.035);
   tokens.popover = mix(base, fg, 0.065);
-  for (const key of ["hover", "selected"]) tokens[key] = mix(base, p.accent, 0.18);
+  for (const key of ["hover", "selected"]) tokens[key] = mix(base, sourceAccent, 0.18);
   for (const key of ["border", "panel-divider", "input-border", "pane-active-border"])
     tokens[key] = mix(base, fg, 0.2);
   for (const key of ["brand", "primary", "input-border-focused"]) tokens[key] = accent;
@@ -113,7 +327,7 @@ export function paletteTokens(p: Palette, dark: boolean): Record<string, string>
   tokens.foreground = fg;
   tokens["foreground-subtle"] = mix(base, fg, 0.73);
   tokens["foreground-subtlest"] = mix(base, fg, 0.6);
-  return tokens;
+  return { ...tokens, ...p.colors?.[mode] };
 }
 export function applyTheme(
   mode: string,
@@ -128,10 +342,24 @@ export function applyTheme(
   root.classList.toggle("graphite", id === "graphite" && dark);
   const p = [...palettes, ...settings.custom].find((p) => p.id === id)!;
   const tokens = paletteTokens(p, dark);
-  for (const key of Object.keys(tokens)) root.style.removeProperty(`--color-${key}`);
+  for (const key of [...Object.keys(tokens), ...importedTokenNames]) {
+    root.style.removeProperty(`--color-${key}`);
+  }
   // Preserve the original Vintage and Graphite palettes exactly.
   if (id !== "vintage" && !(id === "graphite" && dark))
     for (const [key, value] of Object.entries(tokens))
       root.style.setProperty(`--color-${key}`, value);
+  for (const target of gradientTargets) {
+    const gradient = p.gradients?.[dark ? "dark" : "light"]?.[target];
+    for (const property of gradientProperties) {
+      const name =
+        property === "image"
+          ? `--theme-gradient-${target}`
+          : `--theme-gradient-${target}-${property}`;
+      const value = gradient?.[property];
+      if (value) root.style.setProperty(name, value);
+      else root.style.removeProperty(name);
+    }
+  }
   window.dispatchEvent(new Event("vintage-theme-changed"));
 }

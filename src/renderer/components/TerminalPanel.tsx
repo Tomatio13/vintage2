@@ -43,17 +43,21 @@ import {
   shortcutBinding,
   shortcutLabel,
 } from "../lib/shortcuts.js";
+import { useWorkspaceWallpaper } from "../lib/workspaceWallpaper.js";
 import { useUiStore } from "../store/uiStore.js";
 
-function resolveTerminalTheme() {
+function resolveTerminalTheme(transparent = false) {
   const style = getComputedStyle(document.documentElement);
   const read = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
   const brand = read("--color-brand", "#c6a66b");
   return {
-    background: read("--color-terminal", "#191816"),
-    foreground: read("--color-foreground", "#e6e1d8"),
-    cursor: brand,
-    selectionBackground: brand.length === 7 ? brand + "66" : brand,
+    background: transparent ? "#00000000" : read("--color-terminal", "#191816"),
+    foreground: read("--color-terminal-foreground", read("--color-foreground", "#e6e1d8")),
+    cursor: read("--color-terminal-cursor", brand),
+    selectionBackground: read(
+      "--color-terminal-selection",
+      brand.length === 7 ? brand + "66" : brand,
+    ),
   };
 }
 
@@ -413,6 +417,7 @@ export function TerminalPanel({
   } = useUiStore();
   const hostRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
+  const wallpaperEnabled = Boolean(useWorkspaceWallpaper());
   const webglRef = useRef<WebglAddon | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -519,6 +524,7 @@ export function TerminalPanel({
       // Required by the Unicode11Addon, which reads the proposed
       // terminal.unicode API to register the "11" width tables.
       allowProposedApi: true,
+      allowTransparency: true,
       cursorBlink: true,
       fontFamily: terminalFontFamily,
       fontSize: terminalFontSize,
@@ -795,18 +801,21 @@ export function TerminalPanel({
   useEffect(() => {
     const terminal = terminalRef.current;
     const update = () => {
-      if (terminal) terminal.options.theme = resolveTerminalTheme();
+      if (terminal) terminal.options.theme = resolveTerminalTheme(wallpaperEnabled);
     };
     update();
     window.addEventListener("vintage-theme-changed", update);
     return () => window.removeEventListener("vintage-theme-changed", update);
-  }, [theme]);
+  }, [theme, wallpaperEnabled]);
 
   const attentionText = attentionLabel(attention);
   const informationalAgentStatus = Boolean(attention && attention.attentionLevel === 0);
 
   return (
-    <section className="flex h-full min-h-0 flex-col bg-terminal text-foreground">
+    <section
+      data-wallpaper-terminal
+      className="flex h-full min-h-0 flex-col bg-terminal text-foreground"
+    >
       <div className="sticky top-0 z-10 flex h-8 shrink-0 items-center gap-2 border-b border-border bg-header px-3 pr-10 text-ui-xs text-foreground-subtle">
         <TerminalSquare className="size-3.5 shrink-0 text-foreground-subtle" />
         {editingTitle ? (

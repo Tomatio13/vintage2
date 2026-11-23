@@ -425,7 +425,8 @@ button {
 .xterm .xterm-viewport {
   background-color: var(--color-terminal);
   overflow-x: hidden;
-  scrollbar-color: var(--color-foreground-subtlest) var(--color-terminal);
+  scrollbar-color: var(--color-terminal-scrollbar, var(--color-foreground-subtlest))
+    var(--color-terminal);
 }
 
 .xterm .xterm-scrollable-element > .scrollbar.horizontal {
@@ -799,4 +800,107 @@ button {
   50% {
     opacity: 0.9;
   }
+}
+
+[data-workspace-wallpaper] [data-wallpaper-layout] {
+  background-color: transparent;
+}
+
+[data-workspace-wallpaper] [data-pane-id] {
+  background-color: color-mix(
+    in srgb,
+    var(--color-background) var(--wallpaper-panel-opacity),
+    transparent
+  );
+  backdrop-filter: blur(var(--wallpaper-panel-blur));
+}
+
+[data-workspace-wallpaper] :is([data-wallpaper-acp], [data-wallpaper-terminal]) {
+  background-color: transparent;
+}
+
+[data-workspace-wallpaper] [data-wallpaper-terminal] .xterm-viewport {
+  background-color: transparent;
+}
+
+[data-theme-workspace] {
+  background-image: var(--theme-gradient-workspace, none);
+  background-position: var(--theme-gradient-workspace-position, 0% 0%);
+  background-size: var(--theme-gradient-workspace-size, auto);
+  background-repeat: var(--theme-gradient-workspace-repeat, repeat);
+}
+
+[data-wallpaper-acp] {
+  background-image: var(--theme-gradient-chat, var(--theme-gradient-workspace, none));
+  background-position: var(
+    --theme-gradient-chat-position,
+    var(--theme-gradient-workspace-position, 0% 0%)
+  );
+  background-size: var(--theme-gradient-chat-size, var(--theme-gradient-workspace-size, auto));
+  background-repeat: var(
+    --theme-gradient-chat-repeat,
+    var(--theme-gradient-workspace-repeat, repeat)
+  );
+}
+
+[data-theme-user-message] {
+  background-image: var(--theme-gradient-message, none);
+  background-position: var(--theme-gradient-message-position, 0% 0%);
+  background-size: var(--theme-gradient-message-size, auto);
+  background-repeat: var(--theme-gradient-message-repeat, repeat);
+  background-color: var(--color-message-surface, var(--color-selected));
+  color: var(--color-message-foreground, var(--color-foreground));
+}
+
+[data-theme-composer] {
+  background-image: var(--theme-gradient-composer, none);
+  background-position: var(--theme-gradient-composer-position, 0% 0%);
+  background-size: var(--theme-gradient-composer-size, auto);
+  background-repeat: var(--theme-gradient-composer-repeat, repeat);
+}
+
+[data-theme-composer] textarea::placeholder {
+  color: var(--color-placeholder, var(--color-foreground-subtle));
+}
+
+[data-theme-message-action] {
+  background-color: var(--color-message-action, var(--color-primary));
+  color: var(--color-message-action-foreground, var(--color-primary-foreground));
+}
+
+[data-theme-message-action]:hover:not(:disabled) {
+  background-color: var(
+    --color-message-action-hover,
+    var(--color-message-action, var(--color-primary))
+  );
+}
+
+[data-theme-chat-code] {
+  background-color: var(--color-chat-code-background, var(--color-panel));
+  color: var(--color-chat-code-foreground, inherit);
+}
+
+.xterm .xterm-scrollable-element > .scrollbar > .slider {
+  background-color: var(--color-terminal-scrollbar, revert-layer);
+}
+
+.xterm .xterm-scrollable-element > .scrollbar > .slider:hover {
+  background-color: var(
+    --color-terminal-scrollbar-hover,
+    var(--color-terminal-scrollbar, revert-layer)
+  );
+}
+
+[data-theme-toolbar] {
+  background-color: var(--color-toolbar, var(--color-header));
+  color: var(--color-toolbar-foreground, var(--color-foreground));
+  border-color: var(--color-toolbar-border, var(--color-border));
+}
+
+[data-theme-sidebar] {
+  color: var(--color-sidebar-foreground, var(--color-foreground));
+}
+
+[data-theme-sidebar] .text-foreground-subtle {
+  color: var(--color-sidebar-muted-foreground, var(--color-foreground-subtle));
 }

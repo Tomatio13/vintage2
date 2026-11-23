@@ -100,6 +100,7 @@ export function WindowFrame({
     >
       {sidebar && (
         <aside
+          data-theme-sidebar
           className="relative h-full shrink-0 overflow-hidden"
           style={{ width: sidebarDisplayWidth }}
         >
@@ -116,7 +117,10 @@ export function WindowFrame({
         </aside>
       )}
       <section className="vintage-content-card flex min-w-0 flex-1 flex-col overflow-hidden border border-border border-l-0 bg-background">
-        <header className="window-drag flex h-9 shrink-0 items-stretch border-b border-border bg-header platform-mac:pl-20">
+        <header
+          data-theme-toolbar
+          className="window-drag flex h-9 shrink-0 items-stretch border-b border-border bg-header platform-mac:pl-20"
+        >
           <TooltipButton
             aria-label="Toggle sidebar"
             tooltip="Toggle sidebar"

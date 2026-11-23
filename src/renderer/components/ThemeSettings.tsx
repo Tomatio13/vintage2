@@ -3,10 +3,12 @@ import { useRef, useState } from "react";
 import {
   palettes,
   restoreThemePreferences,
-  parsePalette,
+  parseThemeImport,
   paletteTokens,
+  wallpaperDefaults,
   type Palette,
 } from "../lib/themes.js";
+import { saveWorkspaceWallpaper, useWorkspaceWallpaper } from "../lib/workspaceWallpaper.js";
 import type { VintageSettings } from "../store/uiStore.js";
 
 export function ThemeSettings({
@@ -17,6 +19,21 @@ export function ThemeSettings({
   change(patch: Partial<VintageSettings>): void;
 }) {
   const prefs = restoreThemePreferences(settings.themePreferences);
+  const wallpaper = useWorkspaceWallpaper();
+  const wallpaperInput = useRef<HTMLInputElement>(null);
+  const [wallpaperBusy, setWallpaperBusy] = useState(false);
+  const [wallpaperError, setWallpaperError] = useState("");
+  const updateWallpaper = async (file?: File) => {
+    setWallpaperBusy(true);
+    setWallpaperError("");
+    try {
+      await saveWorkspaceWallpaper(file);
+    } catch (error) {
+      setWallpaperError(error instanceof Error ? error.message : "Unable to save the background.");
+    } finally {
+      setWallpaperBusy(false);
+    }
+  };
   const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState("");
   const input = useRef<HTMLInputElement>(null);
@@ -37,6 +54,7 @@ export function ThemeSettings({
       return;
     }
     const copy = { ...p, id: `custom-${crypto.randomUUID()}`, name: `${p.name.slice(0, 54)} copy` };
+    setError("");
     saveCustom(copy);
     setEditing(copy.id);
   };
@@ -61,7 +79,7 @@ export function ThemeSettings({
           <button
             className={iconButton}
             aria-label="Import theme"
-            title="Import theme from JSON"
+            title="Import a VINTAGE or T3 Code theme from JSON"
             onClick={() => input.current?.click()}
           >
             <Upload aria-hidden="true" className="size-4" />
@@ -80,9 +98,8 @@ export function ThemeSettings({
           if (!file) return;
           try {
             if (file.size > 65536) throw new Error("Theme files must be smaller than 64 KB.");
-            const p = parsePalette(JSON.parse(await file.text()));
+            const p = parseThemeImport(JSON.parse(await file.text()));
             duplicate(p);
-            setError("");
           } catch (e) {
             setError(e instanceof Error ? e.message : "Unable to import theme.");
           }
@@ -217,19 +234,91 @@ export function ThemeSettings({
                 aria-label={`Theme ${key} color`}
                 type="color"
                 value={active[key]}
-                onChange={(e) => saveCustom({ ...active, [key]: e.target.value })}
+                onChange={(e) =>
+                  saveCustom({
+                    ...active,
+                    [key]: e.target.value,
+                    ...(key === "accent" ? { accents: {} } : {}),
+                  })
+                }
               />
             </label>
           ))}
           <p className="mt-3 text-ui-sm text-foreground-subtle">
-            Text and borders adjust automatically. Select this palette above to see changes in your
-            workspace.
+            Select this palette above to see changes in your workspace.
           </p>
           <button className={`${button} mt-3`} onClick={() => setEditing(null)}>
             Done
           </button>
         </div>
       )}
+      <div className="mt-5 border-t border-border pt-4">
+        <h3 className="text-ui-lg font-semibold">Workspace background</h3>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            className={button}
+            disabled={wallpaperBusy}
+            onClick={() => wallpaperInput.current?.click()}
+          >
+            {wallpaper ? "Replace image" : "Choose image"}
+          </button>
+          {wallpaper && (
+            <button
+              className={button}
+              disabled={wallpaperBusy}
+              onClick={() => void updateWallpaper()}
+            >
+              Remove image
+            </button>
+          )}
+        </div>
+        <input
+          ref={wallpaperInput}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          aria-label="Workspace background image"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            event.currentTarget.value = "";
+            if (file) void updateWallpaper(file);
+          }}
+        />
+        {wallpaperError && (
+          <p role="alert" className="mt-2 text-destructive">
+            {wallpaperError}
+          </p>
+        )}
+        {wallpaper && (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                ["wallpaperOpacity", "Panel opacity", 100, wallpaperDefaults.opacity, "%"],
+                ["wallpaperBlur", "Background blur", 24, wallpaperDefaults.blur, " px"],
+              ] as const
+            ).map(([key, label, max, fallback, unit]) => (
+              <label key={key} className="grid gap-1 text-ui-sm">
+                <span>
+                  {label} · {prefs[key] ?? fallback}
+                  {unit}
+                </span>
+                <input
+                  aria-label={label}
+                  type="range"
+                  min={0}
+                  max={max}
+                  value={prefs[key] ?? fallback}
+                  onChange={(event) =>
+                    change({
+                      themePreferences: { ...prefs, [key]: event.currentTarget.valueAsNumber },
+                    })
+                  }
+                />
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
