@@ -1,5 +1,15 @@
 # VINTAGE Changelog
 
+## [0.2.53] - 2026-11-23
+
+## Themes and workspace backgrounds
+
+- Import T3 Code v1 themes from Settings → Appearance. Supported colors cover chat, terminal, sidebar, and toolbar. Supported gradients preserve layer order, position, size, and repetition.
+- Set a local workspace image and adjust panel opacity and background blur. The image is visible behind terminal text as well as chat.
+- Fix nested VINTAGE launches so zsh loads the original user startup files and restores shell settings such as colorized ls output.
+
+**Full Changelog:** [v0.2.52...v0.2.53](https://github.com/Tomatio13/vintage2/compare/v0.2.52...v0.2.53)
+
 ## [0.2.52] - 2026-11-22
 
 ### Added
