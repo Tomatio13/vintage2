@@ -45,7 +45,14 @@ function prepareZsh(
   directory: string,
   cleanup: () => void,
 ): IntegratedShellCommand {
-  const userDirectory = environment.ZDOTDIR || environment.HOME || "";
+  // A nested VINTAGE launch inherits the parent shell's generated startup directory.
+  // Source the original user files directly instead of sourcing another integration.
+  const inheritedIntegration =
+    environment.ZDOTDIR && environment.ZDOTDIR === environment.VINTAGE_INTEGRATION_ZDOTDIR;
+  const userDirectory =
+    (inheritedIntegration ? environment.VINTAGE_USER_ZDOTDIR : environment.ZDOTDIR) ||
+    environment.HOME ||
+    "";
   const sourceUserFile = (name: string) =>
     `[[ -r "$VINTAGE_USER_ZDOTDIR/${name}" ]] && source "$VINTAGE_USER_ZDOTDIR/${name}"\nexport ZDOTDIR="$VINTAGE_INTEGRATION_ZDOTDIR"\n`;
 

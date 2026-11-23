@@ -27,6 +27,19 @@ describe("prepareShellIntegration", () => {
     expect(existsSync(integrationDirectory)).toBe(false);
   });
 
+  it("retains the original zsh config directory in a nested VINTAGE launch", () => {
+    const shell = { file: "/usr/bin/zsh", args: ["-l"] };
+    const original = prepareShellIntegration(shell, { ...environment, ZDOTDIR: "/custom/zsh" });
+    const nested = prepareShellIntegration(shell, original.env);
+    try {
+      expect(nested.env.VINTAGE_USER_ZDOTDIR).toBe("/custom/zsh");
+      expect(nested.env.ZDOTDIR).not.toBe(original.env.ZDOTDIR);
+    } finally {
+      nested.cleanup();
+      original.cleanup();
+    }
+  });
+
   it("creates a bash rcfile with command start and completion markers", () => {
     const command = prepareShellIntegration({ file: "/usr/bin/bash", args: ["-l"] }, environment);
     const rcFile = command.args[2]!;
