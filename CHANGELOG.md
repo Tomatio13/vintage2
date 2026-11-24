@@ -1,5 +1,13 @@
 # VINTAGE Changelog
 
+## [0.2.54] - 2026-11-24
+
+### Added
+
+- List Dexter ACP sessions from `$DEXTER_HOME/acp-sessions` or `~/.dexter/acp-sessions` in Sessions, including titles, request previews, and transcripts. Resume them in an ACP pane.
+
+**Full Changelog:** [v0.2.53...v0.2.54](https://github.com/Tomatio13/vintage2/compare/v0.2.53...v0.2.54)
+
 ## [0.2.53] - 2026-11-23
 
 ## Themes and workspace backgrounds
