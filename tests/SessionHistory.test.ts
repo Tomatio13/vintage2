@@ -413,6 +413,45 @@ it("hides Codex Guardian review sessions by metadata while preserving ordinary s
     );
 });
 
+it("lists Dexter ACP transcripts and exposes them for ACP resume", async () => {
+  const root = await mkdtemp(join(tmpdir(), "vintage-dexter-history-"));
+  dirs.push(root);
+  await writeFile(
+    join(root, `${sid}.jsonl`),
+    lines(
+      {
+        type: "session_meta",
+        version: 1,
+        sessionId: sid,
+        cwd: "/project",
+        title: "Dexter saved title",
+        model: "custom-openai:glm-5.3-flash",
+        updatedAt: 1,
+      },
+      { type: "user", text: "Find the filing" },
+      { type: "assistant", text: "Found it" },
+      { type: "user", text: "Summarize it" },
+    ),
+  );
+  const history = new SessionHistory([{ agent: "dexter", path: root }]);
+  const list = await history.list();
+  expect(list.sessions).toHaveLength(1);
+  const session = list.sessions[0]!;
+  expect(session).toMatchObject({
+    agent: "dexter",
+    sessionId: sid,
+    cwd: "/project",
+    title: "Dexter saved title",
+    preview: "Find the filing",
+    canResume: true,
+  });
+  expect((await history.detail(session.key)).messages).toEqual([
+    { role: "user", text: "Find the filing" },
+    { role: "assistant", text: "Found it" },
+    { role: "user", text: "Summarize it" },
+  ]);
+});
+
 describe("OpenCode history", () => {
   it("lists independent DB sessions, excludes subagents and hidden parts, and resumes with opencode2", async () => {
     const { DatabaseSync } = await import("node:sqlite");

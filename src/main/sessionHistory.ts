@@ -36,6 +36,7 @@ function content(value: unknown): string {
     .join("\n");
 }
 export function parseHistoryLog(text: string, agent: HistoryAgent) {
+  if (agent === "dexter") return parseDexterHistory(text);
   if (agent === "grok" || agent === "antigravity") return parseAdditionalHistory(text, agent);
   let sessionId = "",
     cwd = "",
@@ -91,6 +92,45 @@ export function parseHistoryLog(text: string, agent: HistoryAgent) {
     cwd,
     isGuardianReview,
     title: (title || first.split("\n").find((line) => line.trim()) || "Untitled session").slice(
+      0,
+      160,
+    ),
+    messages,
+    preview: first.slice(0, 240),
+  };
+}
+
+function parseDexterHistory(text: string) {
+  let sessionId = "";
+  let cwd = "";
+  let title = "";
+  const messages: HistoryMessage[] = [];
+
+  for (const line of text.split("\n")) {
+    let entry: Row;
+    try {
+      entry = row(JSON.parse(line));
+    } catch {
+      continue;
+    }
+    if (entry.type === "session_meta") {
+      sessionId = clean(entry.sessionId);
+      cwd = clean(entry.cwd);
+      title = clean(entry.title);
+      continue;
+    }
+    const role = entry.type === "user" ? "user" : entry.type === "assistant" ? "assistant" : "";
+    const body = clean(entry.text);
+    if (!role || !body) continue;
+    messages.push({ role, text: body.slice(0, 24000) });
+  }
+
+  const first = messages.find((message) => message.role === "user")?.text ?? "";
+  return {
+    sessionId,
+    cwd,
+    isGuardianReview: false,
+    title: (title || first.split("\n").find((part) => part.trim()) || "Dexter session").slice(
       0,
       160,
     ),
@@ -270,6 +310,10 @@ export class SessionHistory {
       {
         agent: "opencode",
         path: join(process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"), "opencode"),
+      },
+      {
+        agent: "dexter",
+        path: join(process.env.DEXTER_HOME?.trim() || join(homedir(), ".dexter"), "acp-sessions"),
       },
       { agent: "grok", path: join(homedir(), ".grok") },
       ...["antigravity-cli", "antigravity", "antigravity-ide"].map(
@@ -469,7 +513,12 @@ export class SessionHistory {
           }
         }
       }
-      await walk(join(path, agent === "claude" ? "projects" : "sessions"), agent, path, 0);
+      await walk(
+        agent === "dexter" ? path : join(path, agent === "claude" ? "projects" : "sessions"),
+        agent,
+        path,
+        0,
+      );
     }
     candidates.sort((a, b) => b.updatedAt - a.updatedAt);
     if (candidates.length > 500) warnings.add("Showing the 500 most recently updated log files.");

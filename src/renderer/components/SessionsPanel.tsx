@@ -587,7 +587,7 @@ export function SessionsPanel({
                         disabled={
                           liveSession
                             ? !liveSession.paneId || !onOpenTerminal
-                            : !selected.canResume || !onResume
+                            : selected.agent === "dexter" || !selected.canResume || !onResume
                         }
                         onClick={() => {
                           try {
@@ -631,7 +631,8 @@ export function SessionsPanel({
                         (selected.agent === "codex" ||
                           selected.agent === "claude" ||
                           selected.agent === "opencode" ||
-                          selected.agent === "antigravity") && (
+                          selected.agent === "antigravity" ||
+                          selected.agent === "dexter") && (
                           <Button
                             type="button"
                             onClick={() => {

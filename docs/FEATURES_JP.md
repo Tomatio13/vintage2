@@ -264,7 +264,7 @@ Browserのページはサンドボックスと分離を有効にして実行し�
 
 ## Sessions
 
-**Sessions**は、保存済みのCodex・Claude Code・OpenCode（opencode2）・Grok・Antigravityの会話を探すパネルです。Monitorの実行中プロセス一覧とは別に表示し、初期状態で有効です。**Settings → Panels**、**Ctrl+Alt+Y**（macOSは**⌘+Option+Y**）、コマンドパレットの**Toggle Sessions tab**でON/OFFできます。キーは**Settings → Shortcuts → Side pane**で変更できます。
+**Sessions**は、保存済みのCodex・Claude Code・OpenCode（opencode2）・Grok・Antigravity・Dexterの会話を探すパネルです。Monitorの実行中プロセス一覧とは別に表示し、初期状態で有効です。**Settings → Panels**、**Ctrl+Alt+Y**（macOSは**⌘+Option+Y**）、コマンドパレットの**Toggle Sessions tab**でON/OFFできます。キーは**Settings → Shortcuts → Side pane**で変更できます。
 
 ACPペインを選択した状態で保存済み会話を開き、 **Add to ACP draft** を押すと、会話の抜粋を下書きに追加できます。送信前に抜粋を確認・編集できます。
 
@@ -282,6 +282,7 @@ ACPペインを選択した状態で保存済み会話を開き、 **Add to ACP 
 | Grok                 | `~/.grok/sessions`の要約と更新ログ                                            | `grok --resume <id>`       |
 | Antigravity CLI      | `~/.gemini/antigravity-cli`の会話DBとbrainログ                                | `agy --conversation <id>`  |
 | Antigravity IDE      | `~/.gemini/antigravity`、`~/.gemini/antigravity-ide`                          | 閲覧のみ                   |
+| Dexter               | `$DEXTER_HOME/acp-sessions`または`~/.dexter/acp-sessions`                     | **ACP**で再開              |
 
 OpenCode 2は`session_v2`／`session_message`を読み取ります。旧形式の`session`／`message`／`part`はv2テーブルがない場合に使用します。
 

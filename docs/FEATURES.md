@@ -264,7 +264,7 @@ Downloads, extensions, and saved login credentials are not supported.
 
 ## Sessions
 
-**Sessions** is a library of saved Codex, Claude Code, OpenCode (opencode2), Grok, and Antigravity conversations, separate from the running processes shown in Monitor. It is enabled by default. Toggle the tab in **Settings → Panels**, with **Ctrl+Alt+Y** (**⌘+Option+Y** on macOS), or with **Toggle Sessions tab** in the command palette. Reassign the shortcut in **Settings → Shortcuts → Side pane**.
+**Sessions** is a library of saved Codex, Claude Code, OpenCode (opencode2), Grok, Antigravity, and Dexter conversations, separate from the running processes shown in Monitor. It is enabled by default. Toggle the tab in **Settings → Panels**, with **Ctrl+Alt+Y** (**⌘+Option+Y** on macOS), or with **Toggle Sessions tab** in the command palette. Reassign the shortcut in **Settings → Shortcuts → Side pane**.
 
 With an ACP pane selected, open a saved conversation and choose **Add to ACP draft**. The transcript excerpt can be reviewed and edited before sending.
 
@@ -282,6 +282,7 @@ With an ACP pane selected, open a saved conversation and choose **Add to ACP dra
 | Grok                 | `~/.grok/sessions` summaries and update logs                                  | `grok --resume <id>`       |
 | Antigravity CLI      | `~/.gemini/antigravity-cli` summaries DB and brain transcripts                | `agy --conversation <id>`  |
 | Antigravity IDE      | `~/.gemini/antigravity` and `~/.gemini/antigravity-ide`                       | Browse only                |
+| Dexter               | `$DEXTER_HOME/acp-sessions`, or `~/.dexter/acp-sessions`                      | **ACP** resume             |
 
 OpenCode 2 uses the `session_v2` / `session_message` tables; legacy `session` / `message` / `part` tables are used only when v2 is absent.
 
