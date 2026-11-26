@@ -1,11 +1,13 @@
 # VINTAGE Changelog
 
-## [Unreleased]
+## [0.2.55] - 2026-11-26
 
 ### Added
 
 - Connect Muse Code through `muse-code-acp`, with automatic model catalog discovery and optional 1Password launch.
 - Browse saved Muse Code conversations in Sessions and resume them through the Muse CLI or an ACP pane.
+
+**Full Changelog:** [v0.2.54...v0.2.55](https://github.com/Tomatio13/vintage2/compare/v0.2.54...v0.2.55)
 
 ## [0.2.54] - 2026-11-24
 
