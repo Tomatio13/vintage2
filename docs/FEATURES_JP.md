@@ -70,6 +70,13 @@ _Attention通知のOpen terminalからChecksのターミナルへ移動した画
 
 1Password を使う場合は、**Executable path** にラッパーの絶対パスを指定し、**Arguments** に `muse` を入力します。ラッパーは `VINTAGE_ACP_ENV_FILE` で指定したファイル（既定は `~/.env`）から `META_API_KEY` や `MUSE_CODE_EXECUTABLE` を渡せます。 [acp-with-1password.sh](../scripts/acp-with-1password.sh)
 
+以下は、VINTAGE のチェックアウト内にアダプターをインストールした環境での **Executable path** の入力例です。ほかの環境では実際のインストール先を指定してください。Linux・macOS でグローバルインストールしたアダプターが PATH にある場合は、`command -v muse-code-acp` でパスを確認できます。
+
+| 起動方法  | Executable path                                                                                   | Arguments |
+| --------- | ------------------------------------------------------------------------------------------------- | --------- |
+| 直接起動  | `/home/masato/Agentic/new_vintage/node_modules/.vintage-muse-acp/node_modules/.bin/muse-code-acp` | 空欄      |
+| 1Password | `/home/masato/Agentic/new_vintage/scripts/acp-with-1password.sh`                                  | `muse`    |
+
 保存済みの会話は **Sessions** で Muse Code を選んで確認できます。会話の作業フォルダーを VINTAGE で開き、**Resume** で Muse CLI に、**ACP** で設定済みのアダプターに同じセッションを開きます。 [履歴の保存先](#sessions)
 
 ### CodexとClaude Codeのコマンド実行権限

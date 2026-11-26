@@ -70,6 +70,13 @@ Open a native **ACP** chat pane beside your terminals from **New ACP** (directly
 
 To use 1Password, set **Executable path** to the absolute path of the wrapper and enter `muse` in **Arguments**. The wrapper can supply `META_API_KEY` and `MUSE_CODE_EXECUTABLE` through the file specified by `VINTAGE_ACP_ENV_FILE` (defaults to `~/.env`). [acp-with-1password.sh](../scripts/acp-with-1password.sh)
 
+These **Executable path** examples use an adapter installed inside the VINTAGE checkout. On another machine, use the path to your own installation. On Linux and macOS, `command -v muse-code-acp` shows the path for a global install available on PATH.
+
+| Launch method | Executable path                                                                                   | Arguments   |
+| ------------- | ------------------------------------------------------------------------------------------------- | ----------- |
+| Direct        | `/home/masato/Agentic/new_vintage/node_modules/.vintage-muse-acp/node_modules/.bin/muse-code-acp` | Leave blank |
+| 1Password     | `/home/masato/Agentic/new_vintage/scripts/acp-with-1password.sh`                                  | `muse`      |
+
 Filter **Sessions** by Muse Code to read saved conversations. Open the conversation's working folder in VINTAGE, then choose **Resume** to open the same session in the Muse CLI or **ACP** to open it with the configured adapter. [Local history sources](#sessions)
 
 ### Command permissions in Codex and Claude Code
