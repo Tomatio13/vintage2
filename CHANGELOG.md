@@ -1,5 +1,12 @@
 # VINTAGE Changelog
 
+## [Unreleased]
+
+### Added
+
+- Connect Muse Code through `muse-code-acp`, with automatic model catalog discovery and optional 1Password launch.
+- Browse saved Muse Code conversations in Sessions and resume them through the Muse CLI or an ACP pane.
+
 ## [0.2.54] - 2026-11-24
 
 ### Added

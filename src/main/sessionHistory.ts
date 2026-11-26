@@ -36,6 +36,7 @@ function content(value: unknown): string {
     .join("\n");
 }
 export function parseHistoryLog(text: string, agent: HistoryAgent) {
+  if (agent === "muse") return parseMuseHistory(text);
   if (agent === "dexter") return parseDexterHistory(text);
   if (agent === "grok" || agent === "antigravity") return parseAdditionalHistory(text, agent);
   let sessionId = "",
@@ -97,6 +98,59 @@ export function parseHistoryLog(text: string, agent: HistoryAgent) {
     ),
     messages,
     preview: first.slice(0, 240),
+  };
+}
+
+function parseMuseHistory(text: string) {
+  let sessionId = "";
+  let cwd = "";
+  let pendingIntent = "";
+  const messages: HistoryMessage[] = [];
+  const consume = (entry: Row) => {
+    const payload = row(entry.payload);
+    const event = row(payload.event);
+    if (entry.payload_type === "runtime.session.metadata") {
+      sessionId = clean(row(entry.stream).id);
+      cwd = clean(row(payload.record).workspace_root);
+    }
+    if (entry.payload_type === "runtime.user_intent.accepted") {
+      const blocks = Array.isArray(payload.refill_blocks) ? payload.refill_blocks : [];
+      pendingIntent = blocks
+        .map((block) => clean(row(block).text))
+        .filter(Boolean)
+        .join("\n");
+      if (pendingIntent) messages.push({ role: "user", text: pendingIntent.slice(0, 24000) });
+    } else if (payload.kind === "run" && event.kind === "started") {
+      const prompt = clean(event.prompt);
+      if (prompt && prompt !== pendingIntent)
+        messages.push({ role: "user", text: prompt.slice(0, 24000) });
+      pendingIntent = "";
+    } else if (payload.kind === "run" && event.kind === "assistant_message_committed") {
+      const reply = clean(event.text);
+      if (reply) messages.push({ role: "assistant", text: reply.slice(0, 24000) });
+    }
+  };
+  for (const line of text.split("\n")) {
+    try {
+      const entry = row(JSON.parse(line));
+      if (Array.isArray(entry.children)) {
+        for (const child of entry.children) {
+          const record = row(child).record_json;
+          consume(row(typeof record === "string" ? JSON.parse(record) : record));
+        }
+      } else consume(entry);
+    } catch {
+      // The bounded log read can end on an incomplete record.
+    }
+  }
+  const first = messages.find((message) => message.role === "user")?.text ?? "";
+  return {
+    sessionId,
+    cwd,
+    title: (first.split("\n")[0] || "Muse Code session").slice(0, 160),
+    preview: first.slice(0, 240),
+    messages,
+    isGuardianReview: false,
   };
 }
 
@@ -315,6 +369,10 @@ export class SessionHistory {
         agent: "dexter",
         path: join(process.env.DEXTER_HOME?.trim() || join(homedir(), ".dexter"), "acp-sessions"),
       },
+      {
+        agent: "muse",
+        path: join(process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"), "muse"),
+      },
       { agent: "grok", path: join(homedir(), ".grok") },
       ...["antigravity-cli", "antigravity", "antigravity-ide"].map(
         (kind): HistoryRoot => ({
@@ -391,7 +449,11 @@ export class SessionHistory {
           } catch {
             warnings.add("Some Grok session summaries could not be read.");
           }
-        } else if (agent !== "grok" && child.isFile() && child.name.endsWith(".jsonl")) {
+        } else if (
+          agent !== "grok" &&
+          child.isFile() &&
+          (agent === "muse" ? child.name === "session.jsonl" : child.name.endsWith(".jsonl"))
+        ) {
           const info = await stat(path).catch(() => null);
           if (info) candidates.push({ agent, path, root, updatedAt: info.mtimeMs });
         }
@@ -752,6 +814,12 @@ export class SessionHistory {
       return {
         file: "opencode2",
         args: ["--session", sessionId],
+        env: { XDG_DATA_HOME: resolve(entry.root, "..") },
+      };
+    if (agent === "muse")
+      return {
+        file: "muse",
+        args: ["resume", sessionId],
         env: { XDG_DATA_HOME: resolve(entry.root, "..") },
       };
     if (agent === "grok") return { file: "grok", args: ["--resume", sessionId], env: {} };

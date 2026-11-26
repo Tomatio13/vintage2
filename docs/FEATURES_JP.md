@@ -47,6 +47,7 @@ _Attention通知のOpen terminalからChecksのターミナルへ移動した画
   - **Antigravity / Gemini (`AG`)** は `agy` / `gemini` (`acp`) を自動検出します。
   - **OpenCode (`OC`)** は `opencode2` / `opencode` (`acp`) 経由で動作し、モデル一覧を **OpenCode Go**（`https://opencode.ai/zen/go/v1/models` およびローカルキャッシュ）に絞り込みます。
   - **Z.ai (`ZA`)** は OpenCode 経由の `zai-coding-plan/*`（または `zai/*`）モデルを専用プロバイダーとして扱います。
+  - **Muse Code (`MC`)** は `muse-code-acp` を使います。[Muse Code の設定手順](#muse-code)
   - **Settings → ACP Agents** から任意のカスタム ACP エージェントを追加でき、**Test ACP Handshake** で疎通確認できます。
 - **混在会話とプロバイダー別常駐**: Composer 右下の 3 カラムピッカーから会話の途中でプロバイダー・モデル・Reasoning 強度を切り替えられます。各応答メッセージには生成時のプロバイダーバッジとモデル名が保持され、一度接続したプロバイダープロセスはペイン内で常駐するため、切り替え直しても再ハンドシェイクを待ちません。
   切り替え後に送信すると、同じペインの過去の発言を自動で渡します。接続済みのプロバイダーに戻ると、そのプロバイダーにまだ渡していない発言が対象になります。履歴の上限はシリアライズ後の発言データで16 KiBです。新しいプロバイダーセッションでは最初の依頼と直近の発言を優先します。発言の本文と役割に加え、完了したコマンドの状態と取得できた終了コードを渡します。引き継ぎの確認ダイアログは表示されません。コマンド文字列と出力は会話から確認できます。内部推論、ツールの実行状態、過去の添付は元のペインに残ります。
@@ -60,6 +61,16 @@ _Attention通知のOpen terminalからChecksのターミナルへ移動した画
   - ツール実行は 1 行の折りたたみサマリー（WorkLog）に集約され、必要なときだけ展開できます。実行計画（Plan）は Composer 上部に折りたたみカードで表示されます。
   - ヘッダーに応答中の経過時間タイマーとコンテキスト使用量（`used / size`）を表示します。
   - エージェントが生成したローカル画像や ACP 画像ブロックはチャット内にインライン表示（クリックで拡大ライトボックス）され、`html` / `svg` コードブロックはサンドボックス付き `<iframe>` で **Preview / Code** を切り替えて確認できます。
+
+### Muse Code
+
+1. Muse CLI をインストールし、`muse login` で認証します。Node.js 22 以上で `npm install -g @bex-co/muse-code-acp` を実行します。 [アダプターのセットアップ](https://github.com/bex-co/muse-code-acp#quickstart--about-60-seconds)
+2. **Settings → Integrations → ACP Agents → Muse Code** を開きます。PATH から起動できる場合は **Executable path** を空欄にします。必要に応じて `muse-code-acp` の絶対パスを指定します。直接起動するときは **Arguments** を空欄にします。Muse 本体を個別に指定する場合は、VINTAGE の起動環境で `MUSE_CODE_EXECUTABLE` に絶対パスを設定します。
+3. **Test ACP Handshake** で接続を確認します。新しい ACP ペインでは、モデルピッカーで **Muse Code** を開いて **Use Muse Code** を選びます。VINTAGE は接続時にモデル一覧を取得します。手動で更新するには ACP 入力欄で `/models` を送信します。
+
+1Password を使う場合は、**Executable path** にラッパーの絶対パスを指定し、**Arguments** に `muse` を入力します。ラッパーは `VINTAGE_ACP_ENV_FILE` で指定したファイル（既定は `~/.env`）から `META_API_KEY` や `MUSE_CODE_EXECUTABLE` を渡せます。 [acp-with-1password.sh](../scripts/acp-with-1password.sh)
+
+保存済みの会話は **Sessions** で Muse Code を選んで確認できます。会話の作業フォルダーを VINTAGE で開き、**Resume** で Muse CLI に、**ACP** で設定済みのアダプターに同じセッションを開きます。 [履歴の保存先](#sessions)
 
 ### CodexとClaude Codeのコマンド実行権限
 
@@ -264,7 +275,7 @@ Browserのページはサンドボックスと分離を有効にして実行し�
 
 ## Sessions
 
-**Sessions**は、保存済みのCodex・Claude Code・OpenCode（opencode2）・Grok・Antigravity・Dexterの会話を探すパネルです。Monitorの実行中プロセス一覧とは別に表示し、初期状態で有効です。**Settings → Panels**、**Ctrl+Alt+Y**（macOSは**⌘+Option+Y**）、コマンドパレットの**Toggle Sessions tab**でON/OFFできます。キーは**Settings → Shortcuts → Side pane**で変更できます。
+**Sessions**は、保存済みのCodex・Claude Code・OpenCode（opencode2）・Grok・Antigravity・Muse Code・Dexterの会話を探すパネルです。Monitorの実行中プロセス一覧とは別に表示し、初期状態で有効です。**Settings → Panels**、**Ctrl+Alt+Y**（macOSは**⌘+Option+Y**）、コマンドパレットの**Toggle Sessions tab**でON/OFFできます。キーは**Settings → Shortcuts → Side pane**で変更できます。
 
 ACPペインを選択した状態で保存済み会話を開き、 **Add to ACP draft** を押すと、会話の抜粋を下書きに追加できます。送信前に抜粋を確認・編集できます。
 
@@ -274,15 +285,16 @@ ACPペインを選択した状態で保存済み会話を開き、 **Add to ACP 
 - **再開する**：**Resume in new Space**は、Sessionの作業ディレクトリに対応するVINTAGEの開いているWorkspaceに新しいターミナルを追加し、既存ターミナルを維持します。MonitorがVINTAGE内の稼働中Sessionと認識している場合は**Open terminal**でその端末へ戻ります。VINTAGE外で稼働中と認識したSessionは、このパネルから重ねて再開しません。各OSに対応するCLIの導入が必要です。
 - **Monitorから移動する**：詳細の**Open in Sessions**で、取得上限内に存在する対応会話を開きます。
 
-| Agent                | ローカル履歴の取得元                                                          | 再開コマンド               |
-| :------------------- | :---------------------------------------------------------------------------- | :------------------------- |
-| Codex                | `$CODEX_HOME/sessions`、未設定なら`~/.codex/sessions`                         | `codex resume <id>`        |
-| Claude Code          | `$CLAUDE_CONFIG_DIR/projects`、未設定なら`~/.claude/projects`                 | `claude --resume <id>`     |
-| OpenCode (opencode2) | `$XDG_DATA_HOME/opencode/opencode.db` (`~/.local/share/opencode/opencode.db`) | `opencode2 --session <id>` |
-| Grok                 | `~/.grok/sessions`の要約と更新ログ                                            | `grok --resume <id>`       |
-| Antigravity CLI      | `~/.gemini/antigravity-cli`の会話DBとbrainログ                                | `agy --conversation <id>`  |
-| Antigravity IDE      | `~/.gemini/antigravity`、`~/.gemini/antigravity-ide`                          | 閲覧のみ                   |
-| Dexter               | `$DEXTER_HOME/acp-sessions`または`~/.dexter/acp-sessions`                     | **ACP**で再開              |
+| Agent                | ローカル履歴の取得元                                                          | 再開コマンド                 |
+| :------------------- | :---------------------------------------------------------------------------- | :--------------------------- |
+| Codex                | `$CODEX_HOME/sessions`、未設定なら`~/.codex/sessions`                         | `codex resume <id>`          |
+| Claude Code          | `$CLAUDE_CONFIG_DIR/projects`、未設定なら`~/.claude/projects`                 | `claude --resume <id>`       |
+| OpenCode (opencode2) | `$XDG_DATA_HOME/opencode/opencode.db` (`~/.local/share/opencode/opencode.db`) | `opencode2 --session <id>`   |
+| Grok                 | `~/.grok/sessions`の要約と更新ログ                                            | `grok --resume <id>`         |
+| Antigravity CLI      | `~/.gemini/antigravity-cli`の会話DBとbrainログ                                | `agy --conversation <id>`    |
+| Antigravity IDE      | `~/.gemini/antigravity`、`~/.gemini/antigravity-ide`                          | 閲覧のみ                     |
+| Muse Code            | `$XDG_DATA_HOME/muse/sessions` (既定 `~/.local/share/muse/sessions`)          | `muse resume <id>` / **ACP** |
+| Dexter               | `$DEXTER_HOME/acp-sessions`または`~/.dexter/acp-sessions`                     | **ACP**で再開                |
 
 OpenCode 2は`session_v2`／`session_message`を読み取ります。旧形式の`session`／`message`／`part`はv2テーブルがない場合に使用します。
 

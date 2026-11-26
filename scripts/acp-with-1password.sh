@@ -3,7 +3,7 @@
 set -eu
 
 usage() {
-	printf '%s\n' 'Usage: acp-with-1password.sh codex|claude|agy|opencode|zai [agent arguments...]'
+	printf '%s\n' 'Usage: acp-with-1password.sh codex|claude|agy|opencode|zai|muse [agent arguments...]'
 }
 
 executable=
@@ -17,6 +17,9 @@ codex)
 	;;
 claude)
 	adapter=claude-agent-acp
+	;;
+muse | muse-code | muse-code-acp)
+	adapter=muse-code-acp
 	;;
 agy | antigravity)
 	executable=agy
@@ -51,11 +54,18 @@ if [ -n "$executable" ]; then
 	set -- "$executable" acp "$@"
 else
 	script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-	entry="$script_dir/../node_modules/@agentclientprotocol/$adapter/dist/index.js"
+	if [ "$adapter" = muse-code-acp ]; then
+		entry="$script_dir/../node_modules/.vintage-muse-acp/node_modules/@bex-co/muse-code-acp/dist/index.js"
+	else
+		entry="$script_dir/../node_modules/@agentclientprotocol/$adapter/dist/index.js"
+	fi
 	if [ -f "$entry" ] && command -v node >/dev/null 2>&1; then
 		set -- node "$entry" "$@"
 	elif command -v "$adapter" >/dev/null 2>&1; then
 		set -- "$adapter" "$@"
+	elif [ "$adapter" = muse-code-acp ]; then
+		printf '%s\n' 'Could not start muse-code-acp. Install it with npm install -g @bex-co/muse-code-acp (Node.js 22+).' >&2
+		exit 127
 	else
 		printf '%s\n' "Could not start $adapter. Install the checkout dependencies and Node.js, or put $adapter on PATH." >&2
 		exit 127

@@ -47,6 +47,7 @@ Open a native **ACP** chat pane beside your terminals from **New ACP** (directly
   - **Antigravity / Gemini (`AG`)** auto-detects `agy` / `gemini` (`acp`).
   - **OpenCode (`OC`)** runs via `opencode2` / `opencode` (`acp`) and filters its model catalog to **OpenCode Go** (`https://opencode.ai/zen/go/v1/models` with local cache fallback).
   - **Z.ai (`ZA`)** runs via OpenCode `zai-coding-plan/*` (or `zai/*`) models.
+  - **Muse Code (`MC`)** uses `muse-code-acp`. [Muse Code setup](#muse-code)
   - Add custom ACP executables and verify connections via **Settings → ACP Agents → Test ACP Handshake**.
 - **Mixed-provider conversations & cached runtimes**: Switch providers, models, and reasoning levels anytime from the 3-column selector in the composer. Each assistant message preserves the provider badge and model name that generated it, and active provider processes stay warm per pane so switching back does not re-run the ACP handshake.
   When you send a message after switching providers, VINTAGE automatically supplies earlier messages from the same pane. Returning to a connected provider sends the messages it has missed. The history budget is 16 KiB of serialized messages and prioritizes the first request and recent messages when starting a provider session. The handoff includes chat text, roles, and the status and available exit codes of finished commands. The handoff runs without confirmation. Command text and output can be reviewed in the conversation. Internal reasoning, tool state, and past attachments stay in the source pane.
@@ -60,6 +61,16 @@ Open a native **ACP** chat pane beside your terminals from **New ACP** (directly
   - Tool calls collapse into a compact WorkLog summary line (expanding on click or failure), and agent Plans appear in a collapsible Plan card above the composer.
   - The header shows live turn elapsed time and context usage (`used / size`) when reported by the agent.
   - Local/agent-generated Markdown images and ACP image blocks render inline with a click-to-zoom lightbox; fenced `html` and `svg` blocks render with a **Preview / Code** toggle inside a sandboxed `<iframe>`.
+
+### Muse Code
+
+1. Install the Muse CLI and authenticate with `muse login`. With Node.js 22 or later, run `npm install -g @bex-co/muse-code-acp`. [Adapter setup](https://github.com/bex-co/muse-code-acp#quickstart--about-60-seconds)
+2. Open **Settings → Integrations → ACP Agents → Muse Code**. Leave **Executable path** blank for PATH discovery, or enter the absolute path to `muse-code-acp`. Leave **Arguments** blank when launching the adapter directly. If the adapter needs a specific Muse binary, set `MUSE_CODE_EXECUTABLE` to its absolute path in VINTAGE's launch environment.
+3. Run **Test ACP Handshake**. In a new ACP pane, open **Muse Code** in the model picker and choose **Use Muse Code**. VINTAGE fetches the model catalog on connection. Send `/models` in the ACP composer to refresh it manually.
+
+To use 1Password, set **Executable path** to the absolute path of the wrapper and enter `muse` in **Arguments**. The wrapper can supply `META_API_KEY` and `MUSE_CODE_EXECUTABLE` through the file specified by `VINTAGE_ACP_ENV_FILE` (defaults to `~/.env`). [acp-with-1password.sh](../scripts/acp-with-1password.sh)
+
+Filter **Sessions** by Muse Code to read saved conversations. Open the conversation's working folder in VINTAGE, then choose **Resume** to open the same session in the Muse CLI or **ACP** to open it with the configured adapter. [Local history sources](#sessions)
 
 ### Command permissions in Codex and Claude Code
 
@@ -264,7 +275,7 @@ Downloads, extensions, and saved login credentials are not supported.
 
 ## Sessions
 
-**Sessions** is a library of saved Codex, Claude Code, OpenCode (opencode2), Grok, Antigravity, and Dexter conversations, separate from the running processes shown in Monitor. It is enabled by default. Toggle the tab in **Settings → Panels**, with **Ctrl+Alt+Y** (**⌘+Option+Y** on macOS), or with **Toggle Sessions tab** in the command palette. Reassign the shortcut in **Settings → Shortcuts → Side pane**.
+**Sessions** is a library of saved Codex, Claude Code, OpenCode (opencode2), Grok, Antigravity, Muse Code, and Dexter conversations, separate from the running processes shown in Monitor. It is enabled by default. Toggle the tab in **Settings → Panels**, with **Ctrl+Alt+Y** (**⌘+Option+Y** on macOS), or with **Toggle Sessions tab** in the command palette. Reassign the shortcut in **Settings → Shortcuts → Side pane**.
 
 With an ACP pane selected, open a saved conversation and choose **Add to ACP draft**. The transcript excerpt can be reviewed and edited before sending.
 
@@ -274,15 +285,16 @@ With an ACP pane selected, open a saved conversation and choose **Add to ACP dra
 - **Resume:** **Resume in new Space** creates a new terminal in an already open workspace for that session's working directory, keeping existing terminals intact. When Monitor recognizes the session in a VINTAGE terminal, **Open terminal** returns to it instead. A recognized session running outside VINTAGE cannot be resumed again from this panel. Resume requires the corresponding CLI installed on that OS.
 - **Monitor link:** **Open in Sessions** in Monitor details opens the matching saved conversation, when it is present in the bounded history list.
 
-| Agent                | Local history source                                                          | Resume command             |
-| :------------------- | :---------------------------------------------------------------------------- | :------------------------- |
-| Codex                | `$CODEX_HOME/sessions`, or `~/.codex/sessions`                                | `codex resume <id>`        |
-| Claude Code          | `$CLAUDE_CONFIG_DIR/projects`, or `~/.claude/projects`                        | `claude --resume <id>`     |
-| OpenCode (opencode2) | `$XDG_DATA_HOME/opencode/opencode.db` (`~/.local/share/opencode/opencode.db`) | `opencode2 --session <id>` |
-| Grok                 | `~/.grok/sessions` summaries and update logs                                  | `grok --resume <id>`       |
-| Antigravity CLI      | `~/.gemini/antigravity-cli` summaries DB and brain transcripts                | `agy --conversation <id>`  |
-| Antigravity IDE      | `~/.gemini/antigravity` and `~/.gemini/antigravity-ide`                       | Browse only                |
-| Dexter               | `$DEXTER_HOME/acp-sessions`, or `~/.dexter/acp-sessions`                      | **ACP** resume             |
+| Agent                | Local history source                                                          | Resume command               |
+| :------------------- | :---------------------------------------------------------------------------- | :--------------------------- |
+| Codex                | `$CODEX_HOME/sessions`, or `~/.codex/sessions`                                | `codex resume <id>`          |
+| Claude Code          | `$CLAUDE_CONFIG_DIR/projects`, or `~/.claude/projects`                        | `claude --resume <id>`       |
+| OpenCode (opencode2) | `$XDG_DATA_HOME/opencode/opencode.db` (`~/.local/share/opencode/opencode.db`) | `opencode2 --session <id>`   |
+| Grok                 | `~/.grok/sessions` summaries and update logs                                  | `grok --resume <id>`         |
+| Antigravity CLI      | `~/.gemini/antigravity-cli` summaries DB and brain transcripts                | `agy --conversation <id>`    |
+| Antigravity IDE      | `~/.gemini/antigravity` and `~/.gemini/antigravity-ide`                       | Browse only                  |
+| Muse Code            | `$XDG_DATA_HOME/muse/sessions` (default `~/.local/share/muse/sessions`)       | `muse resume <id>` / **ACP** |
+| Dexter               | `$DEXTER_HOME/acp-sessions`, or `~/.dexter/acp-sessions`                      | **ACP** resume               |
 
 OpenCode 2 uses the `session_v2` / `session_message` tables; legacy `session` / `message` / `part` tables are used only when v2 is absent.
 

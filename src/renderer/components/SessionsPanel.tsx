@@ -632,6 +632,7 @@ export function SessionsPanel({
                           selected.agent === "claude" ||
                           selected.agent === "opencode" ||
                           selected.agent === "antigravity" ||
+                          selected.agent === "muse" ||
                           selected.agent === "dexter") && (
                           <Button
                             type="button"

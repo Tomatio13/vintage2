@@ -70,6 +70,63 @@ describe("ACP settings and workspace state persistence", () => {
     expect(reloaded.initialize()).toEqual(updated);
   });
 
+  it("adds Muse Code to saved settings and leaves model selection to the adapter", () => {
+    const manager = new AcpSettingsManager(directory);
+    const saved = manager.setSettings({
+      defaultProfileId: "claude",
+      profiles: DEFAULT_ACP_SETTINGS.profiles.filter((profile) => profile.id !== "muse"),
+    });
+    expect(saved.defaultProfileId).toBe("claude");
+    expect(saved.profiles.find((profile) => profile.id === "muse")).toMatchObject({
+      name: "Muse Code",
+      builtin: true,
+      defaultCandidates: ["muse-code-acp"],
+      args: [],
+      permissionPolicy: "ask",
+      defaultModel: "",
+      defaultReasoning: "",
+      models: [],
+      reasoningLevels: [],
+    });
+
+    manager.updateProfileDiscoveredCatalog("muse", [{ id: "muse-model:test", name: "Muse Model" }]);
+    expect(manager.getProfile("muse")).toMatchObject({
+      defaultModel: "",
+      models: [{ id: "muse-model:test", name: "Muse Model" }],
+    });
+    expect(
+      manager.setSettings(manager.getSettings()).profiles.find((p) => p.id === "muse"),
+    ).toMatchObject({ defaultModel: "", defaultReasoning: "", reasoningLevels: [] });
+  });
+
+  it("keeps the Muse catalog when a later update reports only the current model", () => {
+    const manager = new AcpSettingsManager(directory);
+    manager.initialize();
+    const original = [
+      { id: "muse-wonder-1.0", name: "Muse Wonder" },
+      { id: "muse-spark-1.3", name: "Muse Spark" },
+      { id: "muse-ember-1.0", name: "Muse Ember" },
+    ];
+    manager.updateProfileDiscoveredCatalog("muse", original);
+    expect(manager.updateProfileDiscoveredCatalog("muse", [original[1]!])).toEqual(original);
+    expect(manager.getProfile("muse").models).toEqual(original);
+
+    const fallbackId = `muse-model:${encodeURIComponent(JSON.stringify(["meta", null, "muse-spark-1.3"]))}`;
+    const fullId = `muse-model:${encodeURIComponent(JSON.stringify(["meta", "tbh", "muse-spark-1.3"]))}`;
+    const fallback = { id: fallbackId, name: "muse-spark-1.3" };
+    const qualified = { ...fallback, id: fullId };
+    manager.updateProfileDiscoveredCatalog("muse", [original[0]!, qualified, original[2]!]);
+    expect(manager.updateProfileDiscoveredCatalog("muse", [fallback])).toEqual([
+      original[0],
+      fallback,
+      original[2],
+    ]);
+
+    const refreshed = original.slice(1);
+    expect(manager.updateProfileDiscoveredCatalog("muse", refreshed)).toEqual(refreshed);
+    expect(manager.getProfile("muse").models).toEqual(refreshed);
+  });
+
   it("falls back to safe defaults when ACP settings input is malformed", () => {
     const sanitized = sanitizeAcpSettings({ defaultProfileId: "non-existent", profiles: "bad" });
     expect(sanitized.defaultProfileId).toBe("codex");
@@ -279,6 +336,12 @@ describe("ACP settings and workspace state persistence", () => {
     fireEvent.click(screen.getByRole("button", { name: "High" }));
     await waitFor(() => {
       expect(configureAcpSession).toHaveBeenCalledWith("session-1", { reasoningId: "high" });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Provider Muse Code" }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Use Muse Code" })));
+    await waitFor(() => {
+      expect(configureAcpSession).toHaveBeenCalledWith("session-1", { profileId: "muse" });
     });
 
     // Switch provider tab in the left rail to Claude Code and expand all models

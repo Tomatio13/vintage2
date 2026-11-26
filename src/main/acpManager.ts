@@ -97,7 +97,10 @@ interface ProfileRuntime {
   modeConfigId: string | null;
   supportsLegacySetModel: boolean;
   desiredModelId: string | null;
+  reportedModelId: string | null;
+  refreshingModelCatalog: boolean;
   desiredReasoningId: string | null;
+  reportedReasoningId: string | null;
   desiredModeId: string | null;
   resumeSessionId: string | null;
   agentCommand: string | null;
@@ -146,7 +149,10 @@ function getOrCreateProfileRuntime(session: OwnedAcpSession, profileId: string):
       modeConfigId: null,
       supportsLegacySetModel: false,
       desiredModelId: null,
+      reportedModelId: null,
+      refreshingModelCatalog: false,
       desiredReasoningId: null,
+      reportedReasoningId: null,
       desiredModeId: null,
       resumeSessionId: null,
       agentCommand: null,
@@ -383,6 +389,7 @@ async function probeAcpProfileConnection(
 
   let child: ChildProcess | null = null;
   let stderrTail = "";
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     child = spawn(resolved.file, resolved.args, {
       env: resolved.env,
@@ -406,13 +413,21 @@ async function probeAcpProfileConnection(
       Writable.toWeb(child.stdin) as WritableStream<Uint8Array>,
       Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>,
     );
-    const appClient = acp.client({ name: "VINTAGE-Probe" });
+    let models: AcpModelOption[] = [];
+    const appClient = acp
+      .client({ name: "VINTAGE-Probe" })
+      .onNotification(acp.methods.client.session.update, async ({ params: { update } }) => {
+        if (update.sessionUpdate !== "config_option_update") return;
+        const discovered = readConfigModels(update.configOptions);
+        if (discovered.length) models = discovered;
+      });
     const connection = appClient.connect(stream);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error("Timed out waiting for ACP initialize response (10s).")),
-        10_000,
-      ),
+    const timeoutPromise = new Promise<never>(
+      (_, reject) =>
+        (timeout = setTimeout(
+          () => reject(new Error("Timed out waiting for the ACP connection test (10s).")),
+          10_000,
+        )),
     );
     const initResponse = await Promise.race([
       connection.agent.request(acp.methods.agent.initialize, {
@@ -426,6 +441,25 @@ async function probeAcpProfileConnection(
       spawnErrorPromise,
       timeoutPromise,
     ]);
+    if (isMuseCodeAdapter(profile.id, initResponse.agentInfo?.name)) {
+      try {
+        await Promise.race([
+          (async () => {
+            const probeSession = await connection.agent.request(acp.methods.agent.session.new, {
+              cwd: process.cwd(),
+              mcpServers: [],
+            });
+            models = readConfigModels(probeSession.configOptions ?? []);
+            await refreshMuseCodeModels(connection, probeSession.sessionId);
+          })(),
+          spawnErrorPromise,
+          timeoutPromise,
+        ]);
+      } catch {
+        // Report the handshake and any initial model choices that were received.
+      }
+      models = acpSettings.updateProfileDiscoveredCatalog(profile.id, models);
+    }
     connection.close();
     child.kill();
     const agentName = initResponse.agentInfo?.title || initResponse.agentInfo?.name || profile.name;
@@ -435,7 +469,7 @@ async function probeAcpProfileConnection(
       resolvedPath: resolved.displayPath,
       protocolVersion: initResponse.protocolVersion,
       agentInfo: { name: agentName, version: agentVersion },
-      message: `Connected to ${agentName} (${agentVersion}) · ACP v${initResponse.protocolVersion} · ${resolved.displayPath}`,
+      message: `Connected to ${agentName} (${agentVersion}) · ACP v${initResponse.protocolVersion} · ${resolved.displayPath}${models.length ? ` · ${models.length} model choices` : ""}`,
     };
   } catch (error) {
     try {
@@ -456,6 +490,8 @@ async function probeAcpProfileConnection(
       resolvedPath: resolved.displayPath,
       message: `Found executable at ${resolved.displayPath}, but ACP handshake failed: ${baseReason}${stderrHint ? ` (${stderrHint})` : ""}`,
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -883,7 +919,7 @@ async function ensureAgentConnected(
     const connection = clientApp.connect(stream);
     runtime.connection = connection;
 
-    await connection.agent.request(acp.methods.agent.initialize, {
+    const agentInitialization = await connection.agent.request(acp.methods.agent.initialize, {
       protocolVersion: acp.PROTOCOL_VERSION,
       clientCapabilities: {
         fs: { readTextFile: true, writeTextFile: true },
@@ -892,7 +928,7 @@ async function ensureAgentConnected(
       clientInfo: { name: "VINTAGE", title: "VINTAGE Workspace", version: "0.2.50" },
     });
 
-    let sessionIdResult: string;
+    let sessionIdResult: string | undefined;
     let configOptionsResult: acp.SessionConfigOption[] = [];
     let resumed = false;
     if (runtime.resumeSessionId) {
@@ -916,7 +952,8 @@ async function ensureAgentConnected(
           sessionIdResult = targetResumeId;
           configOptionsResult = loadRes.configOptions ?? [];
           resumed = true;
-        } catch {
+        } catch (error) {
+          if (targetProfileId === "muse") throw error;
           /* fall back to session/new if agent does not support resume/load */
         }
       }
@@ -940,6 +977,7 @@ async function ensureAgentConnected(
     if (session.runtimes.get(targetProfileId) !== runtime || runtime.process !== child) {
       throw new Error("ACP connection was closed");
     }
+    if (!sessionIdResult) throw new Error("ACP agent did not return a session ID");
     runtime.historyCovered = resumed
       ? Math.max(
           runtime.loadedResumeHistory ? runtime.historyCovered : 0,
@@ -947,9 +985,24 @@ async function ensureAgentConnected(
         )
       : 0;
     runtime.loadedResumeHistory = resumed;
-    runtime.acpSessionId = sessionIdResult!;
     applyAgentConfigOptions(session, runtime, configOptionsResult, acpSettings);
 
+    if (isMuseCodeAdapter(targetProfileId, agentInitialization.agentInfo?.name)) {
+      if (session.snapshot.profileId === targetProfileId) emitSessionSnapshot(session);
+      runtime.refreshingModelCatalog = true;
+      try {
+        await refreshMuseCodeModels(connection, sessionIdResult);
+      } catch {
+        // A catalog refresh failure still leaves the adapter's initial model available.
+      } finally {
+        runtime.refreshingModelCatalog = false;
+      }
+      if (session.runtimes.get(targetProfileId) !== runtime || runtime.process !== child) {
+        throw new Error("ACP connection was closed");
+      }
+    }
+
+    runtime.acpSessionId = sessionIdResult;
     if (runtime.desiredModelId) {
       await applyModelSelectionToRuntime(session, runtime, runtime.desiredModelId, acpSettings);
     }
@@ -973,7 +1026,7 @@ async function ensureAgentConnected(
       emitSessionSnapshot(session);
     }
 
-    return { connection, acpSessionId: sessionIdResult! };
+    return { connection, acpSessionId: sessionIdResult };
   })().finally(() => {
     if (runtime.connectPromise === connectPromise) {
       runtime.connectPromise = null;
@@ -1141,19 +1194,17 @@ function applyAgentLegacyModels(
           : runtime.profileId === "zai"
             ? filterZaiModels(discovered)
             : mergeAcpModelLists(discovered);
-      acpSettings.updateProfileDiscoveredCatalog(runtime.profileId, normalized);
+      const models = acpSettings.updateProfileDiscoveredCatalog(runtime.profileId, normalized);
       if (isActiveProfile) {
-        session.snapshot.availableModels = normalized;
+        session.snapshot.availableModels = models;
       }
     }
   }
-  if (
-    isActiveProfile &&
-    !runtime.desiredModelId &&
-    typeof rawModels.currentModelId === "string" &&
-    rawModels.currentModelId.trim()
-  ) {
-    session.snapshot.modelId = rawModels.currentModelId.trim();
+  if (typeof rawModels.currentModelId === "string" && rawModels.currentModelId.trim()) {
+    runtime.reportedModelId = rawModels.currentModelId.trim();
+    if (isActiveProfile && !runtime.desiredModelId) {
+      session.snapshot.modelId = runtime.reportedModelId;
+    }
   }
 }
 
@@ -1182,11 +1233,30 @@ function applyAgentConfigOptions(
             : runtime.profileId === "zai"
               ? filterZaiModels(discovered)
               : mergeAcpModelLists(discovered);
-        acpSettings.updateProfileDiscoveredCatalog(runtime.profileId, normalizedModels);
+        if (normalizedModels.length > 0) {
+          normalizedModels = acpSettings.updateProfileDiscoveredCatalog(
+            runtime.profileId,
+            normalizedModels,
+          );
+        }
         if (isActiveProfile) {
+          const priorModel = session.snapshot.availableModels.find(
+            (model) => model.id === session.snapshot.modelId,
+          );
+          const reportedModel = normalizedModels.find((model) => model.id === option.currentValue);
+          if (
+            runtime.profileId === "muse" &&
+            priorModel &&
+            reportedModel?.name === priorModel.name &&
+            !normalizedModels.some((model) => model.id === priorModel.id)
+          ) {
+            session.snapshot.modelId = reportedModel.id;
+            if (runtime.desiredModelId === priorModel.id) runtime.desiredModelId = reportedModel.id;
+          }
           session.snapshot.availableModels = normalizedModels;
         }
       }
+      if (option.currentValue) runtime.reportedModelId = option.currentValue;
       if (isActiveProfile && option.currentValue && !runtime.desiredModelId) {
         if (!normalizedModels || normalizedModels.some((m) => m.id === option.currentValue)) {
           session.snapshot.modelId = option.currentValue;
@@ -1217,6 +1287,7 @@ function applyAgentConfigOptions(
           session.snapshot.availableReasoning = discoveredReasoning;
         }
       }
+      if (option.currentValue) runtime.reportedReasoningId = option.currentValue;
       if (isActiveProfile && option.currentValue && !runtime.desiredReasoningId) {
         session.snapshot.reasoningId = option.currentValue;
       }
@@ -1241,6 +1312,32 @@ function applyAgentConfigOptions(
       }
     }
   }
+}
+
+function isMuseCodeAdapter(profileId: string, agentName: string | undefined): boolean {
+  return profileId === "muse" && agentName === "@bex-co/muse-code-acp";
+}
+
+function refreshMuseCodeModels(connection: acp.ClientConnection, sessionId: string) {
+  return connection.agent.request(acp.methods.agent.session.prompt, {
+    sessionId,
+    prompt: [{ type: "text", text: "/models" }],
+  });
+}
+
+function readConfigModels(configOptions: acp.SessionConfigOption[]): AcpModelOption[] {
+  const option = configOptions.find(
+    (item) => item.type === "select" && (item.category === "model" || item.id === "model"),
+  );
+  return option?.type === "select"
+    ? mergeAcpModelLists(
+        flattenSelectOptions(option.options).map(({ value, name, description }) => ({
+          id: value,
+          name,
+          ...(description ? { description } : {}),
+        })),
+      )
+    : [];
 }
 
 function flattenSelectOptions(
@@ -1391,6 +1488,13 @@ function handleSessionUpdate(
   update: acp.SessionUpdate,
   acpSettings: AcpSettingsManager,
 ): void {
+  if (
+    runtime.refreshingModelCatalog &&
+    (update.sessionUpdate === "agent_message_chunk" ||
+      update.sessionUpdate === "agent_thought_chunk")
+  )
+    return;
+
   switch (update.sessionUpdate) {
     case "agent_message_chunk": {
       if (update.content.type === "text") {
@@ -2039,9 +2143,15 @@ async function configureSession(
     session.snapshot.availableModels = nextProfile.models.map((m) => ({ ...m }));
     session.snapshot.availableReasoning = nextProfile.reasoningLevels.map((r) => ({ ...r }));
     session.snapshot.modelId =
-      patch.modelId ?? nextRuntime.desiredModelId ?? nextProfile.defaultModel;
+      patch.modelId ??
+      nextRuntime.desiredModelId ??
+      nextRuntime.reportedModelId ??
+      nextProfile.defaultModel;
     session.snapshot.reasoningId =
-      patch.reasoningId ?? nextRuntime.desiredReasoningId ?? nextProfile.defaultReasoning;
+      patch.reasoningId ??
+      nextRuntime.desiredReasoningId ??
+      nextRuntime.reportedReasoningId ??
+      nextProfile.defaultReasoning;
     session.snapshot.status = "ready";
     delete session.snapshot.errorMessage;
     if (!nextRuntime.connection || !nextRuntime.acpSessionId || nextRuntime.process?.killed) {
@@ -2241,6 +2351,8 @@ function terminateProfileRuntime(runtime: ProfileRuntime): void {
   runtime.acpSessionId = null;
   runtime.modelConfigId = null;
   runtime.reasoningConfigId = null;
+  runtime.reportedModelId = null;
+  runtime.reportedReasoningId = null;
   runtime.supportsLegacySetModel = false;
   runtime.connectPromise = null;
 }

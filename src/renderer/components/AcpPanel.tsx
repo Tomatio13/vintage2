@@ -1109,16 +1109,20 @@ function AcpModelPopover({
   const modelsForView: Array<{ profile: AcpAgentProfile; model: AcpModelOption }> =
     activeTab === "favorites"
       ? favorites.flatMap((favKey) => {
-          const [profId, modId] = favKey.split(":");
+          const separator = favKey.indexOf(":");
+          if (separator < 0) return [];
+          const profId = favKey.slice(0, separator);
+          const modId = favKey.slice(separator + 1);
           const prof = profiles.find((p) => p.id === profId);
           if (!prof) return [];
           const pool = prof.id === currentProfileId ? availableModels : prof.models;
           const mod = pool.find((m) => m.id === modId) ?? prof.models.find((m) => m.id === modId);
           return mod ? [{ profile: prof, model: mod }] : [];
         })
-      : (selectedProfile.id === currentProfileId ? availableModels : selectedProfile.models).map(
-          (model) => ({ profile: selectedProfile, model }),
-        );
+      : (selectedProfile.id === currentProfileId && availableModels.length > 0
+          ? availableModels
+          : selectedProfile.models
+        ).map((model) => ({ profile: selectedProfile, model }));
 
   const filteredModels = modelsForView.filter(({ model, profile }) =>
     `${model.name} ${model.id} ${model.description ?? ""} ${profile.name}`
@@ -1234,11 +1238,24 @@ function AcpModelPopover({
             />
           </div>
           <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-1.5">
+            {activeTab !== "favorites" &&
+              selectedProfile.id !== currentProfileId &&
+              selectedProfile.defaultModel === "" && (
+                <button
+                  type="button"
+                  onClick={() => onSelectConfig({ profileId: selectedProfile.id })}
+                  className="w-full rounded-md px-2.5 py-1.5 text-left text-ui-sm hover:bg-menu-hover"
+                >
+                  Use {selectedProfile.name}
+                </button>
+              )}
             {filteredModels.length === 0 ? (
               <p className="p-3 text-ui-xs text-foreground-subtlest">
-                {activeTab === "favorites"
-                  ? "☆ を押してお気に入りモデルを追加してください。"
-                  : "一致するモデルがありません。"}
+                {!isSearching && activeTab !== "favorites" && selectedProfile.defaultModel === ""
+                  ? "Models appear after the agent connects."
+                  : activeTab === "favorites"
+                    ? "☆ を押してお気に入りモデルを追加してください。"
+                    : "一致するモデルがありません。"}
               </p>
             ) : (
               <>
@@ -1909,7 +1926,7 @@ export function AcpPanel({
   const currentModelName = useMemo(() => {
     if (!snapshot) return "Model";
     const found = snapshot.availableModels.find((m) => m.id === snapshot.modelId);
-    return found?.name ?? snapshot.modelId;
+    return found?.name ?? (snapshot.modelId || snapshot.profileName);
   }, [snapshot]);
 
   const currentReasoningName = useMemo(() => {

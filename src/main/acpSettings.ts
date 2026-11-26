@@ -466,7 +466,10 @@ function sanitizeProfile(
         : rawModels.length > 0
           ? rawModels
           : (fallback?.models.map((item) => ({ ...item })) ?? [{ id: "default", name: "Default" }]);
-  const safeModels = models.length > 0 ? models : [{ id: "default", name: "Default" }];
+  const safeModels =
+    models.length > 0 || fallback?.defaultModel === ""
+      ? models
+      : [{ id: "default", name: "Default" }];
   const rawReasoning = Array.isArray(raw.reasoningLevels)
     ? raw.reasoningLevels
         .map(parseReasoningOption)
@@ -483,7 +486,7 @@ function sanitizeProfile(
           { id: "high", name: "High" },
         ]);
   const safeReasoning =
-    reasoningLevels.length > 0
+    reasoningLevels.length > 0 || fallback?.defaultReasoning === ""
       ? reasoningLevels
       : [
           { id: "low", name: "Low" },
@@ -493,9 +496,10 @@ function sanitizeProfile(
   const legacyDefaults = new Set(["gpt-5.4", "claude-sonnet-4-5", "gemini-2.5-pro", "default"]);
   const rawDefaultModel = typeof raw.defaultModel === "string" ? raw.defaultModel : "";
   const fallbackDefaultModel =
-    fallback?.defaultModel && safeModels.some((model) => model.id === fallback.defaultModel)
+    fallback &&
+    (fallback.defaultModel === "" || safeModels.some((model) => model.id === fallback.defaultModel))
       ? fallback.defaultModel
-      : safeModels[0]!.id;
+      : (safeModels[0]?.id ?? "");
   const defaultModel =
     rawDefaultModel &&
     safeModels.some((model) => model.id === rawDefaultModel) &&
@@ -739,8 +743,12 @@ export function resolveAcpCommand(
 
   if (!resolved) {
     const targetLabel = expanded || profile.defaultCandidates.join(" / ") || profile.name;
+    const installHint =
+      profile.id === "muse"
+        ? "Install the adapter with npm install -g @bex-co/muse-code-acp (Node.js 22+)."
+        : "Install the ACP agent CLI.";
     throw new Error(
-      `${targetLabel} was not found. Install the ACP agent CLI or configure its executable path in Settings → ACP Agents.`,
+      `${targetLabel} was not found. ${installHint} You can also set its absolute executable path in Settings → Integrations → ACP Agents.`,
     );
   }
 
@@ -801,14 +809,20 @@ export class AcpSettingsManager {
       const discoveredModels = this.discoveredModelsByProfile.get(profile.id);
       if (discoveredModels && discoveredModels.length > 0) {
         profile.models = discoveredModels.map((item) => ({ ...item }));
-        if (!profile.models.some((item) => item.id === profile.defaultModel)) {
+        if (
+          profile.defaultModel &&
+          !profile.models.some((item) => item.id === profile.defaultModel)
+        ) {
           profile.defaultModel = profile.models[0]!.id;
         }
       }
       const discoveredReasoning = this.discoveredReasoningByProfile.get(profile.id);
       if (discoveredReasoning && discoveredReasoning.length > 0) {
         profile.reasoningLevels = discoveredReasoning.map((item) => ({ ...item }));
-        if (!profile.reasoningLevels.some((item) => item.id === profile.defaultReasoning)) {
+        if (
+          profile.defaultReasoning &&
+          !profile.reasoningLevels.some((item) => item.id === profile.defaultReasoning)
+        ) {
           profile.defaultReasoning = profile.reasoningLevels[0]!.id;
         }
       }
@@ -830,11 +844,30 @@ export class AcpSettingsManager {
     profileId: string,
     discoveredModels: AcpModelOption[],
     discoveredReasoning?: AcpReasoningOption[],
-  ): void {
+  ): AcpModelOption[] {
     const profile = this.settings.profiles.find((item) => item.id === profileId);
-    if (!profile) return;
+    if (!profile) return discoveredModels;
+    let nextModels = this.discoveredModelsByProfile.get(profileId) ?? profile.models;
     if (discoveredModels.length > 0) {
-      const nextModels = mergeAcpModelLists(discoveredModels);
+      // Muse can publish only its current model while its catalog is unavailable.
+      const current = discoveredModels[0]!;
+      if (profileId === "muse" && discoveredModels.length === 1 && nextModels.length > 1) {
+        // The fallback can omit the profile qualifier from the current model's ID.
+        // Keep the live ID at its existing position and remove any previous alias.
+        const matchesCurrent = (model: AcpModelOption) =>
+          model.id === current.id || model.name === current.name;
+        const index = nextModels.findIndex(matchesCurrent);
+        nextModels =
+          index < 0
+            ? mergeAcpModelLists(nextModels, discoveredModels)
+            : [
+                ...nextModels.slice(0, index),
+                { ...nextModels[index], ...current },
+                ...nextModels.slice(index + 1).filter((model) => !matchesCurrent(model)),
+              ];
+      } else {
+        nextModels = mergeAcpModelLists(discoveredModels);
+      }
       this.discoveredModelsByProfile.set(profileId, nextModels);
       profile.models = nextModels.map((item) => ({ ...item }));
     }
@@ -843,6 +876,7 @@ export class AcpSettingsManager {
       this.discoveredReasoningByProfile.set(profileId, nextReasoning);
       profile.reasoningLevels = nextReasoning.map((item) => ({ ...item }));
     }
+    return nextModels;
   }
 
   setSettings(raw: unknown): AcpSettings {
